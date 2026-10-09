@@ -28,6 +28,20 @@ export {
 export { healingDifficulty, puzzleDifficulty } from './puzzles/difficulty.js';
 export { countSolved } from './puzzles/solved.js';
 export {
+	MAX_TOPIC_BONUS,
+	MIN_TOPIC_BONUS,
+	PRIOR_ANSWERS,
+	RECENT_ANSWERS,
+	bonusOf,
+	puzzleTopic,
+	readRecord,
+	recordAnswers,
+	topicBonus,
+	type PuzzleRecord,
+	type TopicBonus,
+	type TopicRecord
+} from './puzzles/record.js';
+export {
 	BAR_SCALES,
 	FACE_NUMBERS,
 	KRONER,
@@ -80,8 +94,8 @@ export {
 export type { AnimalBook } from './animals/book.js';
 
 export { attackDamage } from './battle/damage.js';
-// Only `landHit` of `attack.ts`: a screen previews a hit with the very function a reducer lands it with.
-export { landHit } from './battle/attack.js';
+// Only `landHit` and `hitSpan` of `attack.ts`: a screen previews a hit with the very functions a reducer lands it with.
+export { hitSpan, landHit } from './battle/attack.js';
 export { catchProbability } from './battle/catch.js';
 export { activeAnimal, applyBattleIntent, canSwitchTo, startBattle } from './battle/reducer.js';
 export type { StartBattleOptions } from './battle/reducer.js';
@@ -245,6 +259,7 @@ export {
 	availableLands,
 	farePuzzle,
 	flyRefusal,
+	surpriseLand,
 	getLand,
 	isLandStarter,
 	needsStarter,
@@ -482,7 +497,7 @@ export type {
 	SaveProblem,
 	SaveRead,
 	SaveV1,
-	SaveV4,
+	SaveV5,
 	SavedLandStay,
 	SaveWrite,
 	SaveWriteCheck,

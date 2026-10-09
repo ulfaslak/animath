@@ -269,7 +269,7 @@ function hurtParty(): AnimalInstance[] {
 /** Answer the open doctor puzzle (a heal, or a token sum), right or wrong on purpose. */
 function answerDoctor(s: Session, correct: boolean): void {
 	const phase = visit(s).phase;
-	if (phase.kind === 'choose-patient' || phase.kind === 'ended')
+	if (phase.kind === 'choose-patient' || phase.kind === 'offering' || phase.kind === 'ended')
 		throw new Error(`expected a doctor puzzle, got ${phase.kind}`);
 	doctorIntent(s, {
 		type: 'answer',
@@ -495,6 +495,7 @@ describe('LocalAuthority: outcomes', () => {
 		expect(closingEvents(s).map((e) => e.type)).toEqual([
 			'battle-updated',
 			'solved-changed',
+			'puzzles-changed',
 			'battle-ended',
 			'party-changed',
 			'message'
@@ -528,6 +529,8 @@ describe('LocalAuthority: outcomes', () => {
 		expect(end.phase).toEqual({ kind: 'ended', outcome: 'lost' });
 		expect(closingEvents(s).map((e) => e.type)).toEqual([
 			'battle-updated',
+			// The losing turn's answer, a wrong one, is recorded.
+			'puzzles-changed',
 			'battle-ended',
 			'party-changed',
 			'message'
@@ -1194,13 +1197,13 @@ describe('LocalAuthority: the doctor', () => {
 		expect(s.events.at(-1)).toMatchObject({ type: 'doctor-visit-updated' });
 		expect(visit(s).phase).toEqual({ kind: 'choose-patient' });
 
-		// A miss: the HP stays, another puzzle, no party change.
+		// A miss: the HP stays, another puzzle, no party change; only the record has it.
 		doctorIntent(s, { type: 'pick-patient', partyIndex: 1 });
 		const first = visit(s).phase;
 		const beforeMiss = s.events.length;
 		answerDoctor(s, false);
 		const missed = s.events.slice(beforeMiss);
-		expect(missed.map((e) => e.type)).toEqual(['doctor-visit-updated']);
+		expect(missed.map((e) => e.type)).toEqual(['doctor-visit-updated', 'puzzles-changed']);
 		expect(visit(s).party[1]!.hp).toBe(0);
 		expect(visit(s).phase).toMatchObject({ kind: 'solving', partyIndex: 1 });
 		expect(visit(s).phase).not.toEqual(first);
@@ -1262,12 +1265,17 @@ describe('LocalAuthority: the doctor', () => {
 		expect(visit(s).phase).toMatchObject({ kind: 'handing-over', reward: 2 });
 		let from = s.events.length;
 		answerDoctor(s, false);
-		expect(s.events.slice(from).map((e) => e.type)).toEqual(['doctor-visit-updated']);
+		// A wrong answer is recorded too, under its topic, and changes nothing else.
+		expect(s.events.slice(from).map((e) => e.type)).toEqual([
+			'doctor-visit-updated',
+			'puzzles-changed'
+		]);
 		from = s.events.length;
 		answerDoctor(s, true);
 		expect(s.events.slice(from)).toMatchObject([
 			{ type: 'doctor-visit-updated' },
 			{ type: 'solved-changed', solved: 1 },
+			{ type: 'puzzles-changed' },
 			{ type: 'party-changed', party: [hurtParty()[1], hurtParty()[2]] },
 			{ type: 'book-changed', freed: ['squirrel'] },
 			{ type: 'belongings-changed', tokens: 22, items: [] }
@@ -1276,12 +1284,17 @@ describe('LocalAuthority: the doctor', () => {
 		doctorIntent(s, { type: 'buy', itemId: 'axe' });
 		from = s.events.length;
 		answerDoctor(s, false);
-		expect(s.events.slice(from).map((e) => e.type)).toEqual(['doctor-visit-updated']);
+		// A wrong answer is recorded too, under its topic, and changes nothing else.
+		expect(s.events.slice(from).map((e) => e.type)).toEqual([
+			'doctor-visit-updated',
+			'puzzles-changed'
+		]);
 		from = s.events.length;
 		answerDoctor(s, true);
 		expect(s.events.slice(from)).toMatchObject([
 			{ type: 'doctor-visit-updated' },
 			{ type: 'solved-changed', solved: 2 },
+			{ type: 'puzzles-changed' },
 			{ type: 'belongings-changed', tokens: 14, items: ['axe'] }
 		]);
 		doctorIntent(s, { type: 'leave' });
@@ -1970,6 +1983,8 @@ describe('LocalAuthority: trees and rocks', () => {
 		lose(walled);
 		expect(closingEvents(walled).map((e) => e.type)).toEqual([
 			'battle-updated',
+			// The losing turn's answer, a wrong one, is recorded.
+			'puzzles-changed',
 			'battle-ended',
 			'party-changed',
 			'message'
@@ -2377,22 +2392,39 @@ describe('LocalAuthority: puzzles solved', () => {
 
 		const from = s.events.length;
 		for (const step of steps) s.authority.dispatch(answers(step, 'a'));
-		expect(s.events.slice(from).filter((e) => e.type !== 'solved-changed')).toEqual([]);
-		expect(s.events.at(-1)).toEqual({ type: 'solved-changed', solved: 1 + right.a });
-		// One `solved-changed` for each step with a right answer of the player's, never one for nothing.
+		const told = s.events.slice(from);
+		expect(told.filter((e) => e.type !== 'solved-changed' && e.type !== 'puzzles-changed')).toEqual(
+			[]
+		);
+		expect(told.filter((e) => e.type === 'solved-changed').at(-1)).toEqual({
+			type: 'solved-changed',
+			solved: 1 + right.a
+		});
+		// One `solved-changed` for each step with a right answer of the player's, never one for
+		// nothing; one `puzzles-changed` for each step with an answer of the player's, right or wrong.
 		const counting = steps.filter((st) =>
 			st.events.some((e) => e.type === 'answer-judged' && e.correct && e.side === 'a')
 		);
-		expect(s.events.length - from).toBe(counting.length);
-		// Nothing else about the game changed: a match changes nothing but the count.
-		expect(s.authority.snapshot()).toEqual({ ...before, solved: 1 + right.a });
-		// The other player's right answers, and the wrong ones, are nobody's here (in a match of its own).
+		const judging = steps.filter((st) =>
+			st.events.some((e) => e.type === 'answer-judged' && e.side === 'a')
+		);
+		expect(told.filter((e) => e.type === 'solved-changed')).toHaveLength(counting.length);
+		expect(told.filter((e) => e.type === 'puzzles-changed')).toHaveLength(judging.length);
+		// Every answer of the player's is in the record, under its topic.
+		const record = s.authority.snapshot().puzzles;
+		const tried = Object.values(record).reduce((n, r) => n + r!.tried, 0);
+		const triedBefore = Object.values(before.puzzles).reduce((n, r) => n + r!.tried, 0);
+		expect(tried - triedBefore).toBe(judging.length);
+		// Nothing else about the game changed: a match changes nothing but the count and the record.
+		expect(s.authority.snapshot()).toEqual({ ...before, solved: 1 + right.a, puzzles: record });
+		// The other player's answers are nobody's here (in a match of its own).
 		const theirs = steps.map((st) => ({
 			...st,
-			events: st.events.filter((e) => e.type !== 'answer-judged' || e.side === 'b' || !e.correct)
+			events: st.events.filter((e) => e.type !== 'answer-judged' || e.side === 'b')
 		}));
+		const was = s.events.length;
 		for (const step of theirs) s.authority.dispatch(answers(step, 'a', 'another-match'));
-		expect(s.events.length).toBe(from + counting.length);
+		expect(s.events.length).toBe(was);
 		// Played from the other side, the same steps count the other side's answers.
 		const other = session();
 		for (const step of steps) other.authority.dispatch(answers(step, 'b'));
@@ -3685,31 +3717,39 @@ describe('LocalAuthority: lands (#191)', () => {
 		expect(s.events.at(-1)?.type).toMatch(/player-(moved|blocked)/);
 	});
 
-	it('says a land is unlocked at the hand-over that sets free the last kind it asked for, once', () => {
+	it('says a land is unlocked at the leash throw that catches the last kind it asked for, once, and the druid offers the trip', () => {
 		const all = getLand('nordland').species;
-		const s = session({ party: [animal('squirrel'), animal('fox')] });
-		const game = s.authority.snapshot();
+		// A saved battle against a shrew with 1 HP left, every other kind of Nordland caught.
+		const bear = { ...animal('bear'), id: 'bear-1' };
+		const s: Session = { authority: new LocalAuthority(), events: [] };
+		s.authority.subscribe((e) => s.events.push(e));
 		s.authority.start({
-			game: { ...game, seen: [...all], caught: [...all], freed: all.filter((id) => id !== 'fox') }
+			game: {
+				...newGame(1, bear),
+				seen: [...all],
+				caught: all.filter((id) => id !== 'shrew'),
+				battle: startBattle([bear], { id: 'w', speciesId: 'shrew', hp: 1 })
+			}
 		});
 		expect(welcome(s).unlocked).toEqual(['nordland']);
-		walkToTent(s);
-		s.authority.dispatch({ type: 'interact' });
-		const fox = party(s).find((a) => a.speciesId === 'fox')!;
-		doctorIntent(s, { type: 'hand-over', ids: [fox.id] });
-		answerDoctor(s, true);
+		for (let i = 0; i < 20 && latestBattle(s).phase.kind !== 'ended'; i++) {
+			s.authority.dispatch({ type: 'battle', intent: { type: 'throw-leash' } });
+		}
+		expect(latestBattle(s).phase).toEqual({ kind: 'ended', outcome: 'caught' });
 		const unlocked = s.events.filter((e) => e.type === 'unlocked-changed');
 		expect(unlocked).toEqual([{ type: 'unlocked-changed', unlocked: ['nordland', 'arctic'] }]);
-		// Right after the book that set the fox free.
+		// Right after the book that caught the shrew, before the battle ends.
 		const at = lastIndexOf(s, 'unlocked-changed');
 		expect(s.events[at - 1]?.type).toBe('book-changed');
+		expect(lastIndexOf(s, 'battle-ended')).toBeGreaterThan(at);
 		expect(s.authority.snapshot().unlocked).toEqual(['nordland', 'arctic']);
-		// The druid knows at once, in the same visit: the fare is asked.
-		doctorIntent(s, { type: 'fly', land: 'arctic' });
-		const last = s.events.at(-1);
-		expect(last?.type === 'doctor-visit-updated' && last.events.map((e) => e.type)).toEqual([
-			'fare-shown'
-		]);
+		// At a tent the druid offers the trip, and a yes flies there with no fare.
+		walkToTent(s);
+		s.authority.dispatch({ type: 'interact' });
+		expect(visit(s).phase).toEqual({ kind: 'offering', land: 'arctic', from: 'nordland' });
+		doctorIntent(s, { type: 'accept-offer' });
+		expect(s.events.some((e) => e.type === 'travelled' && e.land === 'arctic')).toBe(true);
+		expect(s.authority.snapshot().land).toBe('arctic');
 	});
 });
 
@@ -3783,35 +3823,47 @@ describe('LocalAuthority: lands, from the adversarial review of #196', () => {
 		expect(restoreGame(read.save, mint)).toEqual(snap);
 	});
 
-	it('a land unlocked at the druid is open to fly to in the same visit', () => {
+	it('offers the surprise at every visit until the kid has been there, and never after', () => {
 		const all = getLand('nordland').species;
-		// Every land built (`?lands`), so only the unlock stands in the way.
-		const s = session({ party: [animal('squirrel'), animal('fox')], lands: true });
+		const s = session({ party: [animal('squirrel'), animal('fox')] });
 		const game = s.authority.snapshot();
-		s.authority.start({
-			game: {
-				...game,
-				seen: [...all],
-				caught: [...all],
-				freed: all.filter((id) => id !== 'fox'),
-				unlocked: ['nordland']
-			}
-		});
+		s.authority.start({ game: { ...game, seen: [...all], caught: [...all] } });
+		expect(s.authority.snapshot().unlocked).toEqual(['nordland', 'arctic']);
 		walkToTent(s);
 		s.authority.dispatch({ type: 'interact' });
-		doctorIntent(s, { type: 'fly', land: 'arctic' });
-		const locked = s.events.at(-1);
-		expect(locked?.type === 'doctor-visit-updated' && locked.events).toEqual([
-			{ type: 'rejected', reason: 'land-locked' }
-		]);
-		const fox = party(s).find((a) => a.speciesId === 'fox')!;
-		doctorIntent(s, { type: 'hand-over', ids: [fox.id] });
+		expect(visit(s).phase).toEqual({ kind: 'offering', land: 'arctic', from: 'nordland' });
+		// Not now: the list, and the next visit asks again.
+		doctorIntent(s, { type: 'back' });
+		expect(visit(s).phase.kind).toBe('choose-patient');
+		doctorIntent(s, { type: 'leave' });
+		s.authority.dispatch({ type: 'interact' });
+		expect(visit(s).phase).toEqual({ kind: 'offering', land: 'arctic', from: 'nordland' });
+		doctorIntent(s, { type: 'accept-offer' });
+		expect(s.authority.snapshot().land).toBe('arctic');
+		// In The Arctic, Nordland is never offered; flown back for the fare, nothing is.
+		s.authority.dispatch({ type: 'pick-starter', speciesId: getLand('arctic').starters[0]! });
+		s.authority.dispatch({ type: 'interact' });
+		expect(visit(s).phase.kind).toBe('choose-patient');
+		doctorIntent(s, { type: 'fly', land: 'nordland' });
 		answerDoctor(s, true);
-		expect(s.authority.snapshot().unlocked).toEqual(['nordland', 'arctic']);
-		// Asked before the hand-over, it was locked; now the fare is asked.
-		doctorIntent(s, { type: 'fly', land: 'arctic' });
-		expect(visit(s).phase.kind).toBe('paying-fare');
-		expect(visit(s).unlocked).toEqual(['nordland', 'arctic']);
+		expect(s.authority.snapshot().land).toBe('nordland');
+		s.authority.dispatch({ type: 'interact' });
+		expect(visit(s).phase.kind).toBe('choose-patient');
+		// A reload beside the tent, The Arctic left behind in the save: still been there.
+		const back = session();
+		back.authority.start({ game: s.authority.snapshot() });
+		back.authority.dispatch({ type: 'interact' });
+		expect(visit(back).phase.kind).toBe('choose-patient');
+	});
+
+	it('offers no surprise in a game a switch opened every land in', () => {
+		const all = getLand('nordland').species;
+		const s = session({ party: [animal('squirrel')], lands: true });
+		const game = s.authority.snapshot();
+		s.authority.start({ game: { ...game, seen: [...all], caught: [...all] } });
+		walkToTent(s);
+		s.authority.dispatch({ type: 'interact' });
+		expect(visit(s).phase.kind).toBe('choose-patient');
 	});
 });
 

@@ -16,6 +16,7 @@ import type {
 import { matchView, shownPuzzle } from '../src/match/view.js';
 import { normalizeNickname } from '../src/party/names.js';
 import { puzzleDifficulty } from '../src/puzzles/difficulty.js';
+import { puzzleTopic } from '../src/puzzles/record.js';
 import { checkAnswer, getGenerator } from '../src/puzzles/registry.js';
 import { Rng, hashInts } from '../src/rng.js';
 import { mover, nextMatchIntent, party, playMatch, type MatchPlayer } from './match-sim.js';
@@ -383,11 +384,11 @@ describe('an attack', () => {
 							const left = Math.max(0, hp - damage);
 							const want: MatchEvent[] = right
 								? [
-										{ type: 'answer-judged', side: me, correct: true },
+										{ type: 'answer-judged', side: me, correct: true, topic: puzzleTopic(puzzle) },
 										{ type: 'hit', attacker: me, attackIndex: n, level, damage, targetHp: left }
 									]
 								: [
-										{ type: 'answer-judged', side: me, correct: false },
+										{ type: 'answer-judged', side: me, correct: false, topic: puzzleTopic(puzzle) },
 										{ type: 'missed', attacker: me, attackIndex: n, level }
 									];
 							if (right && left === 0) {

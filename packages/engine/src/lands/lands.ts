@@ -30,7 +30,7 @@ export interface LandSpec {
 	id: LandId;
 	/**
 	 * Its place in the unlock chain, from 0: land N + 1 unlocks once every
-	 * species of land N is set free (`unlockLands`). The same as its place in
+	 * species of land N is caught (`unlockLands`). The same as its place in
 	 * `LAND_IDS`.
 	 */
 	order: number;
@@ -261,22 +261,22 @@ export function priceIn(land: LandId, item: ItemId): number {
 }
 
 /**
- * The lands unlocked, for a kid who has set free the species in `freed` and
+ * The lands unlocked, for a kid who has caught the species in `caught` and
  * had unlocked `unlocked` before: everything in `unlocked` (an unlocked land
  * stays unlocked, even when a land before it grows a species, and an id this
  * build lacks is kept as it is), the first land, and every land whose land
- * before it has every one of its species in `freed`. In unlock order, then
+ * before it has every one of its species in `caught`. In unlock order, then
  * the ids this build lacks as they were. The very same array when nothing is
  * new, so a caller can tell a land just unlocked by identity.
  *
  * A land before another with no species yet (one still being built) unlocks
- * nothing: a kid sets free one of every animal there is, never of none.
+ * nothing: a kid catches one of every animal there is, never of none.
  */
 export function unlockLands(
 	unlocked: readonly string[],
-	freed: Iterable<string>
+	caught: Iterable<string>
 ): readonly string[] {
-	const set = new Set(freed);
+	const set = new Set(caught);
 	const open = new Set<string>(unlocked);
 	open.add(FIRST_LAND);
 	for (let i = 1; i < LANDS.length; i++) {
@@ -294,22 +294,22 @@ export function unlockLands(
 
 /**
  * How far a kid is on the way to unlocking land `to`: the species of the land
- * before it they have set free (`freed`), of all of them (#191: the doctor's
+ * before it they have caught (`caught`), of all of them (#191: the doctor's
  * travel option shows "37 / 50"). Null for the first land, which is always
  * open, and for an id this build lacks.
  */
 export function unlockProgress(
 	to: unknown,
-	freed: Iterable<string>
-): { from: LandId; freed: number; of: number } | null {
+	caught: Iterable<string>
+): { from: LandId; caught: number; of: number } | null {
 	if (!isLandId(to)) return null;
 	const at = LANDS.findIndex((l) => l.id === to);
 	if (at <= 0) return null;
 	const before = LANDS[at - 1]!;
-	const set = new Set(freed);
+	const set = new Set(caught);
 	return {
 		from: before.id,
-		freed: before.species.filter((id) => set.has(id)).length,
+		caught: before.species.filter((id) => set.has(id)).length,
 		of: before.species.length
 	};
 }
@@ -332,6 +332,35 @@ export function flyRefusal(
 	if (to === trip.here) return 'already-here';
 	if (!trip.open.includes(to)) return 'land-unavailable';
 	if (to !== FIRST_LAND && !trip.unlocked.includes(to)) return 'land-locked';
+	return null;
+}
+
+/**
+ * The trip the druid offers a kid as a surprise, or null: the first
+ * land (`land`), in unlock order, a flight may go to (`flyRefusal`: built,
+ * unlocked, not the land the tent is in) that the kid has never been to
+ * (`visited`: the land they stand in and every land left behind), and whose
+ * land before it (`from`) has every one of its species in `caught`. The trip
+ * is the reward for that catching, so it costs no fare; it is offered at
+ * every visit until the kid has gone there. A land unlocked some other way (a
+ * save from the rule before, a species added to the land before since) is
+ * offered nothing: the Fly tab, and its fare, go there.
+ */
+export function surpriseLand(trip: {
+	here: LandId;
+	unlocked: readonly string[];
+	open: readonly LandId[];
+	visited: readonly string[];
+	caught: readonly string[];
+}): { land: LandId; from: LandId } | null {
+	for (let i = 1; i < LANDS.length; i++) {
+		const land = LANDS[i]!.id;
+		const before = LANDS[i - 1]!;
+		if (trip.visited.includes(land) || flyRefusal(trip, land) !== null) continue;
+		if (before.species.length === 0 || !before.species.every((id) => trip.caught.includes(id)))
+			continue;
+		return { land, from: before.id };
+	}
 	return null;
 }
 

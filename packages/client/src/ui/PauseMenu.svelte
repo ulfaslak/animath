@@ -37,6 +37,8 @@
 		type WorldOption
 	} from '../state/pause.svelte';
 	import BookIcon from './BookIcon.svelte';
+	import PuzzlesIcon from './PuzzlesIcon.svelte';
+	import PuzzleStats, { statRows } from './PuzzleStats.svelte';
 	import FreeStamp from './FreeStamp.svelte';
 	import BundleAnimals from './BundleAnimals.svelte';
 	import HpBar from './HpBar.svelte';
@@ -123,6 +125,10 @@
 	const soundLit = $derived(items[pause.cursor - cards.length] === 'sound');
 	/** The cursor is on the animal book's row: the right side says what the book is. */
 	const bookLit = $derived(items[pause.cursor - cards.length] === 'book');
+	/** The cursor is on "My puzzles"' row: the right side says what the page is. */
+	const puzzlesLit = $derived(items[pause.cursor - cards.length] === 'puzzles');
+	/** "My puzzles"' rows: every topic, the most tried first (`statRows`). */
+	const stats = $derived(statRows(game.puzzles));
 
 	/** The animal book: what the kid has seen, caught and set free, and the kinds on their team now. */
 	const seen = $derived(new Set(game.seen));
@@ -139,7 +145,7 @@
 	const bookCount = $derived(
 		t('book.count', { caught: ofPage(caught), seen: ofPage(seen), all: page.length })
 	);
-	/** The kinds set free, of every kind there is in the land of the page: the way to the next land. */
+	/** The kinds set free, of every kind there is in the land of the page. */
 	const freedCount = $derived(t('book.freed', { freed: ofPage(freed), all: page.length }));
 	/** What the lit card says, under the book; on the land tabs, what the tabs are. */
 	const bookCaption = $derived.by(() => {
@@ -220,9 +226,9 @@
 	 */
 	type MenuLine = MenuItem | readonly MenuItem[];
 	const menuLines = $derived(
-		// The animal book's row stands on the title line, not under the team.
+		// "My puzzles" and the animal book's rows stand on the title line, not under the team.
 		items.flatMap((item): MenuLine[] => {
-			if (item === 'book') return [];
+			if (item === 'book' || item === 'puzzles') return [];
 			const line = lineOf(item, items);
 			if (line.length < 2) return [item];
 			return line[0] === item ? [line] : [];
@@ -265,6 +271,8 @@
 				return t('pause.logIn');
 			case 'logOut':
 				return account.leaving ? t('account.busy') : t('pause.logOut');
+			case 'puzzles':
+				return t('puzzles.title');
 			case 'book':
 				return t('book.title');
 		}
@@ -378,6 +386,11 @@
 			<span class="setting">{itemLabel(item)}</span>
 			<Switch on={sfx.on} />
 			<span class="setting-state">{sfx.on ? t('pause.soundOn') : t('pause.soundOff')}</span>
+		{:else if item === 'puzzles'}
+			<!-- "My puzzles": its picture, its name, and how many puzzles are solved, as the HUD counts. -->
+			<PuzzlesIcon />
+			<span class="setting">{itemLabel(item)}</span>
+			<span class="setting-value">{game.solved}</span>
 		{:else if item === 'book'}
 			<!-- The animal book: its picture, its name, and how many kinds are caught of all there are. -->
 			<BookIcon />
@@ -392,14 +405,16 @@
 {/snippet}
 
 <div class="backdrop" class:typing={touch.on && pause.screen === 'naming'}>
-	<div class="menu" class:book-open={pause.screen === 'book'}>
+	<div class="menu" class:book-open={pause.screen === 'book' || pause.screen === 'puzzles'}>
 		<div class="title-line">
 			<div class="title">
 				{pause.screen === 'worlds'
 					? t('worlds.title')
 					: pause.screen === 'book'
 						? t('book.title')
-						: t('pause.title')}
+						: pause.screen === 'puzzles'
+							? t('puzzles.title')
+							: t('pause.title')}
 			</div>
 			{#if pause.screen === 'book'}
 				<!-- The counts, side by side or one over the other where there is no room, and Back
@@ -411,8 +426,17 @@
 				<button type="button" class="pill back" data-press="Escape" {@attach unfocusable}>
 					{t('pause.back')}
 				</button>
-			{:else if pause.screen !== 'worlds' && items.includes('book')}
-				{@render menuRow('book')}
+			{:else if pause.screen === 'puzzles'}
+				<!-- How many solved in all, as the HUD counts them, and Back (Escape). -->
+				<span class="book-counts">
+					<span class="book-count">{t('puzzles.solved', { count: game.solved })}</span>
+				</span>
+				<button type="button" class="pill back" data-press="Escape" {@attach unfocusable}>
+					{t('pause.back')}
+				</button>
+			{:else if pause.screen !== 'worlds'}
+				{#if items.includes('puzzles')}{@render menuRow('puzzles')}{/if}
+				{#if items.includes('book')}{@render menuRow('book')}{/if}
 			{/if}
 		</div>
 		{#if pause.screen === 'worlds'}
@@ -526,6 +550,10 @@
 				{/each}
 			</div>
 			<div class="book-caption">{bookCaption}</div>
+		{:else if pause.screen === 'puzzles'}
+			<!-- "My puzzles", in the menu's place: a row per topic, the most tried first, in a list that scrolls. -->
+			<PuzzleStats rows={stats} lit={pause.option} press={optionKey} />
+			<div class="book-caption">{t('puzzles.caption')}</div>
 		{:else}
 			<div class="columns">
 				<div class="team">
@@ -728,6 +756,10 @@
 						<div class="note">
 							{touch.on ? t('pause.soundHelpTouch') : t('pause.soundHelp')}
 						</div>
+					{:else if pause.screen === 'list' && puzzlesLit}
+						<div class="side-title">{t('puzzles.title')}</div>
+						<div class="note">{t('puzzles.help')}</div>
+						<div class="note">{t('puzzles.solved', { count: game.solved })}</div>
 					{:else if pause.screen === 'list' && bookLit}
 						<div class="side-title">{t('book.title')}</div>
 						<div class="note">{t('book.help')}</div>
@@ -755,6 +787,8 @@
 					{t('worlds.keys')}
 				{:else if pause.screen === 'book'}
 					{t('book.keys')}
+				{:else if pause.screen === 'puzzles'}
+					{t('puzzles.keys')}
 				{:else if pause.screen === 'players'}
 					{t('pause.keysPlayers')}
 				{:else}

@@ -45,9 +45,9 @@ interface Key extends KeyboardEvent {
 	prevented: boolean;
 }
 
-/** The menu's rows that open a screen of their own: Worlds, Who's here, the animal book. */
+/** The menu's rows that open a screen of their own: Worlds, Who's here, "My puzzles", the animal book. */
 const opens = (item: MenuItem | undefined) =>
-	item === 'worlds' || item === 'players' || item === 'book';
+	item === 'worlds' || item === 'players' || item === 'puzzles' || item === 'book';
 
 function key(
 	name: string,
@@ -257,6 +257,7 @@ describe('pause menu', () => {
 				'sound',
 				'resume',
 				'quit',
+				'puzzles',
 				'book'
 			]);
 			account.name = 'Ida';
@@ -270,7 +271,7 @@ describe('pause menu', () => {
 		}
 	});
 
-	it("rows side by side (Worlds and Who's here, the account's, Keep playing and Start screen): left and right step between them", () => {
+	it("rows side by side (Worlds and Who's here, the account's, Keep playing and Start screen, My puzzles and the book): left and right step between them", () => {
 		const at = (item: MenuItem) => bundles(game.party).length + menuItems().indexOf(item);
 		const lines = MENU_LINES.map((line) => lineOf(line[0]!)).filter(
 			(line) => line.length > 1 && line[0] !== 'language'
@@ -278,7 +279,8 @@ describe('pause menu', () => {
 		expect(lines).toEqual([
 			['worlds', 'players'],
 			['makeAccount', 'logIn'],
-			['resume', 'quit']
+			['resume', 'quit'],
+			['puzzles', 'book']
 		]);
 		for (const [left, right] of lines as [MenuItem, MenuItem][]) {
 			pause.reset();
@@ -755,10 +757,12 @@ describe('the animal book', () => {
 		expect(menuItems().at(-1)).toBe('book');
 		press('Escape', 'ArrowUp');
 		expect(pause.cursor).toBe(row);
-		// Left and right mean nothing on it: nothing stands beside it.
-		expect(press('ArrowRight').prevented).toBe(false);
+		// Right means nothing on it, the end of its line; left steps to "My puzzles" beside it.
+		press('ArrowRight');
 		expect(pause.cursor).toBe(row);
-		press('Enter');
+		press('ArrowLeft');
+		expect(pause.cursor).toBe(row - 1);
+		press('ArrowRight', 'Enter');
 		expect([pause.screen, pause.option]).toEqual(['book', 0]);
 		press('ArrowRight', 'ArrowRight');
 		expect(pause.option).toBe(2);

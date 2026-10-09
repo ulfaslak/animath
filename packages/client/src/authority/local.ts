@@ -23,6 +23,9 @@ import {
 	clearTile,
 	coast,
 	countSolved,
+	recordAnswers,
+	topicBonus,
+	type PuzzleRecord,
 	defaultStarter,
 	editedTileAt,
 	fitStays,
@@ -248,6 +251,13 @@ export class LocalAuthority implements Authority {
 	 */
 	private solved = 0;
 	/**
+	 * The puzzle record: every answer judged, right or wrong, under its topic,
+	 * in a battle, at the doctor or in a friendly match (`recordAnswers`), a
+	 * wild battle's in its latest answers too. Saved with the game; a wild
+	 * battle's hits read it as it starts (`topicBonus`).
+	 */
+	private puzzles: PuzzleRecord = {};
+	/**
 	 * The animal book: every species seen, caught and set free in this game,
 	 * in every world (`animals/book.ts`). Grows at the event that shows an
 	 * animal: a wild battle's start, a leash throw that lands, and a
@@ -353,13 +363,14 @@ export class LocalAuthority implements Authority {
 		this.tokens = game.tokens;
 		this.items = [...game.items];
 		this.solved = game.solved;
+		this.puzzles = game.puzzles;
 		// Every animal the kid has was caught (a starter counts), and a battle in progress was
 		// met: whatever the game handed in says (a `restoreGame`'s says so already).
 		this.book = recordParty(bookOf(game.seen, game.caught, game.freed), this.party);
 		if (game.battle) this.book = recordBattle(this.book, game.battle);
 		this.edits = WorldEdits.decode(game.edits);
 		this.worlds = game.worlds.map(copyStay);
-		this.unlocked = unlockLands(game.unlocked, this.book.freed);
+		this.unlocked = unlockLands(game.unlocked, this.book.caught);
 		this.battle = null;
 		this.doctor = null;
 		this.flight = null;
@@ -382,6 +393,7 @@ export class LocalAuthority implements Authority {
 			tokens: this.tokens,
 			items: [...this.items],
 			solved: this.solved,
+			puzzles: this.puzzles,
 			seen: [...this.book.seen],
 			caught: [...this.book.caught],
 			freed: [...this.book.freed],
@@ -418,7 +430,9 @@ export class LocalAuthority implements Authority {
 		const landing = down?.landing ?? null;
 		// A bird following the flight down: its battle starts as the kid lands.
 		const bird = down?.bird ?? null;
-		const air = bird ? startBattle(this.party, bird, { realm: 'air' }) : null;
+		const air = bird
+			? startBattle(this.party, bird, { realm: 'air', bonus: topicBonus(this.puzzles) })
+			: null;
 		const battle = this.battle ? this.battle.state : air;
 		const party = battle ? battle.party : this.party;
 		const book = air ? recordBattle(this.book, air) : this.book;
@@ -438,6 +452,7 @@ export class LocalAuthority implements Authority {
 			tokens: this.tokens,
 			items: [...this.items],
 			solved: this.solved,
+			puzzles: this.puzzles,
 			seen: [...book.seen],
 			caught: [...book.caught],
 			freed: [...book.freed],
@@ -1016,7 +1031,8 @@ export class LocalAuthority implements Authority {
 
 	private beginBattle(wild: AnimalInstance, realm: Realm): void {
 		this.ski = null;
-		const state = startBattle(this.party, wild, { realm });
+		// The hits land by the record as the battle starts, and stay so to its end.
+		const state = startBattle(this.party, wild, { realm, bonus: topicBonus(this.puzzles) });
 		this.battle = { state, seed: this.battleSeed() };
 		this.emit({ type: 'battle-started', state });
 		// Met, from the moment the battle starts, however it ends.
@@ -1034,6 +1050,7 @@ export class LocalAuthority implements Authority {
 		battle.state = state;
 		this.emit({ type: 'battle-updated', state, events });
 		this.count(countSolved(this.solved, events));
+		this.recordPuzzles(recordAnswers(this.puzzles, events, { where: 'battle' }));
 		// Caught, at the leash throw that lands.
 		this.note(recordBattle(this.book, state, events));
 		if (state.phase.kind !== 'ended') return;
@@ -1171,7 +1188,11 @@ export class LocalAuthority implements Authority {
 			shop: this.options.shop ?? shopFor(this.land),
 			land: this.land,
 			unlocked: this.unlocked,
-			open: this.options.lands ? LAND_IDS : availableLands()
+			open: this.options.lands ? LAND_IDS : availableLands(),
+			// The surprise trip rewards catching one of each animal: a game a switch opened every
+			// land in earned none, so it is offered nothing.
+			visited: this.options.lands ? LAND_IDS : [this.land, ...this.lands.map((l) => l.land)],
+			caught: this.book.caught
 		});
 		// A fresh seed per visit, keyed like everything else here so a session
 		// replays; the visit count keeps a second visit from asking the same
@@ -1197,14 +1218,13 @@ export class LocalAuthority implements Authority {
 		doctor.state = state;
 		this.emit({ type: 'doctor-visit-updated', visit, state, events });
 		this.count(countSolved(this.solved, events));
+		this.recordPuzzles(recordAnswers(this.puzzles, events, { where: 'doctor' }));
 		if (events.some((e) => e.type === 'healed' || e.type === 'went-home')) {
 			this.party = state.party.map((a) => ({ ...a }));
 			this.emit({ type: 'party-changed', party: this.partyCopy() });
 		}
-		// The kinds that went home are set free in the book, for good, and the last kind a land
-		// asked for unlocks the next.
+		// The kinds that went home are set free in the book, for good.
 		this.note(recordWentHome(this.book, events));
-		this.unlock();
 		if (events.some((e) => e.type === 'tokens-given' || e.type === 'bought')) {
 			this.tokens = state.tokens;
 			this.items = [...state.items];
@@ -1336,12 +1356,13 @@ export class LocalAuthority implements Authority {
 		this.note(recordParty(this.book, this.party));
 	}
 
-	/** The lands unlocked, grown by what the book now says is set free: say so when they grew. */
+	/** The lands unlocked, grown by what the book now says is caught: say so when they grew. */
 	private unlock(): void {
-		const unlocked = unlockLands(this.unlocked, this.book.freed);
+		const unlocked = unlockLands(this.unlocked, this.book.caught);
 		if (unlocked === this.unlocked) return;
 		this.unlocked = unlocked;
-		// A visit under way flies to it at once: its rule reads the lands unlocked it opened with.
+		// A visit under way learns it too (none can unlock a land today: only a catch does, never
+		// at a tent), so its rule never reads a list older than the game's.
 		if (this.doctor) this.doctor.state = { ...this.doctor.state, unlocked: [...unlocked] };
 		this.emit({ type: 'unlocked-changed', unlocked: [...unlocked] });
 	}
@@ -1376,6 +1397,7 @@ export class LocalAuthority implements Authority {
 		if (step <= (this.matchSteps.get(match) ?? 0)) return;
 		this.matchSteps.set(match, step);
 		this.count(countSolved(this.solved, events, side));
+		this.recordPuzzles(recordAnswers(this.puzzles, events, { where: 'match', side }));
 	}
 
 	/** What the player is doing, for the engine's rules that depend on it. */
@@ -1394,9 +1416,17 @@ export class LocalAuthority implements Authority {
 		this.emit({ type: 'solved-changed', solved });
 	}
 
+	/** The puzzle record is `puzzles` now (`recordAnswers`'s, the very same one when nothing was judged): say so, when it changed. */
+	private recordPuzzles(puzzles: PuzzleRecord): void {
+		if (puzzles === this.puzzles) return;
+		this.puzzles = puzzles;
+		this.emit({ type: 'puzzles-changed', puzzles });
+	}
+
 	/**
 	 * The animal book is `book` now (`animals/book.ts`, whose rules hand back
-	 * the very same book when nothing is new): say so, when it grew.
+	 * the very same book when nothing is new): say so, when it grew, and the
+	 * last kind a land asked for caught unlocks the next.
 	 */
 	private note(book: AnimalBook): void {
 		if (book === this.book) return;
@@ -1407,6 +1437,7 @@ export class LocalAuthority implements Authority {
 			caught: [...book.caught],
 			freed: [...book.freed]
 		});
+		this.unlock();
 	}
 
 	private partyCopy(): AnimalInstance[] {

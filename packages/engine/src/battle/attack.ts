@@ -5,7 +5,8 @@ import {
 	type AttackLevel
 } from '../animals/types.js';
 import { puzzleDifficulty } from '../puzzles/difficulty.js';
-import { generatePuzzle } from '../puzzles/registry.js';
+import { bonusOf, type TopicBonus } from '../puzzles/record.js';
+import { generatePuzzle, puzzleTopics } from '../puzzles/registry.js';
 import type { Puzzle } from '../puzzles/types.js';
 import type { Rng } from '../rng.js';
 import { attackDamage } from './damage.js';
@@ -46,18 +47,42 @@ export function attackPuzzle(
 
 /**
  * A hit that lands: the damage `spec`'s attack `attackIndex` deals at `level`
- * (`attackDamage`, solved), and the target with its HP after it, never below 0.
- * The one function of this file that `index.ts` re-exports: a screen that
- * shows what a hit would do before it is picked (the battle panel's damage
- * preview, and a target left at 0 HP as "That would tire it out!") calls it
- * on the state it shows, so the preview can never disagree with the hit.
+ * (`attackDamage`, solved, with the solved puzzle's topic's `bonus`), and the
+ * target with its HP after it, never below 0. With `hitSpan`, the functions
+ * of this file that `index.ts` re-exports: a screen that shows what a hit
+ * would do (the battle panel's damage preview, the puzzle's reward, and a
+ * target left at 0 HP as "That would tire it out!") calls them on the state
+ * it shows, so the preview can never disagree with the hit.
  */
 export function landHit(
 	spec: AnimalSpec,
 	attackIndex: number,
 	level: AttackLevel,
-	target: AnimalInstance
+	target: AnimalInstance,
+	bonus = 1
 ): { damage: number; target: AnimalInstance } {
-	const damage = attackDamage(spec, attackIndex, level, true);
+	const damage = attackDamage(spec, attackIndex, level, true, bonus);
 	return { damage, target: { ...target, hp: Math.max(0, target.hp - damage) } };
+}
+
+/**
+ * What a right answer to `spec`'s attack `attackIndex` at `level` can hit
+ * for, before its puzzle is drawn: the softest and the hardest hit over
+ * every topic its puzzle can be there (`puzzleTopics`), each with its
+ * `bonus`. One number (`low` = `high`) when they all hit alike, as they
+ * always do in a friendly match, which has no bonus.
+ */
+export function hitSpan(
+	spec: AnimalSpec,
+	attackIndex: number,
+	level: AttackLevel,
+	bonus?: TopicBonus
+): { low: number; high: number } {
+	const attack = spec.attacks[attackIndex - 1];
+	if (!attack) throw new Error(`${spec.id} has no attack ${attackIndex}`);
+	const difficulty = puzzleDifficulty(spec.tier, attackIndex, level);
+	const hits = puzzleTopics(attack.kinds, difficulty).map((topic) =>
+		attackDamage(spec, attackIndex, level, true, bonusOf(bonus, topic))
+	);
+	return { low: Math.min(...hits), high: Math.max(...hits) };
 }

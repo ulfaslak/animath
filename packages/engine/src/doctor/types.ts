@@ -2,7 +2,7 @@ import type { AnimalInstance } from '../animals/types.js';
 import type { ItemId } from '../items/catalog.js';
 import type { LandId } from '../lands/ids.js';
 import type { FlyRefusal } from '../lands/lands.js';
-import type { Puzzle } from '../puzzles/types.js';
+import type { Puzzle, PuzzleTopic } from '../puzzles/types.js';
 
 /**
  * A visit to the doctor. `startDoctorVisit` builds a state, `applyDoctorIntent`
@@ -36,6 +36,12 @@ export type DoctorPhase =
 	| { kind: 'buying'; itemId: ItemId; price: number; puzzle: Puzzle }
 	/** Flying to `land`, once `puzzle`, the fare (`farePuzzle`), is solved. */
 	| { kind: 'paying-fare'; land: LandId; puzzle: Puzzle }
+	/**
+	 * The druid offers a trip to `land`, a surprise with no fare, for
+	 * catching one of every animal of `from` (`surpriseLand`): `accept-offer`
+	 * flies there, `back` says not now, `leave` says bye; nothing else is taken.
+	 */
+	| { kind: 'offering'; land: LandId; from: LandId }
 	| { kind: 'ended' };
 
 export interface DoctorState {
@@ -78,7 +84,9 @@ export type DoctorIntent =
 	| { type: 'fly'; land: string }
 	/** Answer the puzzle that is open: a healing puzzle or a token sum. */
 	| { type: 'answer'; input: string }
-	/** Close the open puzzle without answering it. Nothing changes. */
+	/** Say yes to the trip the druid offers (`offering`): off they fly, no fare asked. */
+	| { type: 'accept-offer' }
+	/** Close the open puzzle, or say not now to the trip offered, without answering it. Nothing changes. */
 	| { type: 'back' }
 	| { type: 'leave' };
 
@@ -100,6 +108,10 @@ export type DoctorRejection =
 	| 'not-enough-tokens'
 	/** An answer, or `back`, with no puzzle open. */
 	| 'no-puzzle'
+	/** An `accept-offer` with no trip offered. */
+	| 'no-offer'
+	/** Anything but `accept-offer`, `back` or `leave` while the trip is offered. */
+	| 'offer-open'
 	/** A `fly` the rules refuse (`flyRefusal`): not a land, the land the tent is in, not built yet, or locked. */
 	| FlyRefusal;
 
@@ -114,7 +126,14 @@ export type DoctorEvent =
 	| { type: 'hand-over-shown'; ids: readonly string[]; reward: number; puzzle: Puzzle }
 	/** The sum for a purchase: the tokens now, less `price`. */
 	| { type: 'purchase-shown'; itemId: ItemId; price: number; puzzle: Puzzle }
-	| { type: 'answer-judged'; input: string; correct: boolean; answer: number }
+	| {
+			type: 'answer-judged';
+			input: string;
+			correct: boolean;
+			answer: number;
+			/** The puzzle's topic (`puzzleTopic`), which the kid's record counts it under. */
+			topic: PuzzleTopic;
+	  }
 	/** `animal` as it is now, at full HP. */
 	| { type: 'healed'; partyIndex: number; animal: AnimalInstance }
 	/** These animals left the party for the wild, made better first (at full HP), in party order. */
@@ -126,8 +145,8 @@ export type DoctorEvent =
 	/** The fare to fly to `land`: a puzzle of its kinds. */
 	| { type: 'fare-shown'; land: LandId; puzzle: Puzzle }
 	/**
-	 * The fare was paid: the player flies to `land`, and the visit ends (an
-	 * `ended` follows). The authority moves them there (`lands/fly.ts`).
+	 * The fare was paid, or the trip offered taken: the player flies to
+	 * `land`, and the visit ends (an `ended` follows). The authority moves them there (`lands/fly.ts`).
 	 */
 	| { type: 'flew'; land: LandId }
 	/** The open puzzle was put away (`back`). */

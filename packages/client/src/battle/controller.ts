@@ -276,6 +276,7 @@ export class BattleController {
 		battle.opponent = { ...state.opponent };
 		battle.leashQuality = state.leashQuality;
 		battle.realm = state.realm;
+		battle.bonus = state.bonus;
 		// Known from the start, so the Switch row doesn't show greyed through the opening lines.
 		battle.pickable = state.party.map((_, i) => canSwitchTo(state, i));
 		// A battle picked up from a save mid-puzzle: the menu lights the attack and the level

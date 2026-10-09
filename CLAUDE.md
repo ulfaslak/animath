@@ -129,7 +129,7 @@ Pick, without asking, the testing approaches from below that apply. Multiple can
    - **Rendered layout, not just the DOM**: real lengths (long species names), the panel at 1024×768, an HP bar at 1/100. Check the pixel, not the class name. `pnpm fit` measures the title, explore, the pause menu and the druid's card with the widest names at every size, by keys and by touch, in both languages.
    - **A new figure** where a kid meets it: in a battle, from behind, close up, as the kid's own animal (`?party=<id>`), not only in `?zoo`.
    - **Adjacent features**: the save round-trip, and after `git merge origin/main` every overlay the merge brought in (`git diff --stat <merge-base> origin/main -- packages/client/src/ui`).
-   - **Duplicated rosters**: a new puzzle kind, tile kind, biome, phase, intent or species: grep for a sibling member, in the code and in the DNA's prose, to find every list that must learn the new one.
+   - **Duplicated rosters**: a new puzzle kind, tile kind, biome, phase, intent or species: grep for a sibling member, in the code and in the DNA's prose, to find every list that must learn the new one. A new event fails `handlers.test.ts` on purpose, with the list of every file that branches on an event's type.
    - **The gate you ran vs. the gate that ships**: dev server vs. `pnpm build` output.
 
 **If the change is engine-only (puzzles, formulas, catalog, world generation, a reducer):**
@@ -146,7 +146,7 @@ Pick, without asking, the testing approaches from below that apply. Multiple can
 **Regardless of what the change is:**
 
 1. **Prose is a claim.** Every comment, DNA line and copy string that describes behaviour your diff changes is a claim to re-verify: grep for prose describing the old behaviour. A removal also documents what old clients left behind, from the code it deletes. A cost quoted in prose (a duration, a size) is measured under the load it will meet, never copied.
-2. **Fix everything you find.** Each bug gets a fix commit on the worktree branch. For each fix, run the **negative control** once: commit, revert the fix (or restore the triggering input), watch the check fail, then put it back with `git show HEAD:<path> > <path>`. **Break what the test claims to catch, not just the code it covers.**
+2. **Fix everything you find.** Each bug gets a fix commit on the worktree branch. For each fix, run the **negative control** once (`scripts/negctl.sh` does it without risking uncommitted work): commit, revert the fix (or restore the triggering input), watch the check fail, then put it back with `git show HEAD:<path> > <path>`. **Break what the test claims to catch, not just the code it covers.**
 3. **Tick off the test plan.** As you verify each item, check its box in the PR description (`gh pr edit`).
 4. **Stop when confident.** You're done when you can't think of another way to break it.
 
