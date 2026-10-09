@@ -1514,14 +1514,14 @@ doctor:
   goodbye: Hej hej! Kom bare igen, når du vil.
   fly:
     intro: Vil du flyve et nyt sted hen? Hver tur koster én opgave.
-    locked: For at flyve til {land} skal du slippe mindst ét af hvert af de {of} dyr fra {from} fri. Du har {freed} indtil nu!
+    locked: For at flyve til {land} skal du fange mindst ét af hvert af de {of} dyr fra {from}. Du har {caught} indtil nu!
     count: Løs den her, så flyver du til {land}!
-    progress: '{freed} / {of}'
+    progress: '{caught} / {of}'
     open: Én opgave
     story: Flyet til {land} koster én opgave!
     title: Flyv til {land}!
-    how: Slip mindst ét af hvert af de {of} dyr fra {from} fri, så kan du flyve derhen.
-    soFar: '{freed} / {of} sluppet fri'
+    how: Fang mindst ét af hvert af de {of} dyr fra {from}, så kan du flyve derhen.
+    soFar: '{caught} / {of} fanget'
     fare: Turen koster én opgave.
     stays: Dine dyr og ting her venter på dig, til du kommer tilbage.
     pick: Hvor vil du flyve hen?

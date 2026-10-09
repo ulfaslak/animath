@@ -39,7 +39,7 @@ export type DoctorLine =
 	 * A locked land picked: set free one of each of land `from`'s `of`
 	 * animals to go on; `freed` of them are, so far.
 	 */
-	| { say: 'flyLocked'; land: LandId; from: LandId; freed: number; of: number }
+	| { say: 'flyLocked'; land: LandId; from: LandId; caught: number; of: number }
 	/** The fare to `land` is up. */
 	| { say: 'fareCount'; land: LandId }
 	| { say: 'goodbye' };
@@ -110,7 +110,7 @@ export function doctorWords(line: DoctorLine): string {
 				land: t(`lands.${line.land}.inLine`),
 				from: t(`lands.${line.from}.inLine`),
 				of: line.of,
-				freed: line.freed
+				caught: line.caught
 			});
 		case 'fareCount':
 			return t('doctor.fly.count', { land: t(`lands.${line.land}.inLine`) });

@@ -35,10 +35,10 @@
 		type DoctorTab
 	} from '../state/doctor.svelte';
 	import Coin from './Coin.svelte';
-	import FreeStamp from './FreeStamp.svelte';
 	import HpBar from './HpBar.svelte';
 	import ItemIcon from './ItemIcon.svelte';
 	import PuzzlePanel from './PuzzlePanel.svelte';
+	import Tick from './Tick.svelte';
 
 	/**
 	 * The doctor's card, over the world at the bottom of the screen (UI_SPEC §
@@ -201,9 +201,9 @@
 		}
 	}
 
-	/** A land not unlocked yet: how many of the land before it are set free, of all; null when it is open. */
+	/** A land not unlocked yet: how many of the land before it are caught, of all; null when it is open. */
 	function lockOf(land: LandId) {
-		return doctor.unlocked.includes(land) ? null : unlockProgress(land, game.freed);
+		return doctor.unlocked.includes(land) ? null : unlockProgress(land, game.caught);
 	}
 
 	/** The animals of a kind, in party order: a bundle row's. */
@@ -478,8 +478,8 @@
 						<span class="label">{t(`lands.${row.land}.name`)}</span>
 						<span class="worth">
 							{#if lock}
-								<FreeStamp size={16} />{t('doctor.fly.progress', {
-									freed: lock.freed,
+								<Tick size={16} />{t('doctor.fly.progress', {
+									caught: lock.caught,
 									of: lock.of
 								})}
 							{:else}
@@ -685,8 +685,8 @@
 						{t('doctor.fly.how', { of: lock.of, from: t(`lands.${lock.from}.inLine`) })}
 					</div>
 					<div class="tally">
-						<FreeStamp size={24} />
-						{t('doctor.fly.soFar', { freed: lock.freed, of: lock.of })}
+						<Tick size={24} />
+						{t('doctor.fly.soFar', { caught: lock.caught, of: lock.of })}
 					</div>
 				{:else}
 					<div class="detail">{t('doctor.fly.fare')}</div>

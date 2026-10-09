@@ -421,8 +421,8 @@ export class DoctorController {
 				return;
 			case 'land': {
 				// A land still locked gives a little shake, and the witch doctor says how to open it:
-				// one of each animal of the land before it set free, and how many are so far.
-				const progress = unlockProgress(row.land, game.freed);
+				// one of each animal of the land before it caught, and how many are so far.
+				const progress = unlockProgress(row.land, game.caught);
 				if (row.land !== FIRST_LAND && !doctor.unlocked.includes(row.land) && progress) {
 					this.shakeRow(doctor.cursor);
 					sfx.play('wrong');

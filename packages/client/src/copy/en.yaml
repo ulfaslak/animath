@@ -1670,24 +1670,24 @@ doctor:
   goodbye: Bye! Come back any time.
   # The fly tab: a plane to another land (#191). {land} is a land as a sentence names it
   # (lands.*.inLine), {from} the land before it; {of} how many kinds of animal that land has,
-  # {freed} how many of them the kid has set free.
+  # {caught} how many of them the kid has caught.
   fly:
     # What the witch doctor says on the tab.
     intro: Want to fly somewhere new? Every trip costs one puzzle.
     # The witch doctor's line when a land still locked is picked.
-    locked: To fly to {land}, set free at least one of each of the {of} animals of {from}. You have {freed} so far!
+    locked: To fly to {land}, catch at least one of each of the {of} animals of {from}. You have {caught} so far!
     # The fare's puzzle is up.
     count: Solve this, and off you fly to {land}!
     # Beside a locked land's row: how far the kid is.
-    progress: '{freed} / {of}'
+    progress: '{caught} / {of}'
     # Beside a land's row the kid can fly to.
     open: One puzzle
     # Over the fare's puzzle.
     story: The plane to {land} costs one puzzle!
     # The right-hand side, about the lit land.
     title: Fly to {land}!
-    how: Set free at least one of each of the {of} animals of {from} to fly there.
-    soFar: '{freed} / {of} set free'
+    how: Catch at least one of each of the {of} animals of {from} to fly there.
+    soFar: '{caught} / {of} caught'
     fare: The trip costs one puzzle.
     stays: Your animals and things here wait for you until you come back.
     # Bye is lit.

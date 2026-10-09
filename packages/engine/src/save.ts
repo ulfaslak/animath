@@ -301,7 +301,7 @@ export interface SaveV4 {
 	lands?: SavedLandStay[];
 	/**
 	 * The lands unlocked, by id. Written only once a land past the first is
-	 * among them; a save without it has unlocked what its kinds set free
+	 * among them; a save without it has unlocked what its kinds caught
 	 * unlock (`unlockLands`). An id this build does not have is kept as it is.
 	 */
 	unlocked?: string[];
@@ -447,8 +447,8 @@ const NAMED_SINCE_V4 = ['land', 'lands', 'unlocked'] as const;
  * there was, so the game is in Nordland (`land`), and everything else stays
  * exactly as it was: the position, facing, cleared tiles and worlds left
  * behind are Nordland's, and so are the party, tokens, items and battle. It
- * has left no land and unlocked what its kinds set free unlock, which
- * `restoreGame` reads from `freed`. A v3 extra under a key v4 has taken goes
+ * has left no land and unlocked what its kinds caught unlock, which
+ * `restoreGame` reads from `caught`. A v3 extra under a key v4 has taken goes
  * under `V3_KEPT`. A bump, not an optional field: an older build would play a
  * game in The Arctic as a game in Nordland, its Arctic party on Nordland's
  * ground ([[DECISIONS]] § Saves).
@@ -957,7 +957,7 @@ export function newGame(
 		edits: [],
 		worlds: [],
 		lands: [],
-		unlocked: [...unlockLands([], book.freed)]
+		unlocked: [...unlockLands([], book.caught)]
 	};
 }
 
@@ -1004,7 +1004,7 @@ function cleanAnimal(animal: AnimalInstance): AnimalInstance {
  * The game is in the land it was saved in (Nordland when it names none), its
  * world `landSeed(land, world)`. The lands left behind come back as
  * `landStayOf` makes them, and the lands unlocked are the save's with what
- * its kinds set free unlock (`unlockLands`).
+ * its kinds caught unlock (`unlockLands`).
  *
  * The worlds left behind come back in the order they were left, each world
  * once and never the current one, at most `MAX_WORLDS_KEPT` (`keepWorlds`),
@@ -1079,7 +1079,7 @@ export function restoreGame(save: SaveV4, mintId: () => string): SavedGame {
 		edits: [...edits.encode()],
 		worlds: [...worlds!],
 		lands: left.map((stay, i) => ({ ...stay, worlds: [...landWorlds[i]!] })),
-		unlocked: [...unlockLands(save.unlocked ?? [], book.freed)]
+		unlocked: [...unlockLands(save.unlocked ?? [], book.caught)]
 	};
 }
 
@@ -1392,7 +1392,7 @@ function withProgressDefaults(doc: SaveV4): Doc {
 	out.seen = [...book.seen].sort();
 	out.caught = [...book.caught].sort();
 	out.freed = [...book.freed].sort();
-	out.unlocked = [...unlockLands(doc.unlocked ?? [], book.freed)].sort();
+	out.unlocked = [...unlockLands(doc.unlocked ?? [], book.caught)].sort();
 	return out;
 }
 
