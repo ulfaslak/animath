@@ -5,8 +5,8 @@ import { REALMS, type AnimalInstance, type Realm } from '../animals/types.js';
  * The party in species bundles ([[PRODUCT]] §4 "Party"). All the animals of
  * one species stand together, a bundle, and the bundles stand in the order
  * the player chose, so the bundles top to bottom are the battle order: the
- * lead (`leadIndex`) is the first animal standing in the first bundle that
- * has one. Every rule that changes the party's order keeps it in bundles,
+ * lead where the player stands (`leadIndex`) is the first animal standing
+ * that can fight there, in the first bundle that has one. Every rule that changes the party's order keeps it in bundles,
  * and a party from outside (an old save, `?party=`) is put in bundles on the
  * way in (`bundled`).
  */
