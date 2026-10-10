@@ -108,7 +108,7 @@ Everything below is a click with a mouse or a tap with a finger, and each is the
 | Stay / Leave               | "Leave the match?"           | Does it (quiet moment). |
 | Rematch? (or Play again) / Back to exploring | Match result, the update card | Does it (quiet moment). |
 | Heal / Set free / Shop     | Druid                 | That tab; from a puzzle, the puzzle is put away first (on a phone held sideways a puzzle has the whole card: Back first). |
-| An animal who needs the druid | Druid, Heal | Picks it (quiet moment); in a puzzle, swaps to it if it is another kind (what was typed is dropped; not on a phone held sideways, where the list steps aside for the puzzle). A fit one, or one of the kind being healed, does nothing. |
+| An animal who needs the druid | Druid, Heal | Picks it at once (quiet moment); in a puzzle, swaps to it if it is another kind (what was typed is dropped; not on a phone held sideways, where the list steps aside for the puzzle). A fit one, or one of the kind being healed, does nothing. |
 | An animal                  | Druid, Set free       | Picks or unpicks it to set free, at once. The last one that can walk with you gives a little shake. |
 | A kind's row ("Fox ×40")   | Druid, Set free       | Picks every one of that kind together (quiet moment) (all but its first walker when no other walker would stay); a second tap puts them all back. |
 | Set them free              | Druid, Set free       | "Say bye bye to …?" (quiet moment). |
@@ -379,7 +379,7 @@ To meet smaller animals more often, put a smaller animal in front. A lost battle
 - **A new version mid-match ends it** with no winner ("The game is updating."): Play again, once the friend is back, asks them again, and their Play again is the yes. A server that crashes mid-match ends it the same way, and the card says "The game restarted." (the page knows by the server's run it finds on coming back); "It ended while you were away." is only for a page that was gone longer than the 30 seconds. On a result whose friend already left (or went back), either kind of restart leaves the result as it is.
 - **Free at once after a match**: leave it (or go back to exploring from its end) and a friend can challenge you straight away, and you them, even while the other kid still looks at their result. A Rematch? waiting for you is answered no the moment you ask or are asked by someone.
 - **Back to exploring sticks, even offline**: pressed while "Getting the match back…" is up, the result doesn't come back with the connection, after a reload or in another tab ([[UI_SPEC]] § Friendly matches, "The end"). Your friend reads "Ada went back to exploring." once you are back online, or when your 30 seconds run out.
-- **Back to exploring beats a Rematch? at the same moment**: no rematch starts for you, and one that had just begun on your friend's screen flicks straight back to their result, with "Ada went back to exploring.".
+- **Back to exploring beats a Rematch? at the same moment**: ask for a rematch, then go back just as your friend presses Rematch? too, and no rematch starts for you, and one that had just begun on your friend's screen flicks straight back to their result, with "Ada went back to exploring.".
 - **Where to see it**: two browsers (or a browser and a private window, which is another player) on the same address, each with a named game in the same world. With the game on this machine: `pnpm players` ([[DEVELOPMENT]] § Looking at the game).
 
 ## Hidden behaviour
