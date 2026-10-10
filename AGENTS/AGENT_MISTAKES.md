@@ -292,3 +292,10 @@ To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology that a rewa
 - **Two hand-made breaks that broke nothing**, so a green result meant nothing. A `sed '0,/re/'` (GNU only) changed no byte on macOS, and a hole chance moved from 0.02 to 0.021 moved no tile the checksum reads. Both were caught by `git diff --stat` and by making the break bigger. This repeats the archived PR #87 "a negative control whose harness ran against nothing": that guard covers a harness, not a hand-made break.
 
 To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology that a hand-made break is confirmed by `git diff` and by the value the test reads changing, before its result counts; and that a fix proposed by a review is checked over every input class the function serves, not only the finding's.
+
+### 2026-10-10 — DNA trim (chore/dna-trim, PR #226), fact-loss check — a trim told to lose nothing lost four facts, and a summary rounded past its data `[not codified]`
+
+- **Facts held by one row went with the row's wordiness.** Eight trimmers told "no fact is lost" still dropped the iPad Air 2 / mini 4 limit of Safari 15.8, the figure-size-by-tier rule, `winCheer` and `Rng`'s `fork()`: each was a reason or a name only one row held, inside text that was mostly duplicate. A cold checker per file, diffing old against new and searching all DNA and the code for each removed span, found all four.
+- **A summary range rounded past its data.** Folding a match simulation's table into one line wrote "at most 6%" over a measured 6.4%. A summary of numbers is checked against every number it replaces.
+
+To become `[learned]`: a line in `.claude/commands/cleanse.md` (or [[DEVELOPMENT]]) that any DNA trim is followed by a cold old-against-new fact-loss check per file before it merges, and that a summary range is computed from, and checked against, every number it replaces.
