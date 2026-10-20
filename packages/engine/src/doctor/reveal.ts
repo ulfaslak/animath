@@ -5,7 +5,7 @@ import type { LandId } from '../lands/ids.js';
 import { getLand } from '../lands/lands.js';
 
 /**
- * The druid's tip ([[PRODUCT]] §4 "Knock-out and healing", "Ask the druid"):
+ * The druid's tip ([[PRODUCT]] §4 "Asking the druid"):
  * for one puzzle he tells the kid about an animal of the land they have not
  * caught yet, and where to look for it. Which animal he may pick, and where
  * that animal is met, are rules, here; the words are the client's.
