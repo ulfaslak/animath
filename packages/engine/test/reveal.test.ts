@@ -113,28 +113,26 @@ describe('bestLead', () => {
 					// Read off the tables of every biome, not off `meetingPlaces`: on land in the
 					// tall grass for an animal that walks, else in the water, the holes too.
 					const realm: Realm = spec.realms.includes('land') ? 'land' : 'water';
-					const meets = (lead: Tier) =>
-						[0, WILD_RADIUS].reduce(
-							(sum, d) =>
-								sum +
-								biomes.reduce((s, b) => {
-									const tables =
-										realm === 'land'
-											? [encounterTable(b, d, lead, 'land', land)]
-											: [encounterTable(b, d, lead, 'water', land), holeTable(b, d, lead)];
-									const ok = realm === 'land' ? meetingPlaces(id).grass.includes(b) : true;
-									return (
-										s +
-										(ok
-											? tables.reduce(
-													(t, table) => t + (table.find((e) => e.species.id === id)?.weight ?? 0),
-													0
-												)
-											: 0)
-									);
-								}, 0),
-							0
-						);
+					// Its share in each table it is met in (the places `meetingPlaces`, checked above
+					// against the maps, names), for a lead of size `lead`, `d` tiles out.
+					const places = meetingPlaces(id);
+					const at = (lead: Tier, d: number): number[] =>
+						biomes.flatMap((b) => {
+							const tables =
+								realm === 'land'
+									? places.grass.includes(b)
+										? [encounterTable(b, d, lead, 'land', land)]
+										: []
+									: [
+											...(places.sea.includes(b)
+												? [encounterTable(b, d, lead, 'water', land)]
+												: []),
+											...(places.ice.includes(b) ? [holeTable(b, d, lead)] : [])
+										];
+							return tables.map((t) => t.find((e) => e.species.id === id)?.weight ?? 0);
+						});
+					const total = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
+					const meets = (lead: Tier) => total(at(lead, 0)) + total(at(lead, WILD_RADIUS));
 					const can = party.filter((a) => canFightIn(a.speciesId, realm));
 					const got = bestLead(party, id);
 					if (can.length === 0) {
@@ -155,39 +153,53 @@ describe('bestLead', () => {
 							bad.push(`${ids} → ${id}: ${lead.speciesId} meets it less than ${other.speciesId}`);
 						}
 					}
-					if (got.far !== spec.tier > tier) bad.push(`${ids} → ${id}: far is ${got.far}`);
+					// Far only where every place of it is better far out than near home.
+					const near = at(tier, 0);
+					const out = at(tier, WILD_RADIUS);
+					const far = spec.tier > tier && near.every((n, k) => n < out[k]! - 1e-9);
+					if (got.far !== far) bad.push(`${ids} → ${id}: far is ${got.far}`);
+					const big = tier > spec.tier && meets(spec.tier) >= 2 * meets(tier);
+					if (got.big !== big) bad.push(`${ids} → ${id}: big is ${got.big}`);
+					const first = party.findIndex((a) => canFightIn(a.speciesId, realm));
+					if (got.leads !== (first === got.index))
+						bad.push(`${ids} → ${id}: leads is ${got.leads}`);
 				}
 			}
 		}
 		expect(bad).toEqual([]);
 	});
 
-	it('names the first of the best size standing: the lead, when the lead is of that size', () => {
+	it('names the first of the best size, tired or not: the druid heals', () => {
 		const party = team('squirrel', 'rabbit', 'fox');
-		expect(bestLead(party, 'shrew')).toEqual({ index: 0, realm: 'land', leads: true, far: false });
-		expect(bestLead([party[2]!, party[1]!], 'shrew')).toEqual({
-			index: 1,
-			realm: 'land',
-			leads: false,
-			far: false
-		});
+		const small = { realm: 'land', far: false, big: false };
+		expect(bestLead(party, 'shrew')).toEqual({ index: 0, leads: true, ...small });
+		expect(bestLead([party[2]!, party[1]!], 'shrew')).toEqual({ index: 1, leads: false, ...small });
+		// A tired squirrel in front is still the one: it leads again once it is well.
 		const tired = [{ ...party[0]!, hp: 0 }, party[2]!, party[1]!];
-		// The fox leads now; of the small ones the rabbit stands.
-		expect(bestLead(tired, 'shrew')).toEqual({ index: 2, realm: 'land', leads: false, far: false });
-		expect(bestLead([{ ...party[0]!, hp: 0 }], 'shrew')).toEqual({
-			index: 0,
-			realm: 'land',
+		expect(bestLead(tired, 'shrew')).toEqual({ index: 0, leads: true, ...small });
+		// Behind a tired bear the squirrel does not lead: the bear will, once healed.
+		const bear = team('bear', 'squirrel');
+		expect(bestLead([{ ...bear[0]!, hp: 0 }, bear[1]!], 'shrew')).toEqual({
+			index: 1,
 			leads: false,
-			far: false
+			...small
 		});
 	});
 
-	it('sends a small team far out for a big animal, and a team that cannot swim nowhere for a sea one', () => {
+	it('sends a small team far out for a big animal, a big team for a smaller one, and nobody to sea without a swimmer', () => {
 		expect(bestLead(team('squirrel'), 'bear')).toEqual({
 			index: 0,
 			realm: 'land',
 			leads: true,
-			far: true
+			far: true,
+			big: false
+		});
+		expect(bestLead(team('bear'), 'shrew')).toEqual({
+			index: 0,
+			realm: 'land',
+			leads: true,
+			far: false,
+			big: true
 		});
 		expect(bestLead(team('squirrel', 'fox'), 'whale')).toBeNull();
 		// Out on the water the frog leads, the first that swims.
@@ -195,14 +207,24 @@ describe('bestLead', () => {
 			index: 1,
 			realm: 'water',
 			leads: true,
-			far: true
+			far: true,
+			big: false
+		});
+		// Under a frozen lake the char is alone, whoever leads: no need to go far for it.
+		expect(bestLead(team('arctic-fox', 'puffin'), 'arctic-char')).toEqual({
+			index: 1,
+			realm: 'water',
+			leads: true,
+			far: false,
+			big: false
 		});
 		// The meadow holds nothing bigger than red deer, so a bear meets them more than a wolf does.
 		expect(bestLead(team('wolf', 'bear'), 'deer')).toEqual({
 			index: 1,
 			realm: 'land',
 			leads: false,
-			far: false
+			far: false,
+			big: false
 		});
 	});
 });

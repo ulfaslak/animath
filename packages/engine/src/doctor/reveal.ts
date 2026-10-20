@@ -3,7 +3,6 @@ import { canFightIn, getAnimal, skiesOf } from '../animals/catalog.js';
 import type { AnimalInstance, Biome, Realm, Tier } from '../animals/types.js';
 import type { LandId } from '../lands/ids.js';
 import { getLand } from '../lands/lands.js';
-import { leadIndex } from '../party/reducer.js';
 import { biomeLand } from '../world/biomes.js';
 import { WILD_RADIUS, encounterTable } from '../world/encounters.js';
 import { holeTable } from '../world/fishing.js';
@@ -88,18 +87,26 @@ export function meetingPlaces(speciesId: string): MeetingPlaces {
  * `holeTable`). A size is scored by the animal's share of the table in each
  * of its places, near home and from the wild radius out, all added up, so a
  * smaller lead that meets it far out can win, and so can a bigger one in a
- * place where few sizes live. Among the animals of the best size, the first
- * one standing (the lead, when the lead is of that size), else the first;
- * `realm` where it is met (land, or the water), and `leads` when the animal
- * named is the lead there already: out on the water, the first that swims. `far` when it
- * is bigger than that animal: near home it then hardly comes out (the
- * distance rule), so it is to be looked for far from the start. Null when no
- * animal of the team can go there (a sea animal, and nobody swims).
+ * place where few sizes live. The tip is read at the druid's, who heals, so
+ * tiredness counts for nothing: of the best size, the first in the team, and
+ * `leads` when no animal before it can go there (out on the water, the
+ * first that swims), so it leads once the team is well.
+ * - `realm`: where it is met, land or the water;
+ * - `far`: bigger than that animal, and in every one of its places met more
+ *   often far out than near home (near the spawn an animal bigger than the
+ *   lead hardly ever comes out: the distance rule), so it is to be looked
+ *   for far from the start; never where its share is the same near home, as
+ *   under a frozen lake, where the char is alone whoever leads;
+ * - `big`: bigger than it, and a lead of its own size would meet it at least
+ *   twice as often, so a smaller animal is to be caught first (with a bear
+ *   alone, a shrew hardly ever comes out; red deer do, for a bear in the
+ *   meadow, which holds nothing bigger).
+ * Null when no animal of the team can go there (a sea animal, and nobody swims).
  */
 export function bestLead(
 	party: readonly AnimalInstance[],
 	speciesId: string
-): { index: number; realm: Realm; leads: boolean; far: boolean } | null {
+): { index: number; realm: Realm; leads: boolean; far: boolean; big: boolean } | null {
 	const spec = getAnimal(speciesId);
 	const places = meetingPlaces(speciesId);
 	const realm: Realm = places.grass.length > 0 ? 'land' : 'water';
@@ -107,28 +114,30 @@ export function bestLead(
 	if (goes.length === 0) return null;
 	const share = (table: readonly { species: { id: string }; weight: number }[]) =>
 		table.find((e) => e.species.id === speciesId)?.weight ?? 0;
-	const score = (lead: Tier) =>
-		[0, WILD_RADIUS].reduce(
-			(sum, distance) =>
-				sum +
-				(realm === 'land'
-					? places.grass.reduce(
-							(s, b) => s + share(encounterTable(b, distance, lead, 'land', biomeLand(b))),
-							0
-						)
-					: places.sea.reduce(
-							(s, b) => s + share(encounterTable(b, distance, lead, 'water', biomeLand(b))),
-							0
-						) + places.ice.reduce((s, b) => s + share(holeTable(b, distance, lead)), 0)),
-			0
-		);
+	/** Its share in each of its places, for a lead of `lead`'s size `distance` tiles out. */
+	const shares = (lead: Tier, distance: number): number[] =>
+		realm === 'land'
+			? places.grass.map((b) => share(encounterTable(b, distance, lead, 'land', biomeLand(b))))
+			: [
+					...places.sea.map((b) => share(encounterTable(b, distance, lead, 'water', biomeLand(b)))),
+					...places.ice.map((b) => share(holeTable(b, distance, lead)))
+				];
+	const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 	const tierOf = (i: number) => getAnimal(party[i]!.speciesId).tier;
+	const score = (lead: Tier) => sum(shares(lead, 0)) + sum(shares(lead, WILD_RADIUS));
 	const scores = new Map<Tier, number>();
 	for (const i of goes) if (!scores.has(tierOf(i))) scores.set(tierOf(i), score(tierOf(i)));
 	const best = Math.max(...scores.values());
 	// Sizes a hair apart score alike: the bigger of them, as nearer home a bigger lead meets it more.
 	const tier = Math.max(...[...scores].filter(([, s]) => s >= best - 1e-9).map(([t]) => t)) as Tier;
-	const ofTier = goes.filter((i) => tierOf(i) === tier);
-	const index = ofTier.find((i) => party[i]!.hp > 0) ?? ofTier[0]!;
-	return { index, realm, leads: leadIndex(party, realm) === index, far: spec.tier > tier };
+	const index = goes.find((i) => tierOf(i) === tier)!;
+	const near = shares(tier, 0);
+	const out = shares(tier, WILD_RADIUS);
+	return {
+		index,
+		realm,
+		leads: goes[0] === index,
+		far: spec.tier > tier && near.every((n, k) => n < out[k]! - 1e-9),
+		big: tier > spec.tier && score(spec.tier) >= 2 * best
+	};
 }
