@@ -471,7 +471,7 @@ function bigParty(): AnimalInstance[] {
 }
 
 describe("the doctor's tabs", () => {
-	it('left and right go round heal, set free, shop and fly, each with its own line and cursor', () => {
+	it('left and right go round heal, set free, shop, ask and fly, each with its own line and cursor', () => {
 		const t = setup(hurtParty());
 		t.talk();
 		expect(doctor.tab).toBe('heal');
@@ -487,15 +487,30 @@ describe("the doctor's tabs", () => {
 		expect(doctor.shop).toEqual(shopFor('nordland'));
 		expect(doctor.cursor).toBe(0);
 		t.press('ArrowRight');
+		// The druid's tip: one row, the cursor on it.
+		expect(doctor.tab).toBe('ask');
+		expect(doctor.line).toEqual({ say: 'askIntro' });
+		expect(doctor.cursor).toBe(0);
+		t.press('ArrowRight');
 		// The Arctic is open: every druid lists it, locked for a kid who has not set
 		// one of every Nordland animal free.
 		expect(doctor.tab).toBe('fly');
 		expect(doctor.line).toEqual({ say: 'flyIntro' });
 		t.press('ArrowRight');
 		expect(doctor.tab).toBe('heal');
-		t.press('ArrowLeft', 'a', 'a');
+		t.press('ArrowLeft', 'a', 'a', 'a');
 		expect(doctor.tab).toBe('home');
-		expect(t.cues).toEqual(['move', 'move', 'move', 'move', 'move', 'move', 'move']);
+		expect(t.cues).toEqual([
+			'move',
+			'move',
+			'move',
+			'move',
+			'move',
+			'move',
+			'move',
+			'move',
+			'move'
+		]);
 		// A tap on a tab goes there; on the tab on screen, nothing.
 		t.press(tabKey('shop'));
 		expect(doctor.tab).toBe('shop');
@@ -1156,6 +1171,80 @@ describe('the shop', () => {
 	});
 });
 
+describe('asking the druid about an animal', () => {
+	/** To the ask tab, the cursor on its row, once the card's quiet moment has passed. */
+	const toAsk = (t: ReturnType<typeof setup>) => {
+		t.talk();
+		// A kid with every animal caught is offered the trip first: not now.
+		if (doctor.screen === 'offer') {
+			t.run(PICK_QUIET_SECONDS);
+			t.press('Escape');
+			t.run(0.1);
+		}
+		t.press(tabKey('ask'));
+		t.run(PICK_QUIET_SECONDS);
+		expect(doctor.tab).toBe('ask');
+		expect(tabRows('ask', doctor.party, doctor.shop, doctor.lands)[doctor.cursor]).toEqual({
+			kind: 'reveal'
+		});
+	};
+
+	it('asks a puzzle; a miss asks another; a right answer tells of an animal not caught, which the book keeps', () => {
+		const t = setup(hurtParty());
+		toAsk(t);
+		expect(doctor.line).toEqual({ say: 'askIntro' });
+		t.press('Enter');
+		expect(t.doctorSent().at(-1)).toEqual({ type: 'doctor', intent: { type: 'reveal' } });
+		expect(doctor.screen).toBe('puzzle');
+		expect(doctor.revealing).toBe(true);
+		expect(doctor.line).toEqual({ say: 'askCount' });
+		const asked = doctor.puzzle!;
+		t.press(...String(t.answer() + 1), 'Enter');
+		t.run(2);
+		expect([doctor.screen, doctor.revealing, doctor.told]).toEqual(['puzzle', true, null]);
+		expect(doctor.puzzle!.prompt).not.toBe(asked.prompt);
+		t.press(...answerText(doctor.puzzle!), 'Enter');
+		t.run(0.1);
+		expect(t.cues).toContain('correct');
+		t.run(3);
+		const told = doctor.told;
+		expect(told).not.toBeNull();
+		expect(getLand('nordland').species).toContain(told);
+		expect(t.authority.snapshot().caught).not.toContain(told);
+		// Back on the list, the animal on the right, the druid saying where it lives.
+		expect([doctor.screen, doctor.puzzle, doctor.revealing]).toEqual(['list', null, false]);
+		expect(doctor.line).toEqual({ say: 'told', speciesId: told, land: 'nordland' });
+		expect(doctorWords(doctor.line!)).toMatch(/Nordland/);
+		expect(t.authority.snapshot().told).toEqual([told]);
+		expect(t.events.find((e) => e.type === 'book-changed')).toMatchObject({ told: [told] });
+		// Asked again, it tells of another.
+		t.run(PICK_QUIET_SECONDS);
+		t.press('Enter');
+		t.press(...answerText(doctor.puzzle!), 'Enter');
+		t.run(4);
+		expect(doctor.told).not.toBe(told);
+		expect(t.authority.snapshot().told).toEqual([told, doctor.told]);
+	});
+
+	it('with every animal of the land caught, the row shakes and the druid says so; nothing is asked', () => {
+		const everyone = getLand('nordland').species.map((speciesId, i) => ({
+			id: `a${i}`,
+			speciesId,
+			hp: getAnimal(speciesId).maxHp
+		}));
+		const t = setup(everyone);
+		toAsk(t);
+		expect(doctor.line).toEqual({ say: 'askAllCaught', land: 'nordland' });
+		t.cues.length = 0;
+		const sent = t.doctorSent().length;
+		t.press('Enter');
+		expect(t.doctorSent()).toHaveLength(sent);
+		expect(t.cues).toEqual(['wrong']);
+		expect(doctor.shake?.row).toBe(doctor.cursor);
+		expect(doctor.line).toEqual({ say: 'askAllCaught', land: 'nordland' });
+	});
+});
+
 describe('flying from the druid', () => {
 	/**
 	 * A game in Nordland with `caught` caught and `unlocked` unlocked, every land open to fly to
@@ -1203,7 +1292,7 @@ describe('flying from the druid', () => {
 		const t = flyer([], ['nordland'], false);
 		expect(doctor.screen).toBe('list');
 		expect(doctor.lands).toEqual(['arctic']);
-		expect(doctorTabs(doctor.lands)).toEqual(['heal', 'home', 'shop', 'fly']);
+		expect(doctorTabs(doctor.lands)).toEqual(['heal', 'home', 'shop', 'ask', 'fly']);
 		expect(doctor.unlocked).toEqual(['nordland']);
 		t.press(tabKey('fly'));
 		t.run(PICK_QUIET_SECONDS);
@@ -1225,7 +1314,7 @@ describe('flying from the druid', () => {
 		const nordland = getLand('nordland').species;
 		const t = flyer(nordland.slice(0, 37), ['nordland']);
 		expect(doctor.lands).toEqual(['arctic']);
-		expect(doctorTabs(doctor.lands)).toEqual(['heal', 'home', 'shop', 'fly']);
+		expect(doctorTabs(doctor.lands)).toEqual(['heal', 'home', 'shop', 'ask', 'fly']);
 		t.press('ArrowLeft');
 		expect(doctor.tab).toBe('fly');
 		expect(doctor.line).toEqual({ say: 'flyIntro' });

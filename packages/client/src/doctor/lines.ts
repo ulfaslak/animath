@@ -44,6 +44,14 @@ export type DoctorLine =
 	| { say: 'fareCount'; land: LandId }
 	/** The surprise trip to `land`, for catching every kind of animal in `from`. */
 	| { say: 'surprise'; from: LandId }
+	/** The ask tab: a puzzle for an animal not caught yet. */
+	| { say: 'askIntro' }
+	/** The ask tab, or its row picked, with every animal of `land` caught. */
+	| { say: 'askAllCaught'; land: LandId }
+	/** The druid's puzzle is up. */
+	| { say: 'askCount' }
+	/** The druid told about `speciesId`, which lives in `land`. */
+	| { say: 'told'; speciesId: string; land: LandId }
 	| { say: 'goodbye' };
 
 export function doctorWords(line: DoctorLine): string {
@@ -118,6 +126,17 @@ export function doctorWords(line: DoctorLine): string {
 			return t('doctor.surprise.line', { from: t(`lands.${line.from}.inLine`) });
 		case 'fareCount':
 			return t('doctor.fly.count', { land: t(`lands.${line.land}.inLine`) });
+		case 'askIntro':
+			return t('doctor.ask.intro');
+		case 'askAllCaught':
+			return t('doctor.ask.allCaught', { land: t(`lands.${line.land}.inLine`) });
+		case 'askCount':
+			return t('doctor.ask.count');
+		case 'told':
+			return t('doctor.ask.told', {
+				land: t(`lands.${line.land}.inLine`),
+				animal: animalWords({ speciesId: line.speciesId })
+			});
 		case 'goodbye':
 			return t('doctor.goodbye');
 	}

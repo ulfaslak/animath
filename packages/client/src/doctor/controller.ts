@@ -6,6 +6,7 @@ import {
 	FIRST_LAND,
 	kindGoingHome,
 	needsHealing,
+	revealChoices,
 	unlockProgress,
 	type AnimalInstance,
 	type Authority,
@@ -43,8 +44,8 @@ import type { DoctorLine } from './lines';
  * "Correct!", the sparkle with the heal, the coins with the tokens). Nothing
  * here decides anything: the engine judges answers, heals, pays and sells.
  *
- * Four tabs ([[UI_SPEC]] § Doctor): heal, set free, shop and, when there is
- * another land, fly, left and right between them. The home tab's marks and its confirm are the card's own: the
+ * Five tabs ([[UI_SPEC]] § Doctor): heal, set free, shop, ask and, when there
+ * is another land, fly, left and right between them. The home tab's marks and its confirm are the card's own: the
  * authority hears of a hand-over only once the kid says yes, and even then
  * nothing leaves until the kid works out the tokens they will have.
  */
@@ -65,6 +66,8 @@ const HEAL_HOLD = 1.2;
 const HOME_HOLD = 1.6;
 /** Tokens coming in or going out, with what the doctor says about it. */
 const TOKENS_HOLD = 1.6;
+/** The animal the druid tells about comes up, with its sparkle, before the list takes keys. */
+const TOLD_HOLD = 1.2;
 
 export class DoctorController {
 	/** The visit on screen, as its events number it; null while the card is closed. */
@@ -218,6 +221,7 @@ export class DoctorController {
 		// Unlocked lands only grow: one an `unlocked-changed` told of may be newer than the state.
 		doctor.unlocked = [...new Set([...doctor.unlocked, ...state.unlocked])];
 		doctor.fare = null;
+		doctor.revealing = false;
 		doctor.offer = null;
 		doctor.line = this.said;
 		doctor.input = '';
@@ -274,6 +278,16 @@ export class DoctorController {
 				doctor.trade = null;
 				doctor.fare = phase.land;
 				doctor.cursor = this.rows().findIndex((r) => r.kind === 'land' && r.land === phase.land);
+				doctor.screen = 'puzzle';
+				break;
+			case 'revealing':
+				// The druid's puzzle for an animal not caught yet: which one, he tells after.
+				doctor.tab = 'ask';
+				doctor.puzzle = phase.puzzle;
+				doctor.patient = null;
+				doctor.trade = null;
+				doctor.revealing = true;
+				doctor.cursor = this.rows().findIndex((r) => r.kind === 'reveal');
 				doctor.screen = 'puzzle';
 				break;
 			case 'offering':
@@ -447,6 +461,21 @@ export class DoctorController {
 				}
 				sfx.play('confirm');
 				this.send({ type: 'fly', land: row.land });
+				return;
+			}
+			case 'reveal': {
+				// With every animal of the land caught there is nobody to tell about: a little shake,
+				// and the druid says so.
+				const state = this.latest;
+				if (!state || revealChoices(state.land, state.book).length === 0) {
+					this.shakeRow(doctor.cursor);
+					sfx.play('wrong');
+					this.said = { say: 'askAllCaught', land: doctor.land };
+					doctor.line = this.said;
+					return;
+				}
+				sfx.play('confirm');
+				this.send({ type: 'reveal' });
 				return;
 			}
 			case 'item':
@@ -660,6 +689,10 @@ export class DoctorController {
 				return { say: 'homeIntro' };
 			case 'shop':
 				return { say: 'shopIntro', empty: (state?.shop.length ?? 0) === 0 };
+			case 'ask':
+				return state && revealChoices(state.land, state.book).length === 0
+					? { say: 'askAllCaught', land: state.land }
+					: { say: 'askIntro' };
 			case 'fly':
 				return { say: 'flyIntro' };
 		}
@@ -703,6 +736,25 @@ export class DoctorController {
 				case 'fare-shown':
 					this.said = { say: 'fareCount', land: e.land };
 					break;
+				case 'reveal-shown':
+					this.said = { say: 'askCount' };
+					break;
+				case 'revealed': {
+					const line: DoctorLine = { say: 'told', speciesId: e.speciesId, land: after.land };
+					this.said = line;
+					beats.push({
+						run: () => {
+							// The puzzle is done with: the animal takes its place.
+							doctor.puzzle = null;
+							doctor.revealing = false;
+							doctor.told = e.speciesId;
+							doctor.line = line;
+							sfx.play('heal');
+						},
+						hold: TOLD_HOLD
+					});
+					break;
+				}
 				case 'closed':
 					this.said = this.tabLine(doctor.tab, after);
 					break;

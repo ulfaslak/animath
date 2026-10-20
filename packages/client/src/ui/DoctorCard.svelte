@@ -23,6 +23,7 @@
 	import { itemName, itemUse, itemWords } from '../items';
 	import { moneyWords } from '../money';
 	import { animalWords, nameOf, speciesName } from '../names';
+	import { book } from '../state/book.svelte';
 	import { game } from '../state/game.svelte';
 	import {
 		doctor,
@@ -39,6 +40,7 @@
 	import ItemIcon from './ItemIcon.svelte';
 	import PuzzlePanel from './PuzzlePanel.svelte';
 	import Tick from './Tick.svelte';
+	import { aboutWords, leadLine, whereLines } from '../where';
 
 	/**
 	 * The doctor's card, over the world at the bottom of the screen (UI_SPEC §
@@ -63,7 +65,11 @@
 	 */
 	const listed = $derived(
 		rows.flatMap((row, k) =>
-			row.kind === 'animal' || row.kind === 'bundle' || row.kind === 'item' || row.kind === 'land'
+			row.kind === 'animal' ||
+			row.kind === 'bundle' ||
+			row.kind === 'item' ||
+			row.kind === 'land' ||
+			row.kind === 'reveal'
 				? [{ row, k }]
 				: []
 		)
@@ -197,6 +203,8 @@
 				return t('doctor.tabs.home');
 			case 'shop':
 				return t('doctor.tabs.shop');
+			case 'ask':
+				return t('doctor.tabs.ask');
 			case 'fly':
 				return t('doctor.tabs.fly');
 		}
@@ -206,6 +214,11 @@
 	function lockOf(land: LandId) {
 		return doctor.unlocked.includes(land) ? null : unlockProgress(land, game.caught);
 	}
+
+	/** How many kinds of animal of the land the tent is in the kid has not caught yet: the ask tab's. */
+	const uncaught = $derived(
+		getLand(doctor.land).species.filter((id) => !game.caught.includes(id)).length
+	);
 
 	/** The animals of a kind, in party order: a bundle row's. */
 	function kindOf(speciesId: string) {
@@ -488,6 +501,22 @@
 							{/if}
 						</span>
 					</button>
+				{:else if row.kind === 'reveal'}
+					<!-- The druid's tip: one puzzle, greyed once every animal here is caught. -->
+					<button
+						type="button"
+						class="row land"
+						class:selected={doctor.cursor === k}
+						class:healthy={uncaught === 0}
+						class:shake-a={doctor.shake?.row === k && doctor.shake.n % 2 === 0}
+						class:shake-b={doctor.shake?.row === k && doctor.shake.n % 2 === 1}
+						data-press={rowKey(k)}
+						{@attach unfocusable}
+					>
+						<span class="caret">▸</span>
+						<span class="label">{t('doctor.ask.row')}</span>
+						<span class="worth">{t('doctor.ask.cost')}</span>
+					</button>
 				{/if}
 			{/each}
 		</div>
@@ -558,6 +587,16 @@
 					judged={doctor.judged}
 					typing={doctor.screen === 'puzzle'}
 					story={t('doctor.fly.story', { land: t(`lands.${doctor.fare}.inLine`) })}
+					back={t('doctor.back')}
+				/>
+			{:else if doctor.revealing}
+				<!-- The druid's tip: a puzzle at the size of the animal he has in mind. -->
+				<PuzzlePanel
+					puzzle={doctor.puzzle}
+					input={doctor.input}
+					judged={doctor.judged}
+					typing={doctor.screen === 'puzzle'}
+					story={t('doctor.ask.story')}
 					back={t('doctor.back')}
 				/>
 			{:else}
@@ -703,6 +742,38 @@
 				<div class="detail">{t('doctor.byeDetail')}</div>
 				<div class="keys">{touch.on ? t('doctor.shop.touch') : t('doctor.shop.keys')}</div>
 			{/if}
+		{:else if doctor.tab === 'ask'}
+			{#if doctor.told}
+				<!-- The animal the druid told about: its picture and name, what it is like, where to look. -->
+				{@const told = doctor.told}
+				{@const picture = book.portraits[told]}
+				<div class="ware told">
+					<span class="told-picture">
+						{#if picture}<img src={picture} alt="" draggable="false" />{/if}
+					</span>
+					<div>
+						<div class="ware-name">{speciesName(told)}</div>
+						<div class="detail">{aboutWords(told)}</div>
+					</div>
+				</div>
+				<div class="where">
+					{#each whereLines(told) as line, i (i)}
+						<div class="detail strong">{line}</div>
+					{/each}
+					<div class="detail">{leadLine(told)}</div>
+				</div>
+			{:else if uncaught === 0}
+				<div class="soft">{t('doctor.ask.allTitle')}</div>
+				<div class="detail">{t('doctor.byeDetail')}</div>
+			{:else}
+				<div class="soft">{t('doctor.ask.title')}</div>
+				<div class="detail">{t('doctor.ask.how')}</div>
+				<div class="tally">
+					<Tick size={24} />
+					{t('doctor.ask.left', { count: uncaught, land: t(`lands.${doctor.land}.inLine`) })}
+				</div>
+			{/if}
+			<div class="keys">{touch.on ? t('doctor.ask.touch') : t('doctor.ask.keys')}</div>
 		{:else if doctor.tab === 'fly'}
 			{#if highlighted?.kind === 'land'}
 				{@const land = highlighted.land}
@@ -1458,6 +1529,28 @@
 		font-weight: 800;
 		font-size: 28px;
 		line-height: 1.1;
+	}
+	/* The animal the druid told about: its figure's picture, as the animal book draws it. */
+	.told-picture {
+		flex: none;
+		width: 72px;
+		height: 72px;
+		border-radius: 50%;
+		background: rgba(45, 42, 50, 0.07);
+		display: grid;
+		place-items: center;
+		overflow: hidden;
+	}
+	.told-picture img {
+		width: 100%;
+		height: 100%;
+		object-fit: contain;
+	}
+	.where {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		text-align: left;
 	}
 	.price {
 		display: flex;

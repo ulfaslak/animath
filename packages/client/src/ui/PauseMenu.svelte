@@ -45,6 +45,7 @@
 	import NumberPad from './NumberPad.svelte';
 	import Switch from './Switch.svelte';
 	import Tick from './Tick.svelte';
+	import { whereLines } from '../where';
 
 	/**
 	 * The pause menu: the team's cards in battle order on the left (one per
@@ -134,6 +135,8 @@
 	const seen = $derived(new Set(game.seen));
 	const caught = $derived(new Set(game.caught));
 	const freed = $derived(new Set(game.freed));
+	/** The kinds the druid told about: one never met shows as a met one does, so the kid knows what to look for. */
+	const told = $derived(new Set(game.told));
 	const onTeam = $derived(new Set(game.party.map((a) => a.speciesId)));
 	/** The lands with a page, a tab each when there are two or more (#191). */
 	const pages = $derived(bookLands(game.land, game.unlocked));
@@ -161,7 +164,10 @@
 				: t('book.caughtTeam', { animal });
 		}
 		if (freed.has(spec.id)) return t('book.seenFree', { animal });
-		return seen.has(spec.id) ? t('book.seen', { animal }) : t('book.unseen');
+		// One the druid told about: where to look, after what the card is.
+		const where = told.has(spec.id) ? ` ${whereLines(spec.id).join(' ')}` : '';
+		if (seen.has(spec.id)) return t('book.seen', { animal }) + where;
+		return told.has(spec.id) ? t('book.told', { animal }) + where : t('book.unseen');
 	});
 
 	/**
@@ -507,7 +513,11 @@
 			{/if}
 			<div class="book-grid" {@attach bookGrid}>
 				{#each page as spec, i (spec.id)}
-					{@const kind = caught.has(spec.id) ? 'caught' : seen.has(spec.id) ? 'seen' : 'unseen'}
+					{@const kind = caught.has(spec.id)
+						? 'caught'
+						: seen.has(spec.id) || told.has(spec.id)
+							? 'seen'
+							: 'unseen'}
 					{@const picture = book.portraits[spec.id]}
 					<button
 						type="button"
