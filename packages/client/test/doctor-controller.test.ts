@@ -1211,19 +1211,28 @@ describe('asking the druid about an animal', () => {
 		expect(told).not.toBeNull();
 		expect(getLand('nordland').species).toContain(told);
 		expect(t.authority.snapshot().caught).not.toContain(told);
-		// Back on the list, the animal on the right, the druid saying where it lives.
-		expect([doctor.screen, doctor.puzzle, doctor.revealing]).toEqual(['list', null, false]);
+		// The animal on the whole card, the druid saying where it lives, until it is put away.
+		expect([doctor.screen, doctor.puzzle, doctor.revealing]).toEqual(['told', null, false]);
 		expect(doctor.line).toEqual({ say: 'told', speciesId: told, land: 'nordland' });
+		t.press('Enter');
+		expect([doctor.screen, doctor.told, doctor.active]).toEqual(['list', null, true]);
 		expect(doctorWords(doctor.line!)).toMatch(/Nordland/);
 		expect(t.authority.snapshot().told).toEqual([told]);
 		expect(t.events.find((e) => e.type === 'book-changed')).toMatchObject({ told: [told] });
-		// Asked again, it tells of another.
+		// Asked again, it tells of another; Escape puts it away, and says no bye.
 		t.run(PICK_QUIET_SECONDS);
 		t.press('Enter');
 		t.press(...answerText(doctor.puzzle!), 'Enter');
 		t.run(4);
-		expect(doctor.told).not.toBe(told);
-		expect(t.authority.snapshot().told).toEqual([told, doctor.told]);
+		const second = doctor.told;
+		expect(second).not.toBe(told);
+		expect(t.authority.snapshot().told).toEqual([told, second]);
+		t.press('Escape');
+		expect([doctor.screen, doctor.told, doctor.active]).toEqual(['list', null, true]);
+		expect(t.doctorSent().at(-1)?.type).toBe('doctor');
+		expect(t.doctorSent().some((i) => i.type === 'doctor' && i.intent.type === 'leave')).toBe(
+			false
+		);
 	});
 
 	it('with every animal of the land caught, the row shakes and the druid says so; nothing is asked', () => {

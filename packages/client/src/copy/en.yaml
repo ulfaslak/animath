@@ -1737,8 +1737,11 @@ doctor:
       other: '{count} animals in {land} left to catch'
     # The same side, with every animal of the land caught.
     allTitle: You caught them all!
-    # The right-hand side after a right answer: the animal told about, its picture and name
-    # over what it is like (about.*) and where to look (where.*). Then the keys.
+    # After a right answer, on the whole card: the animal told about, its picture and name
+    # over what it is like (about.*) and where to look (where.*), then the button that puts it
+    # away (the animal book keeps it) and its keys.
+    ok: Thank you!
+    toldKeys: Enter or Esc to go back
     keys: ↑ ↓ choose · ← → tabs · Enter ask · Esc bye
     touch: Tap the row to ask
   # The last row of the list, and its key.

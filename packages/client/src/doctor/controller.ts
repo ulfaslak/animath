@@ -87,6 +87,8 @@ export class DoctorController {
 	private said: DoctorLine | null = null;
 	/** Counts the pops and shakes, so each one starts its animation again. */
 	private pops = 0;
+	/** The druid just told about an animal: the list waits under it until the kid puts it away. */
+	private telling = false;
 
 	/**
 	 * `devFly`: the `?lands` switch's quick way to fly: L on the card's list
@@ -171,6 +173,9 @@ export class DoctorController {
 			case 'offer':
 				handled = this.confirmKey(key, fresh);
 				break;
+			case 'told':
+				handled = this.toldKey(key, fresh);
+				break;
 			case 'puzzle':
 				handled = this.puzzleKey(key);
 				break;
@@ -239,6 +244,13 @@ export class DoctorController {
 				doctor.patient = null;
 				doctor.trade = null;
 				this.fixCursor();
+				// The animal the druid told about stays up until it is put away: a new choice.
+				if (this.telling) {
+					this.telling = false;
+					this.guard.show();
+					doctor.screen = 'told';
+					break;
+				}
 				// The card opening, or the list back after a beat: a new choice.
 				if (doctor.screen !== 'list') this.guard.show();
 				doctor.screen = 'list';
@@ -309,6 +321,7 @@ export class DoctorController {
 		this.beats = [];
 		this.wait = 0;
 		this.said = null;
+		this.telling = false;
 	}
 
 	private send(intent: DoctorIntent): void {
@@ -322,6 +335,10 @@ export class DoctorController {
 			case 'confirm':
 				sfx.play('move');
 				this.backToList();
+				break;
+			case 'told':
+				sfx.play('move');
+				this.putToldAway();
 				break;
 			case 'puzzle':
 			case 'offer':
@@ -339,6 +356,32 @@ export class DoctorController {
 		this.said = this.tabLine(doctor.tab);
 		doctor.line = this.said;
 		this.guard.show();
+	}
+
+	/** The animal the druid told about goes (the book keeps it), and the list is back: a new choice. */
+	private putToldAway(): void {
+		doctor.told = null;
+		doctor.screen = 'list';
+		this.guard.show();
+	}
+
+	/** On the animal told about: Enter, Space or a tap on OK puts it away; a tab goes there. */
+	private toldKey(key: string, fresh: boolean): boolean {
+		const tab = tappedTab(key);
+		if (tab !== undefined) {
+			this.putToldAway();
+			if (doctorTabs(doctor.lands).includes(tab)) this.switchTab(tab);
+			return true;
+		}
+		const option = tappedOption(key);
+		if (option !== undefined || key === 'Enter' || key === ' ') {
+			if (fresh) {
+				sfx.play('confirm');
+				this.putToldAway();
+			}
+			return true;
+		}
+		return false;
 	}
 
 	private switchTab(tab: DoctorTab): void {
@@ -742,6 +785,7 @@ export class DoctorController {
 				case 'revealed': {
 					const line: DoctorLine = { say: 'told', speciesId: e.speciesId, land: after.land };
 					this.said = line;
+					this.telling = true;
 					beats.push({
 						run: () => {
 							// The puzzle is done with: the animal takes its place.

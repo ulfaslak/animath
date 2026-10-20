@@ -30,9 +30,11 @@ export { DOCTOR_TABS, type DoctorTab } from '../doctor/tabs';
  * cursor over the tab's rows (← → change the tab), `confirm` asks before a
  * hand-over, `offer` asks whether to take the surprise trip the druid
  * offers (`surpriseLand`), `puzzle` types an answer (a healing puzzle or a
- * token sum), `busy` ignores everything but Escape while a beat plays.
+ * token sum), `told` shows the animal the druid just told about, on the whole
+ * card, until Enter, a tap on OK or Escape puts it away, and `busy` ignores
+ * everything but Escape while a beat plays.
  */
-export type DoctorScreen = 'list' | 'confirm' | 'offer' | 'puzzle' | 'busy';
+export type DoctorScreen = 'list' | 'confirm' | 'offer' | 'puzzle' | 'told' | 'busy';
 
 /** The token sum that is open: what it is for, and what changes hands. */
 export type DoctorTrade =
@@ -84,9 +86,9 @@ class DoctorView {
 	/** The druid's puzzle for an animal not caught yet is asked. */
 	revealing = $state(false);
 	/**
-	 * The animal the druid told about last in this visit: the ask tab shows
-	 * it, its picture, what it is like and where to look, until he tells about
-	 * another or the card closes (a puzzle asked and put away leaves it up).
+	 * The animal the druid just told about: the card shows it, its picture,
+	 * what it is like and where to look, on the whole card, from its beat
+	 * until the kid puts it away (the animal book keeps it).
 	 */
 	told = $state<string | null>(null);
 	/** What the doctor is saying, worded by the card in the language on screen. */

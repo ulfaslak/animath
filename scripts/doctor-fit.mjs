@@ -142,6 +142,25 @@ const buy = (balance) => ({
 	line: { say: 'shopCount' }
 });
 /** A right answer's beats: "Correct!", then its reward on the list (`screen` busy all along). */
+/** The druid's tip (Ask): his puzzle, and then the animal he told about, the wordiest ones. */
+const ask = (prompt, answer, kind = 'div', difficulty = 8) => ({
+	party: TEAM,
+	tab: 'ask',
+	screen: 'puzzle',
+	revealing: true,
+	puzzle: { ...sum(prompt, answer, kind), difficulty },
+	input: String(answer),
+	find: { kind: 'reveal' },
+	line: { say: 'askCount' }
+});
+const told = (speciesId, land) => ({
+	party: TEAM,
+	tab: 'ask',
+	screen: 'told',
+	told: speciesId,
+	find: { kind: 'reveal' },
+	line: { say: 'told', speciesId, land }
+});
 const right = (s, reward = {}) => ({ ...s, screen: 'busy', judged: { correct: true }, ...reward });
 const wrong = (s, line) => ({ ...s, screen: 'busy', judged: { correct: false }, line });
 
@@ -269,6 +288,22 @@ const STATES = {
 		tokenPop: { amount: 29970, n: 1 },
 		line: { say: 'tokensGiven', amount: 29970, tokens: 42610 }
 	}),
+	'ask-list': {
+		party: TEAM,
+		tab: 'ask',
+		screen: 'list',
+		find: { kind: 'reveal' },
+		line: { say: 'askIntro' }
+	},
+	'ask-puzzle': ask('1620 ÷ 18 = ?', 90),
+	'ask-picture': ask('barchart(2, 1, 0, 2, 4, 3, 10, 10, 10, 0)', 13, 'barchart', 3),
+	'ask-correct': right(ask('1620 ÷ 18 = ?', 90)),
+	// Met two ways and big: a line for the sea, one for the ice, and the far line.
+	'ask-told-shark': told('greenland-shark', 'arctic'),
+	// Grass in two places, the sea, the sky: the most lines a bird gets.
+	'ask-told-goose': told('barnacle-goose', 'arctic'),
+	'ask-told-swan': told('mute-swan', 'nordland'),
+	'ask-told-emperor': told('emperor-penguin', 'arctic'),
 	'shop-list': {
 		party: TEAM,
 		tab: 'shop',
@@ -339,7 +374,9 @@ function show(state) {
 		leaving: null,
 		tokenPop: null,
 		bought: null,
-		shake: null
+		shake: null,
+		revealing: false,
+		told: null
 	};
 	for (const [key, value] of Object.entries({ ...blank, ...state })) {
 		if (key !== 'find') doctor[key] = structuredClone(value);

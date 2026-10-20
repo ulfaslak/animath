@@ -1550,6 +1550,8 @@ doctor:
       one: '{count} dyr i {land} mangler at blive fanget'
       other: '{count} dyr i {land} mangler at blive fanget'
     allTitle: Du har fanget dem alle sammen!
+    ok: Tak!
+    toldKeys: Enter eller Esc for at gå tilbage
     keys: ↑ ↓ flyt · ← → faner · Enter spørg · Esc farvel
     touch: Tryk på rækken for at spørge
   bye: Farvel

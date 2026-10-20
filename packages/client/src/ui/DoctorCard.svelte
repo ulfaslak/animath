@@ -123,6 +123,8 @@
 	 * card, and the question ran off it (`pictured`).
 	 */
 	const pictured = $derived(doctor.puzzle !== null && isPictureKind(doctor.puzzle.kind));
+	/** The animal the druid told about is up: like a picture puzzle, it has the whole card on every screen. */
+	const telling = $derived(doctor.told !== null);
 	const solo = $derived(
 		(touch.on || pictured) &&
 			doctor.puzzle !== null &&
@@ -335,7 +337,7 @@
 	});
 </script>
 
-<div class="doctor" class:solo class:pictured={solo && pictured}>
+<div class="doctor" class:solo={solo || telling} class:pictured={(solo && pictured) || telling}>
 	<!-- The tokens come before the line, so that a crowded line's first line has them beside it. -->
 	<div class="card talk" class:crowded class:small bind:this={talk}>
 		<span class="who">{t('doctor.title')}</span>
@@ -751,17 +753,28 @@
 					<span class="told-picture">
 						{#if picture}<img src={picture} alt="" draggable="false" />{/if}
 					</span>
-					<div>
+					<!-- Beside the picture, so the picture takes no line of its own. -->
+					<div class="where">
 						<div class="ware-name">{speciesName(told)}</div>
 						<div class="detail">{aboutWords(told)}</div>
+						{#each whereLines(told) as line, i (i)}
+							<div class="detail strong">{line}</div>
+						{/each}
+						<div class="detail lead">{leadLines(told).join(' ')}</div>
 					</div>
 				</div>
-				<div class="where">
-					{#each whereLines(told) as line, i (i)}
-						<div class="detail strong">{line}</div>
-					{/each}
-					<div class="detail">{leadLines(told).join(' ')}</div>
+				<div class="choices">
+					<button
+						type="button"
+						class="choice yes"
+						class:lit={doctor.screen === 'told'}
+						data-press={optionKey(0)}
+						{@attach unfocusable}
+					>
+						{t('doctor.ask.ok')}
+					</button>
 				</div>
+				{#if !touch.on}<div class="keys">{t('doctor.ask.toldKeys')}</div>{/if}
 			{:else if uncaught === 0}
 				<div class="soft">{t('doctor.ask.allTitle')}</div>
 				<div class="detail">{t('doctor.byeDetail')}</div>
@@ -773,7 +786,9 @@
 					{t('doctor.ask.left', { count: uncaught, land: t(`lands.${doctor.land}.inLine`) })}
 				</div>
 			{/if}
-			<div class="keys">{touch.on ? t('doctor.ask.touch') : t('doctor.ask.keys')}</div>
+			{#if !doctor.told}
+				<div class="keys">{touch.on ? t('doctor.ask.touch') : t('doctor.ask.keys')}</div>
+			{/if}
 		{:else if doctor.tab === 'fly'}
 			{#if highlighted?.kind === 'land'}
 				{@const land = highlighted.land}
@@ -1433,7 +1448,8 @@
 	.puzzle:global([data-fit~='small']) .ware-name {
 		font-size: 22px;
 	}
-	/* `bare`: the hints go (the keys, the tap hints, the note), and what they hint at stays. */
+	/* `bare`: the hints go (the keys, the tap hints, the note, which animal to put first), and what they hint at stays. */
+	.puzzle:global([data-fit~='bare']) .lead,
 	.puzzle:global([data-fit~='bare']) .keys,
 	.puzzle:global([data-fit~='bare']) :global(.keys) {
 		display: none;
@@ -1531,6 +1547,9 @@
 		line-height: 1.1;
 	}
 	/* The animal the druid told about: its figure's picture, as the animal book draws it. */
+	.ware.told {
+		align-items: flex-start;
+	}
 	.told-picture {
 		flex: none;
 		width: 72px;
@@ -1551,6 +1570,11 @@
 		flex-direction: column;
 		gap: 4px;
 		text-align: left;
+	}
+	/* The animal told about has the whole card: its lines take its width, so none need go. */
+	.told .detail,
+	.where .detail {
+		max-width: 44em;
 	}
 	.price {
 		display: flex;
