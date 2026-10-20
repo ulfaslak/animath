@@ -2484,6 +2484,11 @@ where:
   # After `lead` or `leadKeep`, when the animal is bigger than that one: near home it hardly
   # comes out for a smaller lead ([[PRODUCT]] §4 "Wild encounters", the distance rule).
   far: '{lead.name} is smaller than {animal.the}, so look far from where you started.'
+  # That animal is tired: the tip counts the team as healed, and the druid heals.
+  tired: '{lead.name} is tired. Heal it first!'
+  # Instead of `lead`: the kid's animals are all so big that it hardly ever comes out for them.
+  tooBig: '{lead.name} is much bigger than {animal.the}. Catch a smaller animal and put it first, then you meet {animal.the} more often.'
+  tooBigSwim: '{lead.name} is much bigger than {animal.the}. Catch a smaller animal that can swim and put it first, then you meet {animal.the} more often.'
   # An animal of the water, and nobody in the team swims.
   noSwimmer: None of your animals can swim yet. Catch one that can first!
 # Each land's tall grass, as `where` names it.

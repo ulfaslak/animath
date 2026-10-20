@@ -52,21 +52,28 @@ export function whereLines(speciesId: string): string[] {
 /**
  * Which of the kid's own animals to put first to meet an animal most often
  * (the engine's `bestLead`, read off the encounter rules), by its name: put
- * it first, or keep it first when it is there already. When the animal is
- * bigger than that one, also that it is to be looked for far from home: near
- * the spawn an animal bigger than the lead hardly ever comes out (the
- * distance rule), so a kid with only small animals is not sent to wait for a
- * bear by the tent. For an animal of the water with nobody in the team who
- * swims, that one who swims is needed first.
+ * it first, or keep it first when it is there already (out on the water,
+ * where the first that swims leads, that it does there). When it is tired,
+ * to heal it: the tip counts the team as healed. When the animal is bigger,
+ * also that it is to be looked for far from home: near the spawn an animal
+ * bigger than the lead hardly ever comes out (the distance rule), so a kid
+ * with only small animals is not sent to wait for a bear by the tent. When
+ * the kid's animals are all so big that it hardly comes out for them, to
+ * catch a smaller one instead; with nobody who swims for an animal of the
+ * water, to catch one that swims.
  */
 export function leadLines(speciesId: string, party: readonly AnimalInstance[]): string[] {
 	const best = bestLead(party, speciesId);
 	if (best === null) return [t('where.noSwimmer')];
-	const words = { lead: animalWords(party[best.index]!), animal: animalWords({ speciesId }) };
-	// Out on the water the first that swims leads, not the animal tagged on land.
-	const keep = best.realm === 'water' ? 'where.leadKeepSwim' : 'where.leadKeep';
-	const lead = t(best.leads ? keep : 'where.lead', words);
-	return best.far ? [lead, t('where.far', words)] : [lead];
+	const lead = party[best.index]!;
+	const words = { lead: animalWords(lead), animal: animalWords({ speciesId }) };
+	const water = best.realm === 'water';
+	if (best.big) return [t(water ? 'where.tooBigSwim' : 'where.tooBig', words)];
+	const keep = water ? 'where.leadKeepSwim' : 'where.leadKeep';
+	const lines = [t(best.leads ? keep : 'where.lead', words)];
+	if (lead.hp === 0) lines.push(t('where.tired', words));
+	if (best.far) lines.push(t('where.far', words));
+	return lines;
 }
 
 /** What an animal is like, as the druid tells it. */

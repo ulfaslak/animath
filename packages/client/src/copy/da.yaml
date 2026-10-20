@@ -2096,6 +2096,9 @@ where:
   leadKeep: Behold {lead.the} som dit aktive dyr, så møder du {animal.a} oftere.
   leadKeepSwim: På vandet er {lead.the} allerede dit aktive dyr. Det er godt, for så møder du {animal.a} oftere.
   far: '{lead.the} er mindre end {animal.the}, så du skal lede langt væk fra der, hvor du startede.'
+  tired: '{lead.the} er træt. Gør {lead.the} rask først!'
+  tooBig: '{lead.the} er meget større end {animal.the}. Fang et mindre dyr og gør det til dit aktive dyr, så møder du {animal.the} oftere.'
+  tooBigSwim: '{lead.the} er meget større end {animal.the}. Fang et mindre dyr, der kan svømme. Gør det til dit aktive dyr, så møder du {animal.the} oftere.'
   noSwimmer: Ingen af dine dyr kan svømme endnu. Fang først et dyr, der kan svømme!
 grass:
   nordland: det høje græs

@@ -29,4 +29,19 @@ describe("the druid's tip on which animal to put first", () => {
 			'None of your animals can swim yet. Catch one that can first!'
 		]);
 	});
+
+	it('says to heal a tired one, and to catch a smaller one when the team is too big', () => {
+		const [bear, squirrel] = team('bear', 'squirrel');
+		expect(leadLines('shrew', [{ ...bear!, hp: 0 }, squirrel!])).toEqual([
+			'Put Squirrel first, and you meet a Shrew more often.'
+		]);
+		expect(leadLines('shrew', [{ ...squirrel!, hp: 0 }, bear!])).toEqual([
+			'Keep Squirrel first, and you meet a Shrew more often.',
+			'Squirrel is tired. Heal it first!'
+		]);
+		language.set('da');
+		expect(leadLines('shrew', [bear!])).toEqual([
+			'Bjørnen er meget større end spidsmusen. Fang et mindre dyr og gør det til dit aktive dyr, så møder du spidsmusen oftere.'
+		]);
+	});
 });
