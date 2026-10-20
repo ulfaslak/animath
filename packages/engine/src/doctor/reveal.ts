@@ -3,6 +3,7 @@ import { canFightIn, getAnimal, skiesOf } from '../animals/catalog.js';
 import type { AnimalInstance, Biome, Realm, Tier } from '../animals/types.js';
 import type { LandId } from '../lands/ids.js';
 import { getLand } from '../lands/lands.js';
+import { leadIndex } from '../party/reducer.js';
 import { biomeLand } from '../world/biomes.js';
 import { WILD_RADIUS, encounterTable } from '../world/encounters.js';
 import { holeTable } from '../world/fishing.js';
@@ -88,7 +89,8 @@ export function meetingPlaces(speciesId: string): MeetingPlaces {
  * of its places, near home and from the wild radius out, all added up, so a
  * smaller lead that meets it far out can win, and so can a bigger one in a
  * place where few sizes live. Among the animals of the best size, the first
- * one standing (the lead, when the lead is of that size), else the first. `far` when it
+ * one standing (the lead, when the lead is of that size), else the first;
+ * `leads` when it is the lead there already. `far` when it
  * is bigger than that animal: near home it then hardly comes out (the
  * distance rule), so it is to be looked for far from the start. Null when no
  * animal of the team can go there (a sea animal, and nobody swims).
@@ -96,7 +98,7 @@ export function meetingPlaces(speciesId: string): MeetingPlaces {
 export function bestLead(
 	party: readonly AnimalInstance[],
 	speciesId: string
-): { index: number; far: boolean } | null {
+): { index: number; leads: boolean; far: boolean } | null {
 	const spec = getAnimal(speciesId);
 	const places = meetingPlaces(speciesId);
 	const realm: Realm = places.grass.length > 0 ? 'land' : 'water';
@@ -127,5 +129,5 @@ export function bestLead(
 	const tier = Math.max(...[...scores].filter(([, s]) => s >= best - 1e-9).map(([t]) => t)) as Tier;
 	const ofTier = goes.filter((i) => tierOf(i) === tier);
 	const index = ofTier.find((i) => party[i]!.hp > 0) ?? ofTier[0]!;
-	return { index, far: spec.tier > tier };
+	return { index, leads: leadIndex(party, realm) === index, far: spec.tier > tier };
 }

@@ -760,7 +760,7 @@
 						{#each whereLines(told) as line, i (i)}
 							<div class="detail strong">{line}</div>
 						{/each}
-						<div class="detail lead">{leadLines(told).join(' ')}</div>
+						<div class="detail lead">{leadLines(told, doctor.party).join(' ')}</div>
 					</div>
 				</div>
 				<div class="choices">
