@@ -6,6 +6,7 @@ import {
 	FIRST_LAND,
 	kindGoingHome,
 	needsHealing,
+	revealChoices,
 	unlockProgress,
 	type AnimalInstance,
 	type Authority,
@@ -43,8 +44,8 @@ import type { DoctorLine } from './lines';
  * "Correct!", the sparkle with the heal, the coins with the tokens). Nothing
  * here decides anything: the engine judges answers, heals, pays and sells.
  *
- * Four tabs ([[UI_SPEC]] § Doctor): heal, set free, shop and, when there is
- * another land, fly, left and right between them. The home tab's marks and its confirm are the card's own: the
+ * Five tabs ([[UI_SPEC]] § Doctor): heal, set free, shop, ask and, when there
+ * is another land, fly, left and right between them. The home tab's marks and its confirm are the card's own: the
  * authority hears of a hand-over only once the kid says yes, and even then
  * nothing leaves until the kid works out the tokens they will have.
  */
@@ -65,6 +66,8 @@ const HEAL_HOLD = 1.2;
 const HOME_HOLD = 1.6;
 /** Tokens coming in or going out, with what the doctor says about it. */
 const TOKENS_HOLD = 1.6;
+/** The animal the druid tells about comes up, with its sparkle, before the list takes keys. */
+const TOLD_HOLD = 1.2;
 
 export class DoctorController {
 	/** The visit on screen, as its events number it; null while the card is closed. */
@@ -84,6 +87,8 @@ export class DoctorController {
 	private said: DoctorLine | null = null;
 	/** Counts the pops and shakes, so each one starts its animation again. */
 	private pops = 0;
+	/** The druid just told about an animal: the list waits under it until the kid puts it away. */
+	private telling = false;
 
 	/**
 	 * `devFly`: the `?lands` switch's quick way to fly: L on the card's list
@@ -168,6 +173,9 @@ export class DoctorController {
 			case 'offer':
 				handled = this.confirmKey(key, fresh);
 				break;
+			case 'told':
+				handled = this.toldKey(key, fresh);
+				break;
 			case 'puzzle':
 				handled = this.puzzleKey(key);
 				break;
@@ -218,6 +226,7 @@ export class DoctorController {
 		// Unlocked lands only grow: one an `unlocked-changed` told of may be newer than the state.
 		doctor.unlocked = [...new Set([...doctor.unlocked, ...state.unlocked])];
 		doctor.fare = null;
+		doctor.revealing = false;
 		doctor.offer = null;
 		doctor.line = this.said;
 		doctor.input = '';
@@ -235,6 +244,13 @@ export class DoctorController {
 				doctor.patient = null;
 				doctor.trade = null;
 				this.fixCursor();
+				// The animal the druid told about stays up until it is put away: a new choice.
+				if (this.telling) {
+					this.telling = false;
+					this.guard.show();
+					doctor.screen = 'told';
+					break;
+				}
 				// The card opening, or the list back after a beat: a new choice.
 				if (doctor.screen !== 'list') this.guard.show();
 				doctor.screen = 'list';
@@ -276,6 +292,16 @@ export class DoctorController {
 				doctor.cursor = this.rows().findIndex((r) => r.kind === 'land' && r.land === phase.land);
 				doctor.screen = 'puzzle';
 				break;
+			case 'revealing':
+				// The druid's puzzle for an animal not caught yet: which one, he tells after.
+				doctor.tab = 'ask';
+				doctor.puzzle = phase.puzzle;
+				doctor.patient = null;
+				doctor.trade = null;
+				doctor.revealing = true;
+				doctor.cursor = this.rows().findIndex((r) => r.kind === 'reveal');
+				doctor.screen = 'puzzle';
+				break;
 			case 'offering':
 				doctor.offer = phase.land;
 				// The card opening on the question: a new choice.
@@ -295,6 +321,7 @@ export class DoctorController {
 		this.beats = [];
 		this.wait = 0;
 		this.said = null;
+		this.telling = false;
 	}
 
 	private send(intent: DoctorIntent): void {
@@ -308,6 +335,10 @@ export class DoctorController {
 			case 'confirm':
 				sfx.play('move');
 				this.backToList();
+				break;
+			case 'told':
+				sfx.play('move');
+				this.putToldAway();
 				break;
 			case 'puzzle':
 			case 'offer':
@@ -325,6 +356,32 @@ export class DoctorController {
 		this.said = this.tabLine(doctor.tab);
 		doctor.line = this.said;
 		this.guard.show();
+	}
+
+	/** The animal the druid told about goes (the book keeps it), and the list is back: a new choice. */
+	private putToldAway(): void {
+		doctor.told = null;
+		doctor.screen = 'list';
+		this.guard.show();
+	}
+
+	/** On the animal told about: Enter, Space or a tap on OK puts it away; a tab goes there. */
+	private toldKey(key: string, fresh: boolean): boolean {
+		const tab = tappedTab(key);
+		if (tab !== undefined) {
+			this.putToldAway();
+			if (doctorTabs(doctor.lands).includes(tab)) this.switchTab(tab);
+			return true;
+		}
+		const option = tappedOption(key);
+		if (option !== undefined || key === 'Enter' || key === ' ') {
+			if (fresh) {
+				sfx.play('confirm');
+				this.putToldAway();
+			}
+			return true;
+		}
+		return false;
 	}
 
 	private switchTab(tab: DoctorTab): void {
@@ -447,6 +504,21 @@ export class DoctorController {
 				}
 				sfx.play('confirm');
 				this.send({ type: 'fly', land: row.land });
+				return;
+			}
+			case 'reveal': {
+				// With every animal of the land caught there is nobody to tell about: a little shake,
+				// and the druid says so.
+				const state = this.latest;
+				if (!state || revealChoices(state.land, state.book).length === 0) {
+					this.shakeRow(doctor.cursor);
+					sfx.play('wrong');
+					this.said = { say: 'askAllCaught', land: doctor.land };
+					doctor.line = this.said;
+					return;
+				}
+				sfx.play('confirm');
+				this.send({ type: 'reveal' });
 				return;
 			}
 			case 'item':
@@ -660,6 +732,10 @@ export class DoctorController {
 				return { say: 'homeIntro' };
 			case 'shop':
 				return { say: 'shopIntro', empty: (state?.shop.length ?? 0) === 0 };
+			case 'ask':
+				return state && revealChoices(state.land, state.book).length === 0
+					? { say: 'askAllCaught', land: state.land }
+					: { say: 'askIntro' };
 			case 'fly':
 				return { say: 'flyIntro' };
 		}
@@ -703,6 +779,26 @@ export class DoctorController {
 				case 'fare-shown':
 					this.said = { say: 'fareCount', land: e.land };
 					break;
+				case 'reveal-shown':
+					this.said = { say: 'askCount' };
+					break;
+				case 'revealed': {
+					const line: DoctorLine = { say: 'told', speciesId: e.speciesId, land: after.land };
+					this.said = line;
+					this.telling = true;
+					beats.push({
+						run: () => {
+							// The puzzle is done with: the animal takes its place.
+							doctor.puzzle = null;
+							doctor.revealing = false;
+							doctor.told = e.speciesId;
+							doctor.line = line;
+							sfx.play('heal');
+						},
+						hold: TOLD_HOLD
+					});
+					break;
+				}
 				case 'closed':
 					this.said = this.tabLine(doctor.tab, after);
 					break;

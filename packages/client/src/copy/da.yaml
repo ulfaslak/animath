@@ -1536,6 +1536,24 @@ doctor:
     notNow: Ikke nu
     yes: Ja, lad os flyve!
     keys: ← → flyt · Enter vælg · Esc ikke nu
+  ask:
+    intro: Kan du ikke finde et dyr? Løs en opgave, så fortæller jeg dig om et!
+    allCaught: Du har fanget alle dyrene i {land}! Der er ingen tilbage at fortælle om.
+    count: Løs den her, så fortæller jeg dig om et dyr, du mangler!
+    story: Én opgave, så fortæller jeg dig en hemmelighed!
+    told: Lyt godt efter! Et sted i {land} bor der {animal.a}.
+    row: Hvilket dyr mangler jeg?
+    cost: Én opgave
+    title: Hvilke dyr mangler du?
+    how: Løs én opgave, så fortæller jeg dig om et dyr, du ikke har fanget endnu. Et stort dyr giver en sværere opgave.
+    left:
+      one: '{count} dyr i {land} mangler at blive fanget'
+      other: '{count} dyr i {land} mangler at blive fanget'
+    allTitle: Du har fanget dem alle sammen!
+    ok: Tak!
+    toldKeys: Enter eller Esc for at gå tilbage
+    keys: ↑ ↓ flyt · ← → faner · Enter spørg · Esc farvel
+    touch: Tryk på rækken for at spørge
   bye: Farvel
   byeKey: Esc
   back: Tilbage
@@ -1543,6 +1561,7 @@ doctor:
     heal: Gør rask
     home: Slip fri
     shop: Butik
+    ask: Spørg
     fly: Flyv
   tokens:
     one: '{count} {money.word}'
@@ -2062,8 +2081,147 @@ book:
   freedTeam: '{animal.the} er på dit hold og tæller som sluppet fri!'
   caughtHome: Du fangede {animal.a} og slap {animal.the} fri. Det står i din bog for altid!
   seenFree: Du har mødt {animal.a}, og {animal.the} tæller som sluppet fri!
+  told: Druiden har fortalt dig om {animal.a}.
   lands: Vælg et land og se dets dyr!
   keys: ↑ ↓ ← → flyt · Esc tilbage
+where:
+  grassWater: Kig i {grass} {places}, tæt på vand.
+  grassTrees: Kig i {grass} {places}, tæt på træer.
+  grassRocks: Kig i {grass} {places}, tæt på sten.
+  grassOpen: Kig i {grass} {places}, langt fra træer og sten.
+  sea: Sejl ud på det dybe vand {places} i din båd med et dyr, der kan svømme.
+  ice: Fisk efter den gennem et hul {places}. Du skal bruge en fiskestang og et dyr, der kan svømme.
+  sky: '{animal.the} kan flyve. Har du en fugl på dit hold, følger den måske efter dig, når du flyver med din paraglider.'
+  lead: Lad {size} være først ud, så møder du det oftere.
+  leadSwim: Lad {size}, der kan svømme, være først ud, så møder du det oftere.
+  far: Med et mindre dyr først ud skal du lede langt fra, hvor du startede.
+  size:
+    tier1: et lille dyr
+    tier2: et mellemstort dyr
+    tier3: et stort dyr
+    tier4: et meget stort dyr
+    tier5: et kæmpestort dyr
+grass:
+  nordland: det høje græs
+  arctic: den dybe sne
+places:
+  meadow: på engen
+  forest: i skoven
+  river: ved åen
+  mountain: i bjergene
+  sea: midt ude på søerne
+  tundra: på tundraen
+  taiga: ved granskoven
+  fell: oppe på de stenede bakker
+  bird-cliffs: ved fuglefjeldet ved kysten
+  frozen-lake: på en frossen sø
+  arctic-ice: på havisen mod nord
+  arctic-ocean: i den nordlige halvdel af det åbne hav
+  ice-sheet: på den store indlandsis mod syd
+  rookery: på den stenede kyst mod syd
+  antarctic-ice: på havisen mod syd
+  southern-ocean: i den sydlige halvdel af det åbne hav
+about:
+  squirrel: 'Det har en busket rød hale. Det gemmer nødder, som det spiser om vinteren.'
+  rabbit: 'Den har lange ører og en lille hvid hale. Den tramper i jorden for at advare de andre.'
+  frog: 'Den har glat, våd hud og lange bagben. Den fanger fluer med sin klistrede tunge.'
+  fox: 'Den har rød pels og en busket hale med hvid spids. Den kan høre en mus under sneen.'
+  otter: 'Den har tyk brun pels og svømmehud mellem tæerne. Den fanger fisk og elsker at lege.'
+  deer: 'Den har rødbrun pels. Hannerne får et nyt gevir hvert år.'
+  wolf: 'Den har grå pels og lever i en familie, der hedder en flok. Den hyler for at kalde på de andre.'
+  bear: 'Den har tyk brun pels. Den sover hele vinteren i en lun hule.'
+  shrew: 'Den har en lang, spids snude og bittesmå øjne. Den spiser insekter næsten hele tiden.'
+  wood-mouse: 'Den har store øjne, store ører og en lang hale. Den kan hoppe højt på bagbenene.'
+  brown-rat: 'Den har brun pels og en lang, nøgen hale. Den er meget klog og god til at svømme.'
+  hedgehog: 'Det har skarpe pigge på ryggen. Det ruller sig sammen til en kugle, når det er bange.'
+  mole: 'Den har blød sort pels og store gravepoter. Den graver gange under jorden.'
+  common-lizard: 'Det har små brune skæl. Det ligger i solen for at få varmen.'
+  common-toad: 'Den har bulet brun hud og gyldne øjne. Den kravler mere, end den hopper.'
+  robin: 'Den har et klart orangerødt bryst. Den synger også om vinteren.'
+  stag-beetle: 'Den er mørk og blank. Hannerne har kæmpe kæber, der ligner et gevir.'
+  roe-deer: 'Det har en hvid plet på numsen. Det kan gø ligesom en hund, når det er bange.'
+  badger: 'Den har sorte og hvide striber i ansigtet. Den kommer frem om natten og spiser regnorme.'
+  pine-marten: 'Den har brun pels og en gul plet på brystet. Den klatrer meget hurtigt i træerne.'
+  stoat: 'Den har en lang, tynd krop og en sort spids på halen. Dens pels bliver hvid om vinteren.'
+  adder: 'Den har en mørk zigzag-stribe på ryggen. Den bruger tungen til at lugte med.'
+  grey-heron: 'Den har lange ben og et langt, spidst næb. Den står helt stille og venter på fisk.'
+  tawny-owl: 'Den har bløde brune fjer. Den kan dreje hovedet næsten hele vejen rundt.'
+  raccoon: 'Den har en sort maske og en stribet hale. Den mærker maden med poterne, før den spiser.'
+  beaver: 'Den har store orange tænder og en flad hale. Den gnaver træer ned og bygger dæmninger.'
+  buzzard: 'Den har brune vinger og et krumt næb. Den flyver i langsomme cirkler højt oppe.'
+  wild-boar: 'Det har stive hår og en lang tryne. Dets unger har lyse striber på ryggen.'
+  mute-swan: 'Den er helt hvid med et orange næb. Den bærer sine unger på ryggen.'
+  eagle-owl: 'Den har orange øjne og fjertoppe, der ligner ører. Den flyver helt uden en lyd.'
+  lynx: 'Den har sorte duske på ørerne og en kort hale. Dens store, lodne poter hjælper den i sneen.'
+  wolverine: 'Den ligner en bjørneunge med en busket hale. Den kan lugte mad dybt nede i sneen.'
+  golden-eagle: 'Den har gyldne fjer på hovedet og nakken. Den kan se en hare langt, langt væk.'
+  white-tailed-eagle: 'Den har en hvid hale og et stort gult næb. Den dykker ned og griber fisk.'
+  moose: 'Den har meget lange ben og en stor, blød næse. Den elsker at gumle på blade og kviste.'
+  european-bison: 'Den har et stort, pjusket hoved og korte horn. Den ruller sig i støvet for at holde fluer væk.'
+  crab: 'Den har et hårdt skjold og to store klør. Den går sidelæns.'
+  starfish: 'Den har fem arme. Hvis den mister en arm, vokser der en ny frem.'
+  turtle: 'Den har et hårdt skjold og store luffer. Den svømmer op for at trække vejret.'
+  dolphin: 'Den er glat og grå. Den klikker og fløjter for at snakke med sine venner.'
+  octopus: 'Den har otte arme og ingen knogler. Den kan skifte farve for at gemme sig.'
+  whale: 'Den har meget lange luffer. Den synger sange, der kan vare i flere timer.'
+  moon-jellyfish: 'Den er klar som glas og har fire ringe på toppen. Den har slet ingen hjerne.'
+  plaice: 'Den er flad med orange prikker. Begge dens øjne sidder på samme side af hovedet.'
+  lions-mane-jellyfish: 'Den har lange, lange tråde ligesom en løves manke. De kan blive længere end en bus!'
+  lobster: 'Den har et mørkeblåt skjold og to store klør. Den kan svømme baglæns meget hurtigt.'
+  harbour-seal: 'Den har plettet pels og store mørke øjne. Den kan holde vejret meget længe.'
+  harbour-porpoise: 'Det er rundt og gråt med en kort snude. Det siger pust, når det trækker vejret.'
+  grey-seal: 'Den har en lang næse ligesom en hest. Dens unger har blød hvid pels.'
+  orca: 'Den er sort og hvid med en høj finne på ryggen. Den jager sammen med sin familie.'
+  arctic-fox: 'Den har tyk, hvid pels om vinteren. Den sover med den lodne hale over næsen.'
+  arctic-hare: 'Den har sorte spidser på ørerne. Den kan hoppe på bagbenene ligesom en kænguru!'
+  puffin: 'Den har et flot orange næb med striber. Den kan have mange små fisk i næbbet på én gang.'
+  arctic-lemming: 'Den er lille, rund og blød. Om vinteren bliver den hvid og får store kløer til at grave med.'
+  snow-bunting: 'Den er en lille hvid fugl med sorte vinger. Den synger, mens den flyver.'
+  rock-ptarmigan: 'Den er hvid om vinteren og brun om sommeren. Den har fjer på fødderne, så de holder sig varme.'
+  waxwing: 'Den har en sjov fjertop på hovedet og en gul stribe på halen. Den elsker at spise bær.'
+  adelie-penguin: 'Den er sort og hvid med en hvid ring om hvert øje. Den bygger sin rede af små sten.'
+  snow-petrel: 'Den er helt hvid med sorte øjne og sort næb. Den spytter stinkende olie, hvis man kommer for tæt på.'
+  arctic-tern: 'Den har en sort hætte og et rødt næb. Hvert år flyver den længere end noget andet dyr.'
+  king-eider: 'Den er en and med en sjov orange bule på næbbet. Den dykker dybt efter mad.'
+  raven: 'Den er en stor sort fugl og meget klog. Den kan sige lyde efter, endda ord!'
+  barnacle-goose: 'Den har hvidt ansigt og sort hals. Dens unger hopper ned fra høje klipper, når de er helt små.'
+  gentoo-penguin: 'Den har et orange næb og en hvid stribe hen over hovedet. Ingen pingvin svømmer hurtigere.'
+  chinstrap: 'Den har en tynd sort streg under hagen. Den sover kun få sekunder ad gangen, hele dagen lang.'
+  reindeer: 'Det har et stort gevir, og det har hunnerne også. Det klikker med fødderne, når det går!'
+  snowy-owl: 'Den er hvid med mørke pletter og har gule øjne. Den jager også om dagen.'
+  great-grey-owl: 'Den har et kæmpe rundt ansigt med ringe på. Den kan høre en mus under dyb sne.'
+  glaucous-gull: 'Den er en stor lys måge uden sort på vingerne. Den spiser næsten alt, hvad den finder.'
+  giant-petrel: 'Den er en stor brun fugl med et kæmpe lyst næb. Den kan lugte mad langt væk fra.'
+  king-penguin: 'Den har orange pletter på halsen. Dens unger er brune og lodne som små bamser.'
+  arctic-wolf: 'Den er en hvid ulv med tyk pels. Den bor sammen med sin familie i en flok.'
+  gyrfalcon: 'Den er den største falk af alle. Den kan være hvid, grå eller mørk og flyver meget hurtigt.'
+  emperor-penguin: 'Den er den største pingvin og har gult på halsen. Det er far, der holder ægget varmt på fødderne!'
+  albatross: 'Den har de længste vinger af alle fugle. Den kan svæve i timevis uden at baske med vingerne.'
+  polar-bear: 'Den ser hvid ud, men huden under pelsen er sort! Den er rigtig god til at svømme.'
+  musk-ox: 'Den har lang, pjusket pels helt ned til fødderne. Flokken står i en ring og passer på ungerne.'
+  sea-angel: 'Den er en lille gennemsigtig snegl uden hus. Den svømmer ved at baske med to små vinger.'
+  polar-cod: 'Den er en lille sølvfisk med et stort hoved. Den fryser ikke, selv i iskoldt vand.'
+  antarctic-krill: 'Den er lille og lyserød, lidt som en reje. Den kan lyse i mørket!'
+  arctic-char: 'Den har en knaldrød mave og små lyse pletter. Den kan blive over 20 år gammel.'
+  lumpsucker: 'Den er rund og knudret og har en sugekop på maven. Det er far, der passer på æggene.'
+  ringed-seal: 'Den har lyse ringe over hele sin grå pels. Den er en af de mindste sæler.'
+  icefish: 'Den er bleg og næsten gennemsigtig. Den har en lang mund som en krokodille.'
+  harp-seal: 'Den har et mørkt mønster på ryggen. Dens unger er helt hvide og lodne.'
+  wolffish: 'Den har store, stærke tænder til at knase krabber og muslinger. Den ser barsk ud, men er rolig.'
+  snow-crab: 'Den har meget lange, tynde ben. Den får en ny og større skal, når den gamle bliver for lille.'
+  weddell-seal: 'Den har et rundt ansigt, der ser ud til at smile. Dens unger kan svømme, når de er to uger gamle.'
+  beluga: 'Den er helt hvid med en rund, blød pande. Den pipper og fløjter som en fugl.'
+  hooded-seal: 'Den har grå pels med mørke pletter. Hannerne kan puste en rød ballon ud af næsen!'
+  minke-whale: 'Den har et spidst hoved og en hvid stribe på hver luffe. Den er nysgerrig og svømmer tæt på både.'
+  toothfish: 'Den er en stor grå fisk med skarpe tænder. Den kan blive 50 år gammel!'
+  crabeater-seal: 'Den har knudrede tænder, der virker som en si. Den spiser krill, ikke krabber!'
+  walrus: 'Den har to lange stødtænder og et stort, stift overskæg. Den trækker sig op med stødtænderne.'
+  bowhead-whale: 'Den har et kæmpe hoved og en hvid hage. Den kan blive 200 år gammel!'
+  greenland-shark: 'Den er en langsom haj, der ser søvnig ud. Den kan blive flere hundrede år gammel!'
+  narwhal: 'Den har et langt snoet horn som en enhjørning. Men hornet er faktisk en tand!'
+  elephant-seal: 'Den har en blød, hængende næse som en lille elefantsnabel. Den kan holde vejret i over en time!'
+  blue-whale: 'Den er blågrå med lyse pletter. Den er det største dyr, der nogensinde har levet!'
+  leopard-seal: 'Den har pletter som en leopard og en stor, bred mund. Den synger lange sange under vandet.'
 puzzles:
   title: Mine opgaver
   solved:

@@ -223,13 +223,13 @@ describe('validateSave', () => {
 		}
 		// The animal book: lists of ids shaped as species ids are (a species this build lacks is
 		// a newer build's, not a broken save: below).
-		for (const key of ['seen', 'caught', 'freed']) {
+		for (const key of ['seen', 'caught', 'freed', 'told']) {
 			for (const list of ['fox', [7], [''], ['Fox'], ['wood mouse'], [null], { fox: true }, null]) {
 				const at = `${key}: ${JSON.stringify(list)}`;
 				expect(error({ ...written, [key]: list }), at).toMatch(new RegExp(`^${key} `));
 			}
 		}
-		expect(error({ ...written, seen: [], caught: [], freed: [] })).toBe('');
+		expect(error({ ...written, seen: [], caught: [], freed: [], told: [] })).toBe('');
 		// A species listed twice is no harm: it is in the book once.
 		expect(error({ ...written, seen: ['fox', 'fox'], caught: ['fox', 'fox'] })).toBe('');
 	});
@@ -478,6 +478,8 @@ describe('readSave and the upgrade seam', () => {
 			{ ...written, seen: ['squirrel', 'fox', LATER.species], caught: ['squirrel', 'fox'] },
 			{ ...written, seen: ['squirrel', 'fox'], caught: ['squirrel', LATER.species] },
 			{ ...written, seen: ['squirrel', 'fox'], caught: ['squirrel'], freed: [LATER.species] },
+			// One the druid of a later build told about.
+			{ ...written, told: ['moose', LATER.species] },
 			inBattle({ realm: LATER.realm }),
 			inBattle({ opponent: { ...state!.opponent, speciesId: LATER.species } }),
 			inBattle({ party: [{ ...state!.party[0]!, speciesId: LATER.species }] }),
@@ -1075,6 +1077,7 @@ describe('newGame and restoreGame', () => {
 			seen: [STARTER_SPECIES],
 			caught: [STARTER_SPECIES],
 			freed: [],
+			told: [],
 			battle: null,
 			edits: [],
 			worlds: [],
@@ -1132,6 +1135,8 @@ describe('newGame and restoreGame', () => {
 			seen: ['rabbit', 'fox', 'wolf', 'bear'],
 			caught: ['rabbit', 'fox', 'bear'],
 			freed: ['rabbit'],
+			// The druid told about a lynx and a moose, neither met yet.
+			told: ['lynx', 'moose'],
 			battle: null,
 			edits: [],
 			worlds: [
@@ -1728,6 +1733,23 @@ describe('the animal book in a save', () => {
 		// written out, so another tab still on the old save carries on from it, and it from them.
 		expect(sameProgress(read.save, doc)).toBe(true);
 		expect(sameProgress(doc, read.save)).toBe(true);
+	});
+
+	it('keeps the kinds the druid told about: none in a save without them, and written only once there is one', () => {
+		const read = readSave(JSON.parse(JSON.stringify(written)));
+		if (!read.ok) throw new Error(read.error);
+		expect('told' in read.save).toBe(false);
+		const game = restoreGame(read.save, mint);
+		expect(game.told).toEqual([]);
+		// A game told of nothing saves as a build from before the druid's tip wrote it.
+		expect('told' in saveDocument(game, { lineage: 'L', seq: 2 })).toBe(false);
+		// Told once, and its order kept; a kind listed twice, or one met since, stays once.
+		const told = restoreGame({ ...read.save, told: ['moose', 'lynx', 'moose'] }, mint);
+		expect(told.told).toEqual(['moose', 'lynx']);
+		expect(told.seen).toEqual(game.seen);
+		const doc = saveDocument(told, { lineage: 'L', seq: 2 });
+		expect(doc.told).toEqual(['moose', 'lynx']);
+		expect(validateSaveWrite(JSON.parse(JSON.stringify(doc))).ok).toBe(true);
 	});
 
 	it('a saved battle proves its wild animal was met, even one that cannot be picked up again', () => {
@@ -2373,7 +2395,7 @@ describe('which save wins', () => {
 		// One from before the animal book holds the book its party proves: the same as that book
 		// written out, in whichever order, both ways, so a tab that loaded it can carry on from a
 		// tab that walked and wrote the book.
-		const book = { seen: ['fox', 'squirrel'], caught: ['squirrel', 'fox'], freed: [] };
+		const book = { seen: ['fox', 'squirrel'], caught: ['squirrel', 'fox'], freed: [], told: [] };
 		expect(sameProgress(written as SaveV5, { ...moved, ...book } as SaveV5)).toBe(true);
 		expect(sameProgress({ ...moved, ...book } as SaveV5, written as SaveV5)).toBe(true);
 		for (const changed of [
@@ -2381,8 +2403,9 @@ describe('which save wins', () => {
 			{ ...written, seen: ['squirrel', 'fox', 'wolf'] },
 			{ ...written, caught: ['squirrel', 'fox', 'wolf'] },
 			{ ...written, seen: ['squirrel', 'fox', 'wolf'], caught: ['squirrel', 'fox', 'wolf'] },
-			// So is a kind set free.
+			// So is a kind set free, and one the druid told about.
 			{ ...written, freed: ['fox'] },
+			{ ...written, told: ['moose'] },
 			{ ...written, party: [animal(1, { nickname: 'Nutkin', hp: 3 }), written.party[1]] },
 			{ ...written, party: [...written.party].reverse() },
 			{ ...written, party: [...written.party, animal(3)] },

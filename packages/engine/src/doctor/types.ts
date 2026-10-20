@@ -1,3 +1,4 @@
+import type { AnimalBook } from '../animals/book.js';
 import type { AnimalInstance } from '../animals/types.js';
 import type { ItemId } from '../items/catalog.js';
 import type { LandId } from '../lands/ids.js';
@@ -21,6 +22,9 @@ import type { Puzzle, PuzzleTopic } from '../puzzles/types.js';
  * - **Flying.** The player flies to another land they have unlocked
  *   ([[PRODUCT]] §4 "Lands"), once they solve the fare: one puzzle of the
  *   land's own kinds. A wrong answer asks another.
+ * - **Asking about an animal.** The druid tells the kid about an animal of
+ *   the land they have not caught yet (`revealChoices`), once they solve a
+ *   puzzle at that animal's healing difficulty. A wrong answer asks another.
  * A hand-over and a purchase each complete only when the player works out
  * the tokens they will have afterwards; a wrong answer asks the same sum
  * again. Nothing is lost by backing out, picking something else or leaving.
@@ -36,6 +40,8 @@ export type DoctorPhase =
 	| { kind: 'buying'; itemId: ItemId; price: number; puzzle: Puzzle }
 	/** Flying to `land`, once `puzzle`, the fare (`farePuzzle`), is solved. */
 	| { kind: 'paying-fare'; land: LandId; puzzle: Puzzle }
+	/** Telling about `speciesId`, once `puzzle`, at its healing difficulty, is solved. */
+	| { kind: 'revealing'; speciesId: string; puzzle: Puzzle }
 	/**
 	 * The druid offers a trip to `land`, a surprise with no fare, for
 	 * catching one of every animal of `from` (`surpriseLand`): `accept-offer`
@@ -65,6 +71,11 @@ export interface DoctorState {
 	unlocked: readonly string[];
 	/** The lands this build flies to (`availableLands`, or more in a game a switch opens). */
 	open: readonly LandId[];
+	/**
+	 * The kid's animal book, which the druid's tip picks from (`revealChoices`):
+	 * the one the visit started with, with every species told about since.
+	 */
+	book: AnimalBook;
 	phase: DoctorPhase;
 }
 
@@ -82,6 +93,8 @@ export type DoctorIntent =
 	| { type: 'buy'; itemId: string }
 	/** Fly to this land. Asks the fare, a puzzle of the land's own kinds. */
 	| { type: 'fly'; land: string }
+	/** Ask about an animal not caught yet. Asks a puzzle at that animal's healing difficulty. */
+	| { type: 'reveal' }
 	/** Answer the puzzle that is open: a healing puzzle or a token sum. */
 	| { type: 'answer'; input: string }
 	/** Say yes to the trip the druid offers (`offering`): off they fly, no fare asked. */
@@ -112,6 +125,8 @@ export type DoctorRejection =
 	| 'no-offer'
 	/** Anything but `accept-offer`, `back` or `leave` while the trip is offered. */
 	| 'offer-open'
+	/** A `reveal` with every animal of the land caught: there is nobody left to tell about. */
+	| 'all-caught'
 	/** A `fly` the rules refuse (`flyRefusal`): not a land, the land the tent is in, not built yet, or locked. */
 	| FlyRefusal;
 
@@ -149,6 +164,10 @@ export type DoctorEvent =
 	 * `land`, and the visit ends (an `ended` follows). The authority moves them there (`lands/fly.ts`).
 	 */
 	| { type: 'flew'; land: LandId }
+	/** The puzzle the druid asks before he tells about an animal; which one stays his secret. */
+	| { type: 'reveal-shown'; puzzle: Puzzle }
+	/** The druid tells about `speciesId`, a species of the land not caught yet. */
+	| { type: 'revealed'; speciesId: string }
 	/** The open puzzle was put away (`back`). */
 	| { type: 'closed' }
 	| { type: 'ended' }

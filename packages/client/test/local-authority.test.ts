@@ -2663,7 +2663,8 @@ describe('LocalAuthority: the animal book', () => {
 				type: 'book-changed',
 				seen: ['bear', 'shrew'],
 				caught: ['bear', 'shrew'],
-				freed: []
+				freed: [],
+				told: []
 			});
 		}
 		expect(latestBattle(s).phase).toEqual({ kind: 'ended', outcome: 'caught' });

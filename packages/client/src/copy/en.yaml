@@ -1711,6 +1711,39 @@ doctor:
     notNow: Not now
     yes: Yes, let's fly!
     keys: ← → choose · Enter pick · Esc not now
+  # The ask tab: for one puzzle the druid tells about an animal of this land that the kid has
+  # not caught yet, and where to look for it. {land} is the land as a sentence names it
+  # (lands.*.inLine); {animal} the animal told about.
+  ask:
+    # What the druid says on the tab.
+    intro: Can't find an animal? Solve a puzzle, and I'll tell you about one!
+    # The same, with every animal of this land caught: there is nobody left to tell about.
+    allCaught: You caught every animal in {land}! There is nobody left to tell you about.
+    # The druid's puzzle is up.
+    count: Solve this, and I'll tell you about an animal you still need!
+    # Over the druid's puzzle.
+    story: One puzzle, and I'll tell you a secret!
+    # After a right answer.
+    told: Listen! Somewhere in {land} lives {animal.a}.
+    # The tab's row, and what it costs at its right.
+    row: Which animal is missing?
+    cost: One puzzle
+    # The right-hand side, about the row, before asking.
+    title: Which animals are left?
+    how: Solve one puzzle, and I'll tell you about an animal you have not caught yet. A big animal asks a harder puzzle.
+    # How many kinds of animal of this land the kid has not caught yet.
+    left:
+      one: '{count} animal in {land} left to catch'
+      other: '{count} animals in {land} left to catch'
+    # The same side, with every animal of the land caught.
+    allTitle: You caught them all!
+    # After a right answer, on the whole card: the animal told about, its picture and name
+    # over what it is like (about.*) and where to look (where.*), then the button that puts it
+    # away (the animal book keeps it) and its keys.
+    ok: Thank you!
+    toldKeys: Enter or Esc to go back
+    keys: ↑ ↓ choose · ← → tabs · Enter ask · Esc bye
+    touch: Tap the row to ask
   # The last row of the list, and its key.
   bye: Bye
   byeKey: Esc
@@ -1721,6 +1754,8 @@ doctor:
     heal: Heal
     home: Set free
     shop: Shop
+    # Ask about an animal not caught yet.
+    ask: Ask
     # Fly to another land (#191): only where there is another land to list.
     fly: Fly
   # The player's tokens, at the top right of the card.
@@ -2419,10 +2454,165 @@ book:
   freedTeam: '{animal.name} is on your team, and it counts as set free!'
   caughtHome: You caught {animal.a} and set it free. It stays in your book!
   seenFree: You met {animal.a}, and it counts as set free!
+  # One never met that the druid told about (where.* follows it, on the same line).
+  told: The druid told you about {animal.a}.
   # The key reminder under the book.
   # Under the book while the cursor is on the lands' tabs over the cards.
   lands: Pick a land to see its animals!
   keys: ↑ ↓ ← → choose · Esc back
+# Where an animal is met, as the druid tells it (doctor.ask) and the animal book shows it for
+# an animal he told about: one line for each way to meet it, read off the game's own rules.
+where:
+  # The tall grass, or in The Arctic the deep snow ({grass}: grass.*), in the places it lives
+  # ({places}: places.*, listed with "or"), and the ground it likes around it.
+  grassWater: Look in {grass} {places}, near water.
+  grassTrees: Look in {grass} {places}, near trees.
+  grassRocks: Look in {grass} {places}, near rocks.
+  grassOpen: Look in {grass} {places}, away from trees and rocks.
+  # An animal of the deep water: met from the boat, with a swimmer in the team.
+  sea: Sail out on the deep water {places} in your boat, with an animal that can swim.
+  # An animal of the water under the ice: hooked at a fishing hole.
+  ice: Fish for it through a hole {places}. You need a fishing rod and an animal that can swim.
+  # A bird: it notices a kid on the paraglider too, but only one with a bird in the team.
+  sky: '{animal.the} can fly. With a bird in your team, it may follow you when you fly with the paraglider.'
+  # The lead picks who comes out: an animal of its size first ({size}: size.*) meets it more often.
+  lead: Let {size} go first, and you meet it more often.
+  # The same, for an animal of the water: the first swimmer leads there.
+  leadSwim: Let {size} that can swim go first, and you meet it more often.
+  # After `lead` or `leadSwim`, for an animal bigger than a small one: near home it hardly
+  # comes out for a smaller lead ([[PRODUCT]] §4 "Wild encounters", the distance rule).
+  far: With a smaller animal first, look far from where you started.
+  # An animal's size, by its tier, as `lead` names the one to put first.
+  size:
+    tier1: a small animal
+    tier2: a medium animal
+    tier3: a big animal
+    tier4: a very big animal
+    tier5: a huge animal
+# Each land's tall grass, as `where` names it.
+grass:
+  nordland: the tall grass
+  arctic: the deep snow
+# Where in a land, as `where` lists the places an animal lives.
+places:
+  meadow: in the meadow
+  forest: in the forest
+  river: by the river
+  mountain: in the mountains
+  sea: in the middle of the lakes
+  tundra: on the tundra
+  taiga: by the spruce forest
+  fell: up on the rocky hills
+  bird-cliffs: by the bird cliffs on the shore
+  frozen-lake: on a frozen lake
+  arctic-ice: on the sea ice in the north
+  arctic-ocean: in the north half of the open sea
+  ice-sheet: on the big ice sheet in the south
+  rookery: on the rocky coast in the south
+  antarctic-ice: on the sea ice in the south
+  southern-ocean: in the south half of the open sea
+# What each animal is like, as the druid tells it: how it looks, and one true thing about it.
+about:
+  squirrel: 'It has a bushy red tail. It hides nuts to eat in winter.'
+  rabbit: 'It has long ears and a fluffy white tail. It thumps its feet to warn its friends.'
+  frog: 'It has smooth, wet skin and long back legs. It catches flies with its sticky tongue.'
+  fox: 'It has red fur and a bushy tail with a white tip. It can hear a mouse under the snow.'
+  otter: 'It has thick brown fur and webbed feet. It catches fish and loves to play.'
+  deer: 'It has red-brown fur. The males grow new antlers every year.'
+  wolf: 'It has grey fur and lives in a family called a pack. It howls to call the others.'
+  bear: 'It has thick brown fur. It sleeps all winter in a cosy den.'
+  shrew: 'It has a long, pointy nose and tiny eyes. It eats bugs almost all the time.'
+  wood-mouse: 'It has big eyes, big ears and a long tail. It can jump high on its back legs.'
+  brown-rat: 'It has brown fur and a long bare tail. It is very clever and a good swimmer.'
+  hedgehog: 'It is covered in sharp spines. It rolls into a prickly ball when it is scared.'
+  mole: 'It has soft black fur and big digging paws. It digs tunnels under the ground.'
+  common-lizard: 'It has small brown scales. It lies in the sun to get warm.'
+  common-toad: 'It has bumpy brown skin and golden eyes. It walks more than it hops.'
+  robin: 'It has a bright orange-red chest. It sings even in winter.'
+  stag-beetle: 'It is dark and shiny. The males have huge jaws that look like antlers.'
+  roe-deer: 'It has a white patch on its bottom. It can bark like a dog when it is scared.'
+  badger: 'It has black and white stripes on its face. It comes out at night to eat worms.'
+  pine-marten: 'It has brown fur and a yellow patch on its chest. It climbs trees very fast.'
+  stoat: 'It has a long, thin body and a black tip on its tail. Its fur turns white in winter.'
+  adder: 'It has a dark zigzag on its back. It smells the air with its tongue.'
+  grey-heron: 'It has long legs and a long, sharp beak. It stands very still to catch fish.'
+  tawny-owl: 'It has soft brown feathers. It can turn its head almost all the way round.'
+  raccoon: 'It has a black mask and a striped tail. It feels its food with its clever paws.'
+  beaver: 'It has big orange teeth and a flat tail. It chews down trees to build dams.'
+  buzzard: 'It has brown wings and a hooked beak. It flies in slow circles high in the sky.'
+  wild-boar: 'It has stiff, bristly hair and a long snout. Its babies have light stripes.'
+  mute-swan: 'It is all white with an orange beak. It carries its babies on its back.'
+  eagle-owl: 'It has orange eyes and feather tufts like ears. It flies without a sound.'
+  lynx: 'It has black tufts on its ears and a short tail. Its big furry paws help it walk on snow.'
+  wolverine: 'It looks like a bear cub with a bushy tail. It can smell food deep under the snow.'
+  golden-eagle: 'It has golden feathers on its head and neck. It can see a hare from far, far away.'
+  white-tailed-eagle: 'It has a white tail and a big yellow beak. It swoops down to grab fish.'
+  moose: 'It has very long legs and a big soft nose. It loves to munch leaves and twigs.'
+  european-bison: 'It has a big shaggy head and short horns. It rolls in the dust to keep flies away.'
+  crab: 'It has a hard shell and two pinching claws. It walks sideways.'
+  starfish: 'It has five arms. If it loses one, a new arm grows back.'
+  turtle: 'It has a hard shell and big flippers. It swims up to the top to breathe air.'
+  dolphin: 'It is smooth and grey. It clicks and whistles to talk to its friends.'
+  octopus: 'It has eight arms and no bones. It can change colour to hide.'
+  whale: 'It has very long flippers. It sings songs that can go on for hours.'
+  moon-jellyfish: 'It is see-through with four rings on top. It has no brain at all.'
+  plaice: 'It is flat with orange spots. Both its eyes are on the same side of its head.'
+  lions-mane-jellyfish: "It has long, long threads like a lion's mane. They can grow longer than a bus!"
+  lobster: 'It has a dark blue shell and two big claws. It can swim backwards very fast.'
+  harbour-seal: 'It has spotty fur and big dark eyes. It can hold its breath for a long time.'
+  harbour-porpoise: 'It is round and grey with a short nose. It makes a puff sound when it breathes.'
+  grey-seal: 'It has a long nose like a horse. Its babies have fluffy white fur.'
+  orca: 'It is black and white with a tall fin on its back. It hunts with its family.'
+  arctic-fox: 'It has thick white fur in winter. It sleeps with its fluffy tail over its nose.'
+  arctic-hare: 'It has black tips on its ears. It can hop on its back legs, like a kangaroo!'
+  puffin: 'It has a bright orange beak with stripes. It can carry lots of little fish in its beak at once.'
+  arctic-lemming: 'It is small, round and fluffy. In winter it turns white and grows big claws for digging.'
+  snow-bunting: 'It is a little white bird with black wings. It sings while it flies.'
+  rock-ptarmigan: 'It is white in winter and brown in summer. It has feathers on its feet to keep them warm.'
+  waxwing: 'It has a pointy crest on its head and a yellow stripe on its tail. It loves to eat berries.'
+  adelie-penguin: 'It is black and white with a white ring around each eye. It builds its nest out of little stones.'
+  snow-petrel: 'It is all white, with black eyes and a black beak. It spits stinky oil if you come too close.'
+  arctic-tern: 'It has a black cap and a red beak. Every year it flies further than any other animal.'
+  king-eider: 'It is a duck with a funny orange bump on its beak. It dives deep to find food.'
+  raven: 'It is a big black bird and very clever. It can copy sounds, even words!'
+  barnacle-goose: 'It has a white face and a black neck. Its chicks jump down from high cliffs when they are tiny.'
+  gentoo-penguin: 'It has an orange beak and a white stripe over its head. It is the fastest swimming penguin.'
+  chinstrap: 'It has a thin black line under its chin. It naps for a few seconds at a time, all day long.'
+  reindeer: 'It has big antlers, and so do the mums. Its feet click when it walks!'
+  snowy-owl: 'It is white with dark spots and has yellow eyes. It hunts in the daytime too.'
+  great-grey-owl: 'It has a huge round face with rings on it. It can hear a mouse under deep snow.'
+  glaucous-gull: 'It is a big pale gull with no black on its wings. It eats almost anything it finds.'
+  giant-petrel: 'It is a big brown bird with a huge pale beak. It can smell food from far away.'
+  king-penguin: 'It has bright orange patches on its neck. Its chicks are brown and fluffy, like little teddy bears.'
+  arctic-wolf: 'It is a white wolf with thick fur. It lives with its family in a pack.'
+  gyrfalcon: 'It is the biggest falcon of all. It can be white, grey or dark, and it flies very fast.'
+  emperor-penguin: 'It is the biggest penguin, with yellow on its neck. The dad keeps the egg warm on his feet!'
+  albatross: 'It has the longest wings of any bird. It can glide for hours without flapping.'
+  polar-bear: 'It looks white, but its skin under the fur is black! It is a very good swimmer.'
+  musk-ox: 'It has long shaggy fur down to its feet. The herd stands in a ring to keep the babies safe.'
+  sea-angel: 'It is a tiny see-through snail with no shell. It flaps two little wings to swim.'
+  polar-cod: 'It is a small silver fish with a big head. Very cold water does not freeze it.'
+  antarctic-krill: 'It is tiny and pink, a bit like a shrimp. It can glow in the dark!'
+  arctic-char: 'It has a bright red belly and little pale spots. It can live for more than 20 years.'
+  lumpsucker: 'It is round and bumpy and has a sucker on its tummy. The dad looks after the eggs.'
+  ringed-seal: 'It has pale rings all over its grey fur. It is one of the smallest seals.'
+  icefish: 'It is pale and almost see-through. It has a long mouth like a crocodile.'
+  harp-seal: 'It has a dark pattern on its back. Its babies are all white and fluffy.'
+  wolffish: 'It has big strong teeth for crunching crabs and shells. It looks fierce, but it is calm.'
+  snow-crab: 'It has very long, thin legs. It grows a new, bigger shell when the old one gets too small.'
+  weddell-seal: 'It has a round face that looks like it is smiling. Its babies can swim when they are two weeks old.'
+  beluga: 'It is all white with a round, squishy forehead. It chirps and whistles like a bird.'
+  hooded-seal: 'It has grey fur with dark spots. The dads can blow a red balloon out of their nose!'
+  minke-whale: 'It has a pointy head and a white stripe on each flipper. It is curious and swims close to boats.'
+  toothfish: 'It is a big grey fish with sharp teeth. It can live for 50 years!'
+  crabeater-seal: 'It has bumpy teeth that work like a strainer. It eats krill, not crabs!'
+  walrus: 'It has two long tusks and a big bristly moustache. It uses its tusks to pull itself up.'
+  bowhead-whale: 'It has a huge head and a white chin. It can live for 200 years!'
+  greenland-shark: 'It is a slow shark that looks sleepy. It can live for hundreds of years!'
+  narwhal: 'It has a long twisty horn like a unicorn. But the horn is really a tooth!'
+  elephant-seal: 'It has a floppy nose like a little elephant trunk. It can hold its breath for over an hour!'
+  blue-whale: 'It is blue-grey with pale spots. It is the biggest animal that has ever lived!'
+  leopard-seal: 'It has spots like a leopard and a big wide mouth. It sings long songs under water.'
 puzzles:
   # "My puzzles": every kind of puzzle the kid has answered, with how many they
   # tried and got right. The pause menu's row (on the menu's title line, beside

@@ -1,4 +1,4 @@
-import { ALL_PUZZLE_TOPICS, ANIMALS, ITEMS, LINES } from '@mathgame/engine';
+import { ALL_PUZZLE_TOPICS, ANIMALS, BIOME_POLE, ITEMS, LAND_IDS, LINES } from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
 import { FALLBACK_LANGUAGE, LANGUAGES } from '../src/copy/languages';
 import {
@@ -212,6 +212,29 @@ describe('copy files', () => {
 			const id = /^items\.([^.]+)\./.exec(key)?.[1];
 			if (id !== undefined && !known.has(id as never))
 				problems.push(`en.yaml has ${key}, but no item ${id}`);
+		}
+		expect(problems).toEqual([]);
+	});
+
+	it('the druid can tell about every animal, and say where to look in every place and land, at every size', () => {
+		// Keys built at run time (`where.ts`): what each animal is like, each place, each land's
+		// tall grass, each size. Plain text, all but the places' list, which `where.*` fills in.
+		const keys = [
+			...ANIMALS.map((a) => `about.${a.id}`),
+			...Object.keys(BIOME_POLE).map((biome) => `places.${biome}`),
+			...LAND_IDS.map((land) => `grass.${land}`),
+			...[1, 2, 3, 4, 5].map((tier) => `where.size.tier${tier}`)
+		];
+		const problems: string[] = [];
+		for (const key of keys) {
+			const message = english.get(key);
+			if (message === undefined) problems.push(`en.yaml lacks ${key}`);
+			else if (paramsOf(message).size > 0) problems.push(`${key} reads params; it is plain text`);
+		}
+		const known = new Set(keys);
+		for (const key of english.keys()) {
+			if (/^(about|places|grass)\./.test(key) && !known.has(key))
+				problems.push(`en.yaml has ${key}, but nothing names it`);
 		}
 		expect(problems).toEqual([]);
 	});

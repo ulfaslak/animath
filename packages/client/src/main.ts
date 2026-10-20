@@ -578,13 +578,14 @@ function offerAccount(): void {
 
 /**
  * The animal book's pictures (`render/portraits.ts`): while the book is open,
- * one a frame, for the first species seen that has none yet, so the book
- * fills in as it opens and no frame stops to draw them all at once. A figure
- * that cannot be drawn keeps its card's plain disc, and is not tried again;
+ * one a frame, for the first species seen or told about by the druid that has
+ * none yet, so the book fills in as it opens and no frame stops to draw them
+ * all at once; and on the druid's card, the animal he just told about. A
+ * figure that cannot be drawn keeps its plain disc, and is not tried again;
  * while the WebGL context is lost nothing is drawn, and it is tried again.
  */
-function drawPortrait(): void {
-	for (const speciesId of game.seen) {
+function drawPortrait(species: readonly string[]): void {
+	for (const speciesId of species) {
 		if (book.portraits[speciesId] !== undefined) continue;
 		try {
 			const picture = renderer.portrait(speciesId);
@@ -641,7 +642,8 @@ function frame(now: number) {
 			else if (battle.active) hud.covered();
 			offerAccount();
 		}
-		if (pause.open && pause.screen === 'book') drawPortrait();
+		if (pause.open && pause.screen === 'book') drawPortrait([...game.seen, ...game.told]);
+		if (doctor.active && doctor.told !== null) drawPortrait([doctor.told]);
 		renderer.render();
 	}
 	// A first arrival in a land waiting for its starter: the land's starters, when nothing else is up.

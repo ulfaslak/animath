@@ -1,6 +1,7 @@
 import { isDeepStrictEqual } from 'node:util';
 import { describe, expect, it } from 'vitest';
 import { deepFreeze } from './freeze.js';
+import { EMPTY_BOOK, bookOf, tellSpecies } from '../src/animals/book.js';
 import { ANIMALS, canFightIn, getAnimal } from '../src/animals/catalog.js';
 import { REALMS, type AnimalInstance, type Realm } from '../src/animals/types.js';
 import { careFor, doctorComes, knockOut } from '../src/doctor/knockout.js';
@@ -13,6 +14,7 @@ import {
 	needsHealing
 } from '../src/doctor/party.js';
 import { applyDoctorIntent, buyRefusal, startDoctorVisit } from '../src/doctor/reducer.js';
+import { revealChoices } from '../src/doctor/reveal.js';
 import { homeTokens, tokenPuzzle, tokensForTier } from '../src/doctor/tokens.js';
 import type { DoctorEvent, DoctorIntent, DoctorState, DoctorStep } from '../src/doctor/types.js';
 import { ITEMS, ITEM_IDS, getItem, hasItem, itemsForSale } from '../src/items/catalog.js';
@@ -134,6 +136,17 @@ function apply(state: DoctorState, intent: DoctorIntent, seed: number): DoctorSt
 		state.unlocked,
 		state.open
 	]);
+	// The druid tells about an animal only on a right answer to its puzzle, the one he picked as
+	// he asked it, and the book learns nothing else in a visit.
+	const told = step.events.find((e) => e.type === 'revealed');
+	if (told?.type === 'revealed') {
+		expect(correct, 'told without a right answer').toBe(true);
+		if (state.phase.kind !== 'revealing') throw new Error('told with no puzzle of his open');
+		expect(told.speciesId).toBe(state.phase.speciesId);
+		expect(after.book).toEqual(tellSpecies(state.book, told.speciesId));
+	} else {
+		expect(after.book).toBe(state.book);
+	}
 	return step;
 }
 
@@ -170,6 +183,7 @@ describe('startDoctorVisit', () => {
 			land: 'nordland',
 			unlocked: ['nordland'],
 			open: ['nordland', 'arctic'],
+			book: EMPTY_BOOK,
 			phase: { kind: 'choose-patient' }
 		});
 		expect(state.party[0]).not.toBe(party[0]);
@@ -198,6 +212,7 @@ describe('startDoctorVisit', () => {
 
 	it('carries no seed and no words: a client can neither predict a puzzle nor show English', () => {
 		expect(Object.keys(startDoctorVisit(partyOf(['fox', 3]))).sort()).toEqual([
+			'book',
 			'items',
 			'land',
 			'open',
@@ -1132,6 +1147,7 @@ describe('replay', () => {
 			land: 'nordland',
 			unlocked: ['nordland'],
 			open: ['nordland', 'arctic'],
+			book: EMPTY_BOOK,
 			phase: { kind: 'ended' }
 		});
 	});
@@ -1228,7 +1244,7 @@ describe('the surprise trip (`surpriseLand`)', () => {
 		land: 'nordland',
 		unlocked: ['nordland', 'arctic'],
 		open: LAND_IDS,
-		caught: nordland
+		book: bookOf([], nordland)
 	} as const;
 
 	it('opens on the trip to a land unlocked, earned and never visited, and on the list otherwise', () => {
@@ -1241,11 +1257,16 @@ describe('the surprise trip (`surpriseLand`)', () => {
 			[{ ...unlocked, open: ['nordland'] }, null],
 			// Unlocked but not earned by catching (a save from the set-free rule, or a species
 			// added to Nordland since): the Fly tab goes there, for the fare, and nothing is offered.
-			[{ ...unlocked, caught: nordland.slice(1) }, null],
-			[{ ...unlocked, caught: undefined }, null],
+			[{ ...unlocked, book: bookOf([], nordland.slice(1)) }, null],
+			[{ ...unlocked, book: undefined }, null],
 			// In The Arctic, Nordland is never a surprise: every kid starts there.
 			[
-				{ land: 'arctic', unlocked: LAND_IDS, open: ['nordland', 'arctic'], caught: nordland },
+				{
+					land: 'arctic',
+					unlocked: LAND_IDS,
+					open: ['nordland', 'arctic'],
+					book: bookOf([], nordland)
+				},
 				null
 			],
 			[{}, null]
@@ -1617,5 +1638,141 @@ describe('needsDoctor and doctorComes', () => {
 		expect(knockOut(PROTOTYPE, walled, partyOf(['fox', 0]))).toEqual(
 			careFor(PROTOTYPE, walled, partyOf(['fox', 0]))
 		);
+	});
+});
+
+// --- asking the druid about an animal ----------------------------------------
+
+describe('asking the druid about an animal', () => {
+	const party = partyOf(['squirrel'], ['fox', 3]);
+
+	function revealing(state: DoctorState) {
+		if (state.phase.kind !== 'revealing')
+			throw new Error(`expected his puzzle, phase is ${state.phase.kind}`);
+		return state.phase;
+	}
+
+	it('tells first of the kinds never met nor told, then of those not told, then of any not caught', () => {
+		for (const land of LAND_IDS) {
+			const species = getLand(land).species;
+			for (let s = 0; s < SEEDS; s++) {
+				// A book with each kind of the land caught, seen, told, both or neither, at random.
+				const rng = new Rng(hashInts(s, 11));
+				const pick = () => species.filter(() => rng.next() < 0.4);
+				const book = bookOf(pick(), pick(), [], pick());
+				const choices = revealChoices(land, book);
+				const missing = species.filter((id) => !book.caught.includes(id));
+				const untold = missing.filter((id) => !book.told.includes(id));
+				const unmet = untold.filter((id) => !book.seen.includes(id));
+				expect(choices, `${land} ${s}`).toEqual(
+					unmet.length > 0 ? unmet : untold.length > 0 ? untold : missing
+				);
+			}
+			// Every kind caught: nobody left to tell about.
+			expect(revealChoices(land, bookOf([], species))).toEqual([]);
+		}
+	});
+
+	it('refuses with every animal of the land caught, changing nothing', () => {
+		for (const land of LAND_IDS) {
+			const book = bookOf([], getLand(land).species);
+			const state = startDoctorVisit(party, { land, book });
+			expect(apply(state, { type: 'reveal' }, 3).events).toEqual([
+				{ type: 'rejected', reason: 'all-caught' }
+			]);
+		}
+	});
+
+	for (const spec of ANIMALS) {
+		it(`${spec.id}: a puzzle at its healing difficulty; a wrong answer asks another; a right one tells of it`, () => {
+			const kinds = new Set(spec.attacks.flatMap((a) => a.kinds));
+			const land = LAND_IDS.find((l) => getLand(l).species.includes(spec.id))!;
+			// Every other kind of its land caught: it is the one he picks.
+			const others = getLand(land).species.filter((id) => id !== spec.id);
+			for (const told of [[], [spec.id]]) {
+				const book = bookOf([], others, [], told);
+				for (let seed = 0; seed < 5; seed++) {
+					let state = startDoctorVisit(party, { land, book });
+					let s = apply(state, { type: 'reveal' }, seed);
+					state = s.state;
+					const asked = revealing(state);
+					expect(asked.speciesId).toBe(spec.id);
+					expect(s.events).toEqual([{ type: 'reveal-shown', puzzle: asked.puzzle }]);
+					expect(wordedStrings(s)).toEqual([]);
+
+					for (const wrong of WRONG_INPUTS.slice(0, 4)) {
+						const { puzzle } = revealing(state);
+						expect(puzzle.difficulty).toBe(healingDifficulty(spec.tier));
+						expect(kinds.has(puzzle.kind), `${puzzle.kind} is not a ${spec.id} kind`).toBe(true);
+						const input = wrong(puzzle.answer);
+						s = apply(state, { type: 'answer', input }, seed);
+						expect(s.events[0]).toMatchObject({ type: 'answer-judged', correct: false });
+						expect(s.events[1]).toMatchObject({ type: 'reveal-shown' });
+						expect(s.events).toHaveLength(2);
+						expect(revealing(s.state).speciesId).toBe(spec.id);
+						expect(revealing(s.state).puzzle.prompt).not.toBe(puzzle.prompt);
+						state = s.state;
+					}
+
+					const { puzzle } = revealing(state);
+					s = apply(state, { type: 'answer', input: answerText(puzzle) }, seed);
+					expect(s.events).toEqual([
+						{
+							type: 'answer-judged',
+							input: answerText(puzzle),
+							correct: true,
+							answer: puzzle.answer,
+							topic: puzzleTopic(puzzle)
+						},
+						{ type: 'revealed', speciesId: spec.id }
+					]);
+					expect(s.state.phase).toEqual({ kind: 'choose-patient' });
+					expect(s.state.book.told).toEqual([spec.id]);
+					// Told, not seen: the grass still counts it as one to catch.
+					expect(s.state.book.seen).toEqual(book.seen);
+					expect(s.state.party).toEqual(state.party);
+					expect(s.state.tokens).toBe(state.tokens);
+				}
+			}
+		});
+	}
+
+	it('never tells of a kind twice in a visit while one he has not told of is left, and can tell of each', () => {
+		const species = getLand('nordland').species;
+		const missing = ['badger', 'moose', 'plaice', 'robin'];
+		const book = bookOf(
+			['moose'],
+			species.filter((id) => !missing.includes(id))
+		);
+		const first = new Set<string>();
+		for (let s = 0; s < SEEDS * 4; s++) {
+			const seed = hashInts(s, 5);
+			let state = startDoctorVisit(party, { book });
+			const told: string[] = [];
+			for (let i = 0; i < missing.length + 2; i++) {
+				state = apply(state, { type: 'reveal' }, seed).state;
+				const { puzzle, speciesId } = revealing(state);
+				if (i === 0) first.add(speciesId);
+				state = apply(state, { type: 'answer', input: answerText(puzzle) }, seed).state;
+				told.push(speciesId);
+			}
+			// The moose, met already, comes after the ones never met; once all are told, any again.
+			expect(new Set(told.slice(0, 3))).toEqual(new Set(['badger', 'plaice', 'robin']));
+			expect(told[3]).toBe('moose');
+			expect(missing).toContain(told[4]);
+			expect(state.book.told).toEqual(told.slice(0, 4));
+		}
+		expect([...first].sort()).toEqual(['badger', 'plaice', 'robin']);
+	});
+
+	it('is put away by `back` and by another pick, telling nothing', () => {
+		const state = apply(startDoctorVisit(party), { type: 'reveal' }, 9).state;
+		revealing(state);
+		const back = apply(state, { type: 'back' }, 9);
+		expect(back.events).toEqual([{ type: 'closed' }]);
+		expect(back.state.book).toBe(EMPTY_BOOK);
+		const heal = apply(state, { type: 'pick-patient', partyIndex: 1 }, 9);
+		expect(heal.state.phase.kind).toBe('solving');
+		expect(heal.state.book).toBe(EMPTY_BOOK);
 	});
 });

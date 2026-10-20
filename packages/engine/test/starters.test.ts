@@ -123,6 +123,7 @@ describe('newGame with a starter', () => {
 			seen: ['rabbit'],
 			caught: ['rabbit'],
 			freed: [],
+			told: [],
 			battle: null,
 			edits: [],
 			worlds: [],

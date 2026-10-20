@@ -165,7 +165,7 @@ export type GameEvent =
 	 * save. Carries the facing too, so a restored player looks the way they
 	 * did, the tokens and items, the puzzles solved (`solved`) and the puzzle
 	 * record (`puzzles`), and the animal
-	 * book's species seen, caught and set free (`seen`, `caught`, `freed`). A `battle-started` follows when the save
+	 * book's species seen, caught, set free and told about by the druid (`seen`, `caught`, `freed`, `told`). A `battle-started` follows when the save
 	 * was taken mid-battle. `newGame` tells the two apart: true for a game
 	 * that begins here (a starter just picked, or a throwaway game), false for
 	 * one picked up. `world` is the world number the player is in, `land` the
@@ -194,6 +194,7 @@ export type GameEvent =
 			seen: string[];
 			caught: string[];
 			freed: string[];
+			told: string[];
 			newGame: boolean;
 			edits: string[];
 	  }
@@ -319,12 +320,13 @@ export type GameEvent =
 	/**
 	 * The animal book grew (`animals/book.ts`): a wild battle started against
 	 * a species never seen before, a leash throw caught one never caught
-	 * before, or a hand-over at the druid's set free one never set free
-	 * before (a friendly match never changes it). Always all three lists,
+	 * before, a hand-over at the druid's set free one never set free
+	 * before, or the druid told about one he had never told about (a friendly
+	 * match never changes it). Always all four lists,
 	 * whole, each in the order first met. Sent right after the event that
 	 * showed it; never when nothing is new.
 	 */
-	| { type: 'book-changed'; seen: string[]; caught: string[]; freed: string[] }
+	| { type: 'book-changed'; seen: string[]; caught: string[]; freed: string[]; told: string[] }
 	/**
 	 * Something to say on the message line, as a copy key and its values; the
 	 * client words it in the language on screen. Never a finished sentence.

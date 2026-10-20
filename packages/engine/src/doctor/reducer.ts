@@ -1,3 +1,4 @@
+import { EMPTY_BOOK, tellSpecies, type AnimalBook } from '../animals/book.js';
 import { getAnimal } from '../animals/catalog.js';
 import type { AnimalInstance } from '../animals/types.js';
 import { ITEM_IDS, isItemId, type ItemId } from '../items/catalog.js';
@@ -16,6 +17,7 @@ import { checkAnswer, generatePuzzle } from '../puzzles/registry.js';
 import type { Puzzle, PuzzleKind } from '../puzzles/types.js';
 import { Rng, hashInts } from '../rng.js';
 import { canGoHome, needsHealing, validateParty } from './party.js';
+import { revealChoices } from './reveal.js';
 import { homeTokens, tokenPuzzle } from './tokens.js';
 import type {
 	DoctorEvent,
@@ -55,6 +57,12 @@ import type {
  * the land's money, `priceIn`): the doctor
  *   asks the tokens you will have left, `tokens − price`. Right, and it is
  *   yours. Wrong, and the same sum is asked again.
+ * - Ask about an animal (`revealChoices`: one of the land not caught yet,
+ *   never met if any is left): the doctor picks it and asks one puzzle at its
+ *   `healingDifficulty(tier)`, of a kind its own attacks ask, so a bigger
+ *   animal costs a harder puzzle. Right, and he tells which it is (the book
+ *   keeps it, `recordTold`). Wrong, and a different puzzle asks for the same
+ *   animal.
  * - Backing out of any puzzle, picking something else, or leaving is always
  *   allowed, and nothing happens that was not answered.
  *
@@ -93,8 +101,11 @@ export interface DoctorVisitOptions {
 	 * land the tent is in.
 	 */
 	visited?: readonly string[];
-	/** The species the player has caught (the animal book's), which the surprise asks. Default: none. */
-	caught?: readonly string[];
+	/**
+	 * The player's animal book: the surprise asks what is caught, and the
+	 * druid's tip picks from it (`revealChoices`). Default: an empty one.
+	 */
+	book?: AnimalBook;
 }
 
 /**
@@ -121,12 +132,13 @@ export function startDoctorVisit(
 	}
 	const unlocked = [...(options.unlocked ?? [FIRST_LAND])];
 	const open = [...(options.open ?? availableLands())];
+	const book = options.book ?? EMPTY_BOOK;
 	const offer = surpriseLand({
 		here: land,
 		unlocked,
 		open,
 		visited: options.visited ?? [land],
-		caught: options.caught ?? []
+		caught: book.caught
 	});
 	return {
 		step: 0,
@@ -140,6 +152,7 @@ export function startDoctorVisit(
 		land,
 		unlocked,
 		open,
+		book,
 		phase: offer ? { kind: 'offering', ...offer } : { kind: 'choose-patient' }
 	};
 }
@@ -176,6 +189,8 @@ export function applyDoctorIntent(
 			return buy(state, intent.itemId);
 		case 'fly':
 			return flyTo(state, seed, intent.land);
+		case 'reveal':
+			return reveal(state, seed);
 		case 'answer':
 			return answer(state, seed, intent.input);
 		case 'accept-offer':
@@ -201,7 +216,7 @@ function pickPatient(state: DoctorState, seed: number, partyIndex: number): Doct
 	if (!animal) return reject(state, 'no-such-animal');
 	if (!needsHealing(animal)) return reject(state, 'not-hurt');
 
-	const puzzle = healingPuzzle(rngFor(seed, state), animal);
+	const puzzle = healingPuzzle(rngFor(seed, state), animal.speciesId);
 	return accept(state, { kind: 'solving', partyIndex, puzzle }, [
 		{ type: 'puzzle-shown', partyIndex, puzzle }
 	]);
@@ -276,7 +291,8 @@ function answer(state: DoctorState, seed: number, input: string): DoctorStep {
 		phase.kind !== 'solving' &&
 		phase.kind !== 'handing-over' &&
 		phase.kind !== 'buying' &&
-		phase.kind !== 'paying-fare'
+		phase.kind !== 'paying-fare' &&
+		phase.kind !== 'revealing'
 	) {
 		return reject(state, 'no-puzzle');
 	}
@@ -303,7 +319,26 @@ function answer(state: DoctorState, seed: number, input: string): DoctorStep {
 				: accept(state, phase, [judged]);
 		case 'paying-fare':
 			return correct ? depart(state, phase.land, judged) : retryFare(state, seed, phase, judged);
+		case 'revealing':
+			return correct
+				? tell(state, phase.speciesId, judged)
+				: retryReveal(state, seed, phase, judged);
 	}
+}
+
+/**
+ * The druid's tip: he picks an animal of the land the kid has not caught
+ * (`revealChoices`) and asks a puzzle at its healing difficulty.
+ */
+function reveal(state: DoctorState, seed: number): DoctorStep {
+	const choices = revealChoices(state.land, state.book);
+	if (choices.length === 0) return reject(state, 'all-caught');
+	const rng = rngFor(seed, state);
+	const speciesId = rng.pick(choices);
+	const puzzle = healingPuzzle(rng, speciesId);
+	return accept(state, { kind: 'revealing', speciesId, puzzle }, [
+		{ type: 'reveal-shown', puzzle }
+	]);
 }
 
 /**
@@ -331,7 +366,11 @@ function retryHealing(
 	judged: DoctorEvent
 ): DoctorStep {
 	const { partyIndex } = phase;
-	const next = healingPuzzle(rngFor(seed, state), state.party[partyIndex]!, phase.puzzle.prompt);
+	const next = healingPuzzle(
+		rngFor(seed, state),
+		state.party[partyIndex]!.speciesId,
+		phase.puzzle.prompt
+	);
 	return accept(state, { kind: 'solving', partyIndex, puzzle: next }, [
 		judged,
 		{ type: 'puzzle-shown', partyIndex, puzzle: next }
@@ -400,6 +439,28 @@ function retryFare(
 	]);
 }
 
+/** A wrong answer to the tip's puzzle: the same animal, a different puzzle. */
+function retryReveal(
+	state: DoctorState,
+	seed: number,
+	phase: Extract<DoctorPhase, { kind: 'revealing' }>,
+	judged: DoctorEvent
+): DoctorStep {
+	const { speciesId } = phase;
+	const puzzle = healingPuzzle(rngFor(seed, state), speciesId, phase.puzzle.prompt);
+	return accept(state, { kind: 'revealing', speciesId, puzzle }, [
+		judged,
+		{ type: 'reveal-shown', puzzle }
+	]);
+}
+
+/** The tip's puzzle is solved: the druid tells which animal it is, and the book keeps it. */
+function tell(state: DoctorState, speciesId: string, judged: DoctorEvent): DoctorStep {
+	return accept(state, { kind: 'choose-patient' }, [judged, { type: 'revealed', speciesId }], {
+		book: tellSpecies(state.book, speciesId)
+	});
+}
+
 /** The fare is paid: off they fly, and the visit is over. */
 function depart(state: DoctorState, land: LandId, judged: DoctorEvent): DoctorStep {
 	return accept(state, { kind: 'ended' }, [judged, { type: 'flew', land }, { type: 'ended' }]);
@@ -408,12 +469,12 @@ function depart(state: DoctorState, land: LandId, judged: DoctorEvent): DoctorSt
 // --- helpers ---------------------------------------------------------------
 
 /**
- * A puzzle at the animal's healing difficulty, of a kind its own attacks ask,
+ * A puzzle at a species' healing difficulty, of a kind its own attacks ask,
  * so a kid meets the kind of sum they already know from battle. When `avoid`
  * is given (the prompt just missed), a few redraws keep the next one different.
  */
-function healingPuzzle(rng: Rng, animal: AnimalInstance, avoid?: string): Puzzle {
-	const spec = getAnimal(animal.speciesId);
+function healingPuzzle(rng: Rng, speciesId: string, avoid?: string): Puzzle {
+	const spec = getAnimal(speciesId);
 	const kinds = [...new Set<PuzzleKind>(spec.attacks.flatMap((a) => a.kinds))];
 	const difficulty = healingDifficulty(spec.tier);
 	let puzzle = generatePuzzle(rng, difficulty, kinds);
@@ -431,7 +492,7 @@ function accept(
 	state: DoctorState,
 	phase: DoctorPhase,
 	events: DoctorEvent[],
-	changes: Partial<Pick<DoctorState, 'party' | 'tokens' | 'items'>> = {}
+	changes: Partial<Pick<DoctorState, 'party' | 'tokens' | 'items' | 'book'>> = {}
 ): DoctorStep {
 	return { state: { ...state, ...changes, step: state.step + 1, phase }, events };
 }

@@ -145,6 +145,11 @@ export interface SavedGame {
 	 */
 	freed: string[];
 	/**
+	 * The animal book's species the druid told about, each once, in the
+	 * order first told (`recordTold`). It only grows.
+	 */
+	told: string[];
+	/**
 	 * The battle in progress, or null: always in `world`, since nobody leaves
 	 * a world mid-battle. Its seed is not saved: the authority derives it from `steps`.
 	 */
@@ -304,6 +309,15 @@ export interface SaveV5 {
 	 * build does not have makes the save a newer build's, as in `seen`.
 	 */
 	freed?: string[];
+	/**
+	 * The animal book's species the druid told about, by id, in the order
+	 * first told. Written only once he has told about one: a save without it
+	 * has been told about none. No version for it: a build from before it
+	 * tells about none, so carrying on with it unread loses nothing (it keeps
+	 * it as an extra). A species this build does not have makes the save a
+	 * newer build's, as in `seen`.
+	 */
+	told?: string[];
 	/** The battle in progress when it was saved. Checked on load (`readBattle`), dropped if unusable. */
 	battle?: unknown;
 	/**
@@ -353,6 +367,7 @@ const SAVE_KEYS: ReadonlySet<string> = new Set([
 	'seen',
 	'caught',
 	'freed',
+	'told',
 	'battle',
 	'edits',
 	'worlds',
@@ -376,7 +391,7 @@ const WHEREABOUTS: ReadonlySet<string> = new Set([
 ]);
 
 /** The animal book's lists of species ids. */
-const BOOK_KEYS = ['seen', 'caught', 'freed'] as const;
+const BOOK_KEYS = ['seen', 'caught', 'freed', 'told'] as const;
 
 const DIRECTIONS: ReadonlySet<string> = new Set(['up', 'down', 'left', 'right']);
 const SPECIES_IDS: ReadonlySet<string> = new Set(ANIMALS.map((a) => a.id));
@@ -728,7 +743,7 @@ function checkSave(input: unknown): SaveRead {
  * with, as an error, or null: one none of its catalogs has, which only a
  * later build writes (a species that has shipped never leaves the catalog:
  * [[INVARIANTS]] § Saves). That is a species in the party or in the animal
- * book (`seen`, `caught`, `freed`), or in a saved battle its realm, an animal's
+ * book (`seen`, `caught`, `freed`, `told`), or in a saved battle its realm, an animal's
  * species or the puzzle's kind, and a land (the one the player is in, or one
  * left behind) or a species in a land left behind's party: a game with such an animal cannot be played
  * here, a book with it would lose it at this build's next write, and such a
@@ -1008,6 +1023,7 @@ export function newGame(
 		seen: [...book.seen],
 		caught: [...book.caught],
 		freed: [...book.freed],
+		told: [...book.told],
 		battle: null,
 		edits: [],
 		worlds: [],
@@ -1131,6 +1147,7 @@ export function restoreGame(save: SaveV5, mintId: () => string): SavedGame {
 		seen: [...book.seen],
 		caught: [...book.caught],
 		freed: [...book.freed],
+		told: [...book.told],
 		battle: battle && bundledBattle(battle),
 		edits: [...edits.encode()],
 		worlds: [...worlds!],
@@ -1175,7 +1192,10 @@ function landStayOf(home: number): (saved: SavedLandStay) => LandStay {
  * which a starter may have joined); by default the save's own.
  */
 function savedBook(save: SaveV5, party: readonly AnimalInstance[] = save.party): AnimalBook {
-	let book = recordParty(bookOf(save.seen ?? [], save.caught ?? [], save.freed ?? []), party);
+	let book = recordParty(
+		bookOf(save.seen ?? [], save.caught ?? [], save.freed ?? [], save.told ?? []),
+		party
+	);
 	const battle = save.battle;
 	if (isRecord(battle) && isRecord(battle.opponent)) {
 		const wild = battle.opponent.speciesId;
@@ -1330,6 +1350,8 @@ export function saveDocument(
 		seq: stamp.seq
 	};
 	if (game.name !== null) doc.name = game.name;
+	// Only once the druid has told about an animal.
+	if (game.told.length > 0) doc.told = [...game.told];
 	// Only once a puzzle has been judged.
 	if (Object.keys(game.puzzles).length > 0)
 		doc.puzzles = readRecord(game.puzzles) as Record<string, TopicRecord>;
@@ -1455,6 +1477,7 @@ function withProgressDefaults(doc: SaveV5): Doc {
 	out.seen = [...book.seen].sort();
 	out.caught = [...book.caught].sort();
 	out.freed = [...book.freed].sort();
+	out.told = [...book.told].sort();
 	out.unlocked = [...unlockLands(doc.unlocked ?? [], book.caught)].sort();
 	return out;
 }

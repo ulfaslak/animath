@@ -22,16 +22,19 @@ export { DOCTOR_TABS, type DoctorTab } from '../doctor/tabs';
  * latest state, as the battle screen does. Svelte components read it and
  * never write it.
  *
- * The card has four tabs ([[UI_SPEC]] § Doctor): **heal** (the hurt animals),
+ * The card has five tabs ([[UI_SPEC]] § Doctor): **heal** (the hurt animals),
  * **home** (set animals free, home to the wild, for tokens), **shop** (buy an
- * item with tokens) and **fly** (to another land, for a puzzle; only where
- * there is another land to list). `screen` says what the keyboard does: `list` moves the
+ * item with tokens), **ask** (about an animal not caught yet, for a puzzle)
+ * and **fly** (to another land, for a puzzle; only where there is another
+ * land to list). `screen` says what the keyboard does: `list` moves the
  * cursor over the tab's rows (← → change the tab), `confirm` asks before a
  * hand-over, `offer` asks whether to take the surprise trip the druid
  * offers (`surpriseLand`), `puzzle` types an answer (a healing puzzle or a
- * token sum), `busy` ignores everything but Escape while a beat plays.
+ * token sum), `told` shows the animal the druid just told about, on the whole
+ * card, until Enter, a tap on OK or Escape puts it away, and `busy` ignores
+ * everything but Escape while a beat plays.
  */
-export type DoctorScreen = 'list' | 'confirm' | 'offer' | 'puzzle' | 'busy';
+export type DoctorScreen = 'list' | 'confirm' | 'offer' | 'puzzle' | 'told' | 'busy';
 
 /** The token sum that is open: what it is for, and what changes hands. */
 export type DoctorTrade =
@@ -53,6 +56,8 @@ export type DoctorRow =
 	| { kind: 'item'; itemId: ItemId }
 	/** Another land, on the fly tab: a flight there, or (locked) why not yet. */
 	| { kind: 'land'; land: LandId }
+	/** The ask tab's one row: the druid's puzzle, and then an animal not caught yet. */
+	| { kind: 'reveal' }
 	| { kind: 'send' }
 	| { kind: 'bye' };
 
@@ -78,6 +83,14 @@ class DoctorView {
 	unlocked = $state<string[]>([]);
 	/** The land whose fare is asked, while it is. */
 	fare = $state<LandId | null>(null);
+	/** The druid's puzzle for an animal not caught yet is asked. */
+	revealing = $state(false);
+	/**
+	 * The animal the druid just told about: the card shows it, its picture,
+	 * what it is like and where to look, on the whole card, from its beat
+	 * until the kid puts it away (the animal book keeps it).
+	 */
+	told = $state<string | null>(null);
 	/** What the doctor is saying, worded by the card in the language on screen. */
 	line = $state<DoctorLine | null>(null);
 	tab = $state<DoctorTab>('heal');
@@ -129,6 +142,8 @@ class DoctorView {
 		this.lands = [];
 		this.unlocked = [];
 		this.fare = null;
+		this.revealing = false;
+		this.told = null;
 		this.offer = null;
 		this.line = null;
 		this.tab = 'heal';
@@ -179,6 +194,7 @@ export function tabRows(
 	if (tab === 'fly') {
 		return [...lands.map((land) => ({ kind: 'land' as const, land })), { kind: 'bye' }];
 	}
+	if (tab === 'ask') return [{ kind: 'reveal' }, { kind: 'bye' }];
 	const animals = bundles(party).flatMap((bundle, b): DoctorRow[] => {
 		const head = tab === 'home' && bundle.animals.length > 1;
 		const rows = bundle.slots.map((partyIndex, k): DoctorRow => ({
@@ -199,8 +215,8 @@ export function tabRows(
  * The rows the cursor stops on: on **heal** the animals who need the doctor
  * (fit ones are shown, greyed, and skipped); on **home** every animal and
  * every bundle's row, and Set them free once one is picked; on **shop** every
- * item, the ones that can't be bought too (the card says why); and Bye on
- * every tab.
+ * item, the ones that can't be bought too (the card says why); on **ask** its
+ * row, with every animal caught too (the druid says so); and Bye on every tab.
  */
 export function rowStops(rows: readonly DoctorRow[], view: StopsView): number[] {
 	return rows.flatMap((row, k) => {
@@ -212,6 +228,7 @@ export function rowStops(rows: readonly DoctorRow[], view: StopsView): number[] 
 			case 'bundle':
 			case 'item':
 			case 'land':
+			case 'reveal':
 			case 'bye':
 				return [k];
 		}
