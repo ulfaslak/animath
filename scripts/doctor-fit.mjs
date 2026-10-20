@@ -153,8 +153,8 @@ const ask = (prompt, answer, kind = 'div', difficulty = 8) => ({
 	find: { kind: 'reveal' },
 	line: { say: 'askCount' }
 });
-const told = (speciesId, land) => ({
-	party: TEAM,
+const told = (speciesId, land, party = TEAM) => ({
+	party,
 	tab: 'ask',
 	screen: 'told',
 	told: speciesId,
@@ -304,6 +304,10 @@ const STATES = {
 	'ask-told-goose': told('barnacle-goose', 'arctic'),
 	'ask-told-swan': told('mute-swan', 'nordland'),
 	'ask-told-emperor': told('emperor-penguin', 'arctic'),
+	// The longest tip: a lead named with sixteen W's, smaller than the animal, so look far out.
+	'ask-told-far': told('mute-swan', 'nordland', [
+		{ id: 'n1', speciesId: 'squirrel', hp: 20, nickname: 'WWWWWWWWWWWWWWWW' }
+	]),
 	'shop-list': {
 		party: TEAM,
 		tab: 'shop',

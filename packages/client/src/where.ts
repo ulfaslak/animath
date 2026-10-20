@@ -63,7 +63,9 @@ export function leadLines(speciesId: string, party: readonly AnimalInstance[]): 
 	const best = bestLead(party, speciesId);
 	if (best === null) return [t('where.noSwimmer')];
 	const words = { lead: animalWords(party[best.index]!), animal: animalWords({ speciesId }) };
-	const lead = t(best.leads ? 'where.leadKeep' : 'where.lead', words);
+	// Out on the water the first that swims leads, not the animal tagged on land.
+	const keep = best.realm === 'water' ? 'where.leadKeepSwim' : 'where.leadKeep';
+	const lead = t(best.leads ? keep : 'where.lead', words);
 	return best.far ? [lead, t('where.far', words)] : [lead];
 }
 

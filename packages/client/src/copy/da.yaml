@@ -2094,6 +2094,7 @@ where:
   sky: Har du en fugl på dit hold, kan {animal.the} også finde dig, når du flyver med din paraglider.
   lead: Gør {lead.the} til dit aktive dyr, så møder du {animal.a} oftere.
   leadKeep: Behold {lead.the} som dit aktive dyr, så møder du {animal.a} oftere.
+  leadKeepSwim: På vandet er {lead.the} allerede dit aktive dyr. Det er godt, for så møder du {animal.a} oftere.
   far: '{lead.the} er mindre end {animal.the}, så du skal lede langt væk fra der, hvor du startede.'
   noSwimmer: Ingen af dine dyr kan svømme endnu. Fang først et dyr, der kan svømme!
 grass:
