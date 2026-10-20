@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { ANIMALS } from '../src/animals/catalog.js';
-import type { Biome } from '../src/animals/types.js';
-import { meetingPlaces } from '../src/doctor/reveal.js';
+import { ANIMALS, canFightIn, getAnimal } from '../src/animals/catalog.js';
+import type { AnimalInstance, Biome, Realm, Tier } from '../src/animals/types.js';
+import { bestLead, meetingPlaces } from '../src/doctor/reveal.js';
 import { LAND_IDS, landSeed, type LandId } from '../src/lands/ids.js';
 import { getLand } from '../src/lands/lands.js';
 import { WILD_RADIUS, encounterTable } from '../src/world/encounters.js';
@@ -80,4 +80,151 @@ describe('meetingPlaces', () => {
 		}
 		expect(bad).toEqual([]);
 	}, 120_000);
+});
+
+const team = (...ids: string[]): AnimalInstance[] =>
+	ids.map((speciesId, i) => ({ id: `t${i}`, speciesId, hp: getAnimal(speciesId).maxHp }));
+
+/** Teams to ask about, with every size and both ways of going there in them somewhere. */
+const TEAMS: Record<LandId, string[][]> = {
+	nordland: [
+		['squirrel'],
+		['squirrel', 'fox', 'deer', 'frog'],
+		['squirrel', 'wolf', 'bear', 'otter'],
+		['crab', 'squirrel', 'mute-swan', 'whale'],
+		['rabbit', 'fox', 'deer', 'wolf', 'bear']
+	],
+	arctic: [
+		['arctic-fox'],
+		['arctic-fox', 'reindeer', 'puffin'],
+		['musk-ox', 'arctic-wolf', 'king-eider', 'emperor-penguin', 'polar-cod']
+	]
+};
+
+describe('bestLead', () => {
+	it('names an animal of the team that can go where the animal is met, whose size meets it most', () => {
+		const bad: string[] = [];
+		for (const land of LAND_IDS) {
+			const biomes = [...new Set(getLand(land).species.flatMap((id) => getAnimal(id).habitats))];
+			for (const ids of TEAMS[land]) {
+				const party = team(...ids);
+				for (const id of getLand(land).species) {
+					const spec = getAnimal(id);
+					// Read off the tables of every biome, not off `meetingPlaces`: on land in the
+					// tall grass for an animal that walks, else in the water, the holes too.
+					const realm: Realm = spec.realms.includes('land') ? 'land' : 'water';
+					// Its share in each table it is met in (the places `meetingPlaces`, checked above
+					// against the maps, names), for a lead of size `lead`, `d` tiles out.
+					const places = meetingPlaces(id);
+					const at = (lead: Tier, d: number): number[] =>
+						biomes.flatMap((b) => {
+							const tables =
+								realm === 'land'
+									? places.grass.includes(b)
+										? [encounterTable(b, d, lead, 'land', land)]
+										: []
+									: [
+											...(places.sea.includes(b)
+												? [encounterTable(b, d, lead, 'water', land)]
+												: []),
+											...(places.ice.includes(b) ? [holeTable(b, d, lead)] : [])
+										];
+							return tables.map((t) => t.find((e) => e.species.id === id)?.weight ?? 0);
+						});
+					const total = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
+					const meets = (lead: Tier) => total(at(lead, 0)) + total(at(lead, WILD_RADIUS));
+					const can = party.filter((a) => canFightIn(a.speciesId, realm));
+					const got = bestLead(party, id);
+					if (can.length === 0) {
+						if (got !== null) bad.push(`${ids} → ${id}: names ${got.index}, nobody can go`);
+						continue;
+					}
+					if (got === null) {
+						bad.push(`${ids} → ${id}: names nobody`);
+						continue;
+					}
+					const lead = party[got.index]!;
+					if (!canFightIn(lead.speciesId, realm))
+						bad.push(`${ids} → ${id}: ${lead.speciesId} can't go`);
+					const tier = getAnimal(lead.speciesId).tier;
+					for (const other of can) {
+						const t = getAnimal(other.speciesId).tier;
+						if (meets(t) > meets(tier) + 1e-9) {
+							bad.push(`${ids} → ${id}: ${lead.speciesId} meets it less than ${other.speciesId}`);
+						}
+					}
+					// Far only where every place of it is better far out than near home.
+					const near = at(tier, 0);
+					const out = at(tier, WILD_RADIUS);
+					const far = spec.tier > tier && near.every((n, k) => n < out[k]! - 1e-9);
+					if (got.far !== far) bad.push(`${ids} → ${id}: far is ${got.far}`);
+					const big = tier > spec.tier && meets(spec.tier) >= 2 * meets(tier);
+					if (got.big !== big) bad.push(`${ids} → ${id}: big is ${got.big}`);
+					const first = party.findIndex((a) => canFightIn(a.speciesId, realm));
+					if (got.leads !== (first === got.index))
+						bad.push(`${ids} → ${id}: leads is ${got.leads}`);
+				}
+			}
+		}
+		expect(bad).toEqual([]);
+	});
+
+	it('names the first of the best size, tired or not: the druid heals', () => {
+		const party = team('squirrel', 'rabbit', 'fox');
+		const small = { realm: 'land', far: false, big: false };
+		expect(bestLead(party, 'shrew')).toEqual({ index: 0, leads: true, ...small });
+		expect(bestLead([party[2]!, party[1]!], 'shrew')).toEqual({ index: 1, leads: false, ...small });
+		// A tired squirrel in front is still the one: it leads again once it is well.
+		const tired = [{ ...party[0]!, hp: 0 }, party[2]!, party[1]!];
+		expect(bestLead(tired, 'shrew')).toEqual({ index: 0, leads: true, ...small });
+		// Behind a tired bear the squirrel does not lead: the bear will, once healed.
+		const bear = team('bear', 'squirrel');
+		expect(bestLead([{ ...bear[0]!, hp: 0 }, bear[1]!], 'shrew')).toEqual({
+			index: 1,
+			leads: false,
+			...small
+		});
+	});
+
+	it('sends a small team far out for a big animal, a big team for a smaller one, and nobody to sea without a swimmer', () => {
+		expect(bestLead(team('squirrel'), 'bear')).toEqual({
+			index: 0,
+			realm: 'land',
+			leads: true,
+			far: true,
+			big: false
+		});
+		expect(bestLead(team('bear'), 'shrew')).toEqual({
+			index: 0,
+			realm: 'land',
+			leads: true,
+			far: false,
+			big: true
+		});
+		expect(bestLead(team('squirrel', 'fox'), 'whale')).toBeNull();
+		// Out on the water the frog leads, the first that swims.
+		expect(bestLead(team('squirrel', 'frog'), 'whale')).toEqual({
+			index: 1,
+			realm: 'water',
+			leads: true,
+			far: true,
+			big: false
+		});
+		// Under a frozen lake the char is alone, whoever leads: no need to go far for it.
+		expect(bestLead(team('arctic-fox', 'puffin'), 'arctic-char')).toEqual({
+			index: 1,
+			realm: 'water',
+			leads: true,
+			far: false,
+			big: false
+		});
+		// The meadow holds nothing bigger than red deer, so a bear meets them more than a wolf does.
+		expect(bestLead(team('wolf', 'bear'), 'deer')).toEqual({
+			index: 1,
+			realm: 'land',
+			leads: false,
+			far: false,
+			big: false
+		});
+	});
 });

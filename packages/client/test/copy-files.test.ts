@@ -216,14 +216,13 @@ describe('copy files', () => {
 		expect(problems).toEqual([]);
 	});
 
-	it('the druid can tell about every animal, and say where to look in every place and land, at every size', () => {
+	it('the druid can tell about every animal, and say where to look in every place and land', () => {
 		// Keys built at run time (`where.ts`): what each animal is like, each place, each land's
-		// tall grass, each size. Plain text, all but the places' list, which `where.*` fills in.
+		// tall grass. Plain text, all but the places' list, which `where.*` fills in.
 		const keys = [
 			...ANIMALS.map((a) => `about.${a.id}`),
 			...Object.keys(BIOME_POLE).map((biome) => `places.${biome}`),
-			...LAND_IDS.map((land) => `grass.${land}`),
-			...[1, 2, 3, 4, 5].map((tier) => `where.size.tier${tier}`)
+			...LAND_IDS.map((land) => `grass.${land}`)
 		];
 		const problems: string[] = [];
 		for (const key of keys) {

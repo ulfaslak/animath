@@ -2468,27 +2468,29 @@ where:
   grassWater: Look in {grass} {places}, near water.
   grassTrees: Look in {grass} {places}, near trees.
   grassRocks: Look in {grass} {places}, near rocks.
-  grassOpen: Look in {grass} {places}, away from trees and rocks.
+  grassOpen: Look in {grass} {places}, away from trees, rocks and water.
   # An animal of the deep water: met from the boat, with a swimmer in the team.
   sea: Sail out on the deep water {places} in your boat, with an animal that can swim.
   # An animal of the water under the ice: hooked at a fishing hole.
   ice: Fish for it through a hole {places}. You need a fishing rod and an animal that can swim.
   # A bird: it notices a kid on the paraglider too, but only one with a bird in the team.
   sky: '{animal.the} can fly. With a bird in your team, it may follow you when you fly with the paraglider.'
-  # The lead picks who comes out: an animal of its size first ({size}: size.*) meets it more often.
-  lead: Let {size} go first, and you meet it more often.
-  # The same, for an animal of the water: the first swimmer leads there.
-  leadSwim: Let {size} that can swim go first, and you meet it more often.
-  # After `lead` or `leadSwim`, for an animal bigger than a small one: near home it hardly
+  # Which of the kid's own animals to put first ({lead}, the engine's `bestLead`) to meet this
+  # one ({animal}) most often; `leadKeep` when it goes first already.
+  lead: Put {lead.name} first, and you meet {animal.a} more often.
+  leadKeep: Keep {lead.name} first, and you meet {animal.a} more often.
+  # The same, for an animal of the water: out there the first that swims goes first.
+  leadKeepSwim: On the water {lead.name} already goes first. Good, then you meet {animal.a} more often.
+  # After `lead` or `leadKeep`, when the animal is bigger than that one: near home it hardly
   # comes out for a smaller lead ([[PRODUCT]] §4 "Wild encounters", the distance rule).
-  far: With a smaller animal first, look far from where you started.
-  # An animal's size, by its tier, as `lead` names the one to put first.
-  size:
-    tier1: a small animal
-    tier2: a medium animal
-    tier3: a big animal
-    tier4: a very big animal
-    tier5: a huge animal
+  far: '{lead.name} is smaller than {animal.the}, so look far from where you started.'
+  # That animal is tired: the tip counts the team as healed, and the druid heals.
+  tired: '{lead.name} is tired. Heal it first!'
+  # Instead of `lead`: the kid's animals are all so big that it hardly ever comes out for them.
+  tooBig: '{lead.name} is much bigger than {animal.the}. Catch a smaller animal and put it first, then you meet {animal.the} more often.'
+  tooBigSwim: '{lead.name} is much bigger than {animal.the}. Catch a smaller animal that can swim and put it first, then you meet {animal.the} more often.'
+  # An animal of the water, and nobody in the team swims.
+  noSwimmer: None of your animals can swim yet. Catch one that can first!
 # Each land's tall grass, as `where` names it.
 grass:
   nordland: the tall grass

@@ -1,8 +1,10 @@
 import {
 	LAND_IDS,
+	bestLead,
 	getAnimal,
 	getLand,
 	meetingPlaces,
+	type AnimalInstance,
 	type Biome,
 	type LandId
 } from '@mathgame/engine';
@@ -48,23 +50,30 @@ export function whereLines(speciesId: string): string[] {
 }
 
 /**
- * Which animal to put first to meet it more often: one of its size, since the
- * lead's size is the likeliest to come out ([[PRODUCT]] §4 "Wild
- * encounters"); out on the water, and at a fishing hole, one that swims,
- * since the first swimmer standing leads there. For an animal above the
- * smallest, also that with a smaller lead it comes out far from home: near
- * the spawn an animal bigger than the lead hardly ever does (the distance
- * rule), so a kid with only small animals is not sent to wait for a bear by
- * the tent.
+ * Which of the kid's own animals to put first to meet an animal most often
+ * (the engine's `bestLead`, read off the encounter rules), by its name: put
+ * it first, or keep it first when it is there already (out on the water,
+ * where the first that swims leads, that it does there). When it is tired,
+ * to heal it: the tip counts the team as healed. When the animal is bigger,
+ * also that it is to be looked for far from home: near the spawn an animal
+ * bigger than the lead hardly ever comes out (the distance rule), so a kid
+ * with only small animals is not sent to wait for a bear by the tent. When
+ * the kid's animals are all so big that it hardly comes out for them, to
+ * catch a smaller one instead; with nobody who swims for an animal of the
+ * water, to catch one that swims.
  */
-export function leadLines(speciesId: string): string[] {
-	const tier = getAnimal(speciesId).tier;
-	const size = t(`where.size.tier${tier}`);
-	const lead =
-		meetingPlaces(speciesId).grass.length > 0
-			? t('where.lead', { size })
-			: t('where.leadSwim', { size });
-	return tier > 1 ? [lead, t('where.far')] : [lead];
+export function leadLines(speciesId: string, party: readonly AnimalInstance[]): string[] {
+	const best = bestLead(party, speciesId);
+	if (best === null) return [t('where.noSwimmer')];
+	const lead = party[best.index]!;
+	const words = { lead: animalWords(lead), animal: animalWords({ speciesId }) };
+	const water = best.realm === 'water';
+	if (best.big) return [t(water ? 'where.tooBigSwim' : 'where.tooBig', words)];
+	const keep = water ? 'where.leadKeepSwim' : 'where.leadKeep';
+	const lines = [t(best.leads ? keep : 'where.lead', words)];
+	if (lead.hp === 0) lines.push(t('where.tired', words));
+	if (best.far) lines.push(t('where.far', words));
+	return lines;
 }
 
 /** What an animal is like, as the druid tells it. */

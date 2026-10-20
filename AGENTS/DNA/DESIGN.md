@@ -249,7 +249,7 @@ The words the game uses for its things, the same on every screen:
 | animal book | dyrebog | the pause menu's row and the book's title ("Dyrebog"), "Alle dyr, du møder, kommer i din dyrebog." |
 | seen, met (in the book) | set, mødt | the book's count ("9 fanget · 14 set · 50 i alt"), a kind met and not caught ("Du har mødt en ræv.") |
 | team | hold | "Dit hold", "kommer med på dit hold" |
-| goes first | først ud | the lead's tag, "Ræven er først ud!", "Sæt forrest" in the menu |
+| goes first (the lead) | aktiv, dit aktive dyr | the lead's tag ("aktiv"), "Ræven er nu dit aktive dyr!", "Gør aktiv" in the menu, the druid's "Gør ræven til dit aktive dyr, så møder du en grævling oftere."; never "først ud", and "dit aktive dyr" where the adjective would follow the noun's gender (*egernet er aktivt*) |
 | attack | angreb | "Tryk på et angreb og så på Kør!" |
 | easy / medium / hard | let / mellem / svær | an attack's three levels |
 | puzzle | opgave (opgaver) | "Løs en opgave" (the sum itself needs no words); the HUD's count ("312 opgaver") |
