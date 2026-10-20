@@ -1214,7 +1214,8 @@ describe('asking the druid about an animal', () => {
 		// The animal on the whole card, the druid saying where it lives, until it is put away.
 		expect([doctor.screen, doctor.puzzle, doctor.revealing]).toEqual(['told', null, false]);
 		expect(doctor.line).toEqual({ say: 'told', speciesId: told, land: 'nordland' });
-		t.press('Enter');
+		// A tap on Thank you! puts it away.
+		t.press(optionKey(0));
 		expect([doctor.screen, doctor.told, doctor.active]).toEqual(['list', null, true]);
 		expect(doctorWords(doctor.line!)).toMatch(/Nordland/);
 		expect(t.authority.snapshot().told).toEqual([told]);
