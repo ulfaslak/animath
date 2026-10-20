@@ -51,13 +51,20 @@ export function whereLines(speciesId: string): string[] {
  * Which animal to put first to meet it more often: one of its size, since the
  * lead's size is the likeliest to come out ([[PRODUCT]] §4 "Wild
  * encounters"); out on the water, and at a fishing hole, one that swims,
- * since the first swimmer standing leads there.
+ * since the first swimmer standing leads there. For an animal above the
+ * smallest, also that with a smaller lead it comes out far from home: near
+ * the spawn an animal bigger than the lead hardly ever does (the distance
+ * rule), so a kid with only small animals is not sent to wait for a bear by
+ * the tent.
  */
-export function leadLine(speciesId: string): string {
-	const size = t(`where.size.tier${getAnimal(speciesId).tier}`);
-	return meetingPlaces(speciesId).grass.length > 0
-		? t('where.lead', { size })
-		: t('where.leadSwim', { size });
+export function leadLines(speciesId: string): string[] {
+	const tier = getAnimal(speciesId).tier;
+	const size = t(`where.size.tier${tier}`);
+	const lead =
+		meetingPlaces(speciesId).grass.length > 0
+			? t('where.lead', { size })
+			: t('where.leadSwim', { size });
+	return tier > 1 ? [lead, t('where.far')] : [lead];
 }
 
 /** What an animal is like, as the druid tells it. */

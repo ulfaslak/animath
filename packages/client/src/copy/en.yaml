@@ -2470,12 +2470,15 @@ where:
   sea: Sail out on the deep water {places} in your boat, with an animal that can swim.
   # An animal of the water under the ice: hooked at a fishing hole.
   ice: Fish for it through a hole {places}. You need a fishing rod and an animal that can swim.
-  # A bird: it notices a kid on the paraglider too.
-  sky: '{animal.the} can fly, so it may follow you when you fly with the paraglider.'
+  # A bird: it notices a kid on the paraglider too, but only one with a bird in the team.
+  sky: '{animal.the} can fly. With a bird in your team, it may follow you when you fly with the paraglider.'
   # The lead picks who comes out: an animal of its size first ({size}: size.*) meets it more often.
   lead: Let {size} go first, and you meet it more often.
   # The same, for an animal of the water: the first swimmer leads there.
   leadSwim: Let {size} that can swim go first, and you meet it more often.
+  # After `lead` or `leadSwim`, for an animal bigger than a small one: near home it hardly
+  # comes out for a smaller lead ([[PRODUCT]] §4 "Wild encounters", the distance rule).
+  far: With a smaller animal first, look far from where you started.
   # An animal's size, by its tier, as `lead` names the one to put first.
   size:
     tier1: a small animal

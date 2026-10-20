@@ -2089,9 +2089,10 @@ where:
   grassOpen: Kig i {grass} {places}, langt fra træer og sten.
   sea: Sejl ud på det dybe vand {places} i din båd med et dyr, der kan svømme.
   ice: Fisk efter den gennem et hul {places}. Du skal bruge en fiskestang og et dyr, der kan svømme.
-  sky: '{animal.the} kan flyve, så måske følger den efter dig, når du flyver med din paraglider.'
+  sky: '{animal.the} kan flyve. Har du en fugl på dit hold, følger den måske efter dig, når du flyver med din paraglider.'
   lead: Lad {size} være først ud, så møder du det oftere.
   leadSwim: Lad {size}, der kan svømme, være først ud, så møder du det oftere.
+  far: Med et mindre dyr først ud skal du lede langt fra, hvor du startede.
   size:
     tier1: et lille dyr
     tier2: et mellemstort dyr

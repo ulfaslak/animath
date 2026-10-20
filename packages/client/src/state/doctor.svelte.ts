@@ -85,8 +85,8 @@ class DoctorView {
 	revealing = $state(false);
 	/**
 	 * The animal the druid told about last in this visit: the ask tab shows
-	 * it, its picture, what it is like and where to look, until he is asked
-	 * again or the card closes.
+	 * it, its picture, what it is like and where to look, until he tells about
+	 * another or the card closes (a puzzle asked and put away leaves it up).
 	 */
 	told = $state<string | null>(null);
 	/** What the doctor is saying, worded by the card in the language on screen. */

@@ -40,7 +40,7 @@
 	import ItemIcon from './ItemIcon.svelte';
 	import PuzzlePanel from './PuzzlePanel.svelte';
 	import Tick from './Tick.svelte';
-	import { aboutWords, leadLine, whereLines } from '../where';
+	import { aboutWords, leadLines, whereLines } from '../where';
 
 	/**
 	 * The doctor's card, over the world at the bottom of the screen (UI_SPEC §
@@ -760,7 +760,7 @@
 					{#each whereLines(told) as line, i (i)}
 						<div class="detail strong">{line}</div>
 					{/each}
-					<div class="detail">{leadLine(told)}</div>
+					<div class="detail">{leadLines(told).join(' ')}</div>
 				</div>
 			{:else if uncaught === 0}
 				<div class="soft">{t('doctor.ask.allTitle')}</div>
