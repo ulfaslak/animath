@@ -308,6 +308,10 @@ const STATES = {
 	'ask-told-far': told('mute-swan', 'nordland', [
 		{ id: 'n1', speciesId: 'squirrel', hp: 20, nickname: 'WWWWWWWWWWWWWWWW' }
 	]),
+	// The longest other tip: a team too big for the animal, to catch a smaller one first.
+	'ask-told-big': told('stag-beetle', 'nordland', [
+		{ id: 'n1', speciesId: 'bear', hp: 100, nickname: 'WWWWWWWWWWWWWWWW' }
+	]),
 	'shop-list': {
 		party: TEAM,
 		tab: 'shop',

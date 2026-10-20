@@ -86,7 +86,7 @@ Twice on 2026-09-26 a worktree's Vite kept showing its red error overlay on ever
 
 ## A script's `import('/src/…')` is a second copy once the dev server has hot-updated
 
-A Playwright script that reads the game's state by importing its modules in the page (`await import('/src/state/title.svelte.ts')`) gets the app's own copy only while Vite has hot-updated nothing under it. Once an edit or a `git merge` touches a file those modules import, however deep, Vite serves the app's imports with a `?t=` timestamp, and the bare path loads a second copy that never changes: a wait on `__title.open` times out with the title on screen (twice on 2026-09-28, feat/birds-in-the-air). Restart your Vite after editing, before driving a page that way.
+A Playwright script that reads the game's state by importing its modules in the page (`await import('/src/state/title.svelte.ts')`) gets the app's own copy only while Vite has hot-updated nothing under it. Once an edit or a `git merge` touches a file those modules import, however deep, Vite serves the app's imports with a `?t=` timestamp, and the bare path loads a second copy that never changes: a wait on `__title.open` times out with the title on screen (twice on 2026-09-28, feat/birds-in-the-air). Restart your Vite after editing, before driving a page that way. `scripts/doctor-fit.mjs` and `pnpm fit` read the card that way: after an edit they flag every case "no card on screen" (fix/danish-druid-copy, 2026-10-20).
 
 ## A merge that bumps the protocol leaves your running API behind
 
