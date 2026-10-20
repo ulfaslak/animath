@@ -426,7 +426,7 @@ async function describe() {
 	const coords = await textOf('.coords');
 	if (coords !== null) lines.push(`coords: ${coords}`);
 	// Party cards in explore, one per species, the lead's in brackets and an open one in braces:
-	// "[1 Pip 20/20 goes first] | {2 Rabbit ×4 3 ready · 1 tired}"; then the open card's animals.
+	// "[1 Pip 20/20 active] | {2 Rabbit ×4 3 ready · 1 tired}"; then the open card's animals.
 	const cards = await page.locator('.party .cards .bundle').evaluateAll((els) =>
 		els.map((el) => {
 			const text = el.textContent.replace(/\s+/g, ' ').trim();

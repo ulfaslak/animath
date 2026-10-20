@@ -8,7 +8,7 @@
 	/**
 	 * The animals of an open card (`BundleCard`): one row each, in party
 	 * order — its name (the nickname, or the species' name), its HP bar with
-	 * numbers, and a tag: "goes first" on the lead, "tired" at 0 HP. The rows
+	 * numbers, and a tag: "active" on the lead, "tired" at 0 HP. The rows
 	 * line up in columns sized by the longest name, which shows whole. The
 	 * list grows as long as its animals and its box scrolls: give it a
 	 * `max-height` (a class, or a style) where it must stop.
@@ -22,7 +22,7 @@
 	 */
 	interface Props {
 		animals: readonly AnimalInstance[];
-		/** The lead's id: its row is tagged "goes first". */
+		/** The lead's id: its row is tagged "active". */
 		leadId?: string | null;
 		/** The key a click or a tap on an animal's row presses. */
 		press?: (animal: AnimalInstance, index: number) => string | undefined;

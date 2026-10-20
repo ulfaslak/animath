@@ -94,7 +94,7 @@
 	const options = $derived(
 		pickedIndex >= 0 ? partyOptions(game.party, pickedIndex, game.realm) : []
 	);
-	/** Why the picked animal's "Go first" is greyed, said under its options; null when it isn't. */
+	/** Why the picked animal's "Make active" is greyed, said under its options; null when it isn't. */
 	const pickedNotFirst = $derived(
 		pickedIndex >= 0 ? whyNotFirst(game.party, pickedIndex, game.realm) : null
 	);
@@ -105,7 +105,7 @@
 	const rows = $derived(card ? cardRows(game.party, card.speciesId, game.realm) : []);
 	/** How many of the card's rows are options, before its animals. */
 	const cardOptions = $derived(rows.filter((r) => r.kind === 'option').length);
-	/** Why the open card's "Go first" is greyed; null when it isn't. */
+	/** Why the open card's "Make active" is greyed; null when it isn't. */
 	const cardNotFirst = $derived(
 		card ? whyCardNotFirst(game.party, card.speciesId, game.realm) : null
 	);
@@ -204,7 +204,7 @@
 
 	/**
 	 * The short slide of a card that changes place in the team (Move up,
-	 * Move down, Go first), or is still on its way from the last change. A row
+	 * Move down, Make active), or is still on its way from the last change. A row
 	 * whose card kept its place moves with the menu at once: on a tablet,
 	 * Save puts the menu back in the middle in the frame the new name arrives,
 	 * and a row sliding down behind it took a tap meant for the animal it
@@ -642,7 +642,7 @@
 								<span class="caret">▸</span>{optionLabel(option.id)}
 							</button>
 						{/each}
-						<!-- Why "Go first" is greyed, when it is: a kid can't tell from the grey alone. -->
+						<!-- Why "Make active" is greyed, when it is: a kid can't tell from the grey alone. -->
 						{#if pickedNotFirst === 'cantSwim'}
 							<div class="note">{t('pause.cantSwimHelp', { animal: animalWords(picked) })}</div>
 						{:else if pickedNotFirst === 'inTheSea'}
@@ -671,7 +671,7 @@
 								</button>
 							{/if}
 						{/each}
-						<!-- Why "Go first" is greyed, when they can't go first here or are all tired; else what the list below is for. -->
+						<!-- Why "Make active" is greyed, when they can't go first here or are all tired; else what the list below is for. -->
 						<div class="note">
 							{cardNotFirst === 'cantSwim'
 								? t('pause.allCantSwimHelp')

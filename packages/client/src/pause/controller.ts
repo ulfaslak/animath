@@ -563,7 +563,7 @@ export class PauseController {
 					sfx.play('confirm');
 					this.pick(row.animal.id, speciesId);
 				} else {
-					// "Go first" is heard as the lead's own ding (`hud`), once it is true.
+					// "Make active" is heard as the lead's own ding (`hud`), once it is true.
 					if (row.id !== 'first') sfx.play('confirm');
 					this.chooseCard(row.id, speciesId);
 				}
@@ -614,7 +614,7 @@ export class PauseController {
 				// top) keeps the cursor and does nothing: mashing Enter can't overshoot.
 				const option = options[pause.option];
 				if (option?.enabled) {
-					// "Go first" is heard as the lead's own ding (`hud`), once it is true.
+					// "Make active" is heard as the lead's own ding (`hud`), once it is true.
 					if (option.id !== 'first') sfx.play('confirm');
 					this.choose(option.id, index);
 				}

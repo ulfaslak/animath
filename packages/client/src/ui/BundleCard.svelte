@@ -14,7 +14,7 @@
 	 * species' name, how many ("×4"), how they are ("3 ready · 1 tired soon ·
 	 * 1 tired", `stackSummary`), and a slim bar of all their HP together;
 	 * their names and HP are on the open card (`BundleAnimals`). The card is
-	 * marked "goes first" when the lead is one of its animals, and "tired"
+	 * marked "active" when the lead is one of its animals, and "tired"
 	 * when all of them are.
 	 *
 	 * A reader, like every card: a click or a tap is the key it names in

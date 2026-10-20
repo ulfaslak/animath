@@ -156,7 +156,7 @@ export interface OptionRow<T extends string> {
 }
 
 /**
- * Why "Go first" is greyed, said under the options so a kid knows: the
+ * Why "Make active" is greyed, said under the options so a kid knows: the
  * animal can't go first where the player stands (out on the water it can't
  * swim, `cantSwim`; on land it lives in the sea, `inTheSea`), it is tired, or
  * it goes first already. The engine's own refusal (`leadRefusal`,
@@ -199,7 +199,7 @@ function notFirst(refusal: LeadRefusal | null, realm: Realm): NotFirst | null {
 
 /**
  * What can be done with the animal in slot `index`, where the player stands
- * in `realm`. "Go first" is the engine's `select-lead`, so it is offered only
+ * in `realm`. "Make active" is the engine's `select-lead`, so it is offered only
  * where that would be accepted (`whyNotFirst`): the animal can fight there
  * (out on the water, it swims), is not tired and does not lead there
  * already. Moving is
