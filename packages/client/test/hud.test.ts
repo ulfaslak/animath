@@ -1,5 +1,6 @@
 import {
 	ANIMALS,
+	EMPTY_BOOK,
 	getAnimal,
 	hashString,
 	newGame,
@@ -146,6 +147,7 @@ describe('the explore message line', () => {
 				land: 'nordland' as const,
 				unlocked: ['nordland'],
 				open: ['nordland' as const],
+				book: EMPTY_BOOK,
 				phase: { kind: 'ended' as const }
 			});
 			hud.apply({ type: 'doctor-visit-started', visit: 1, state: state(before) });
@@ -199,6 +201,7 @@ describe('the explore message line', () => {
 			seen: [],
 			caught: [],
 			freed: [],
+			told: [],
 			newGame: true,
 			edits: []
 		});
@@ -214,6 +217,7 @@ describe('the explore message line', () => {
 				land: 'nordland',
 				unlocked: ['nordland'],
 				open: ['nordland'],
+				book: EMPTY_BOOK,
 				phase: { kind: 'ended' }
 			}
 		});
@@ -345,6 +349,7 @@ describe('the explore message line', () => {
 			seen: [],
 			caught: [],
 			freed: [],
+			told: [],
 			newGame: false,
 			edits: []
 		});
@@ -375,6 +380,7 @@ describe('the explore message line', () => {
 			seen: [],
 			caught: [],
 			freed: [],
+			told: [],
 			newGame: false,
 			edits: []
 		});

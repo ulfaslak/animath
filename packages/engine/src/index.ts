@@ -79,10 +79,13 @@ export {
 	hasCaught,
 	hasFreed,
 	hasSeen,
+	hasTold,
 	recordBattle,
 	recordParty,
+	recordTold,
 	recordWentHome,
-	seeSpecies
+	seeSpecies,
+	tellSpecies
 } from './animals/book.js';
 export type { AnimalBook } from './animals/book.js';
 
@@ -136,6 +139,8 @@ export {
 	needsHealing
 } from './doctor/party.js';
 export { homeTokens, tokenPuzzle, tokensForTier } from './doctor/tokens.js';
+export { meetingPlaces, revealChoices } from './doctor/reveal.js';
+export type { MeetingPlaces } from './doctor/reveal.js';
 export { careFor, doctorComes, knockOut } from './doctor/knockout.js';
 export type { KnockOut, KnockOutOptions } from './doctor/knockout.js';
 export {

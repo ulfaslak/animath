@@ -44,10 +44,18 @@ export interface AnimalBook {
 	 * One list for every land: species ids are unique across the catalog.
 	 */
 	readonly freed: readonly string[];
+	/**
+	 * Every species the druid has told the kid about, each once, in the order
+	 * first told: a right answer to the puzzle he asks for it
+	 * (`recordTold`, the `revealed` event). Told is not seen: the book shows a
+	 * kind told and never met so the kid knows what to look for, and the
+	 * grass still counts it as not caught.
+	 */
+	readonly told: readonly string[];
 }
 
 /** A book with nothing in it. A game never has one: it starts with its starter caught. */
-export const EMPTY_BOOK: AnimalBook = { seen: [], caught: [], freed: [] };
+export const EMPTY_BOOK: AnimalBook = { seen: [], caught: [], freed: [], told: [] };
 
 /**
  * The book's page for land `land`, a tab of its own (#191): every species of
@@ -85,6 +93,11 @@ export function hasFreed(book: AnimalBook, speciesId: string): boolean {
 	return book.freed.includes(speciesId);
 }
 
+/** Whether the druid has told the kid about `speciesId`. */
+export function hasTold(book: AnimalBook, speciesId: string): boolean {
+	return book.told.includes(speciesId);
+}
+
 /**
  * `book` with `speciesId` seen, at the end of `seen` when it is new there.
  * The very same book when nothing changes: already seen, or not a species of
@@ -92,7 +105,7 @@ export function hasFreed(book: AnimalBook, speciesId: string): boolean {
  */
 export function seeSpecies(book: AnimalBook, speciesId: string): AnimalBook {
 	if (!SPECIES.has(speciesId) || book.seen.includes(speciesId)) return book;
-	return { seen: [...book.seen, speciesId], caught: book.caught, freed: book.freed };
+	return { ...book, seen: [...book.seen, speciesId] };
 }
 
 /**
@@ -102,7 +115,7 @@ export function seeSpecies(book: AnimalBook, speciesId: string): AnimalBook {
 export function catchSpecies(book: AnimalBook, speciesId: string): AnimalBook {
 	if (!SPECIES.has(speciesId) || book.caught.includes(speciesId)) return book;
 	const seen = seeSpecies(book, speciesId).seen;
-	return { seen, caught: [...book.caught, speciesId], freed: book.freed };
+	return { ...book, seen, caught: [...book.caught, speciesId] };
 }
 
 /**
@@ -111,8 +124,18 @@ export function catchSpecies(book: AnimalBook, speciesId: string): AnimalBook {
  */
 export function freeSpecies(book: AnimalBook, speciesId: string): AnimalBook {
 	if (!SPECIES.has(speciesId) || book.freed.includes(speciesId)) return book;
-	const { seen, caught } = seeSpecies(book, speciesId);
-	return { seen, caught, freed: [...book.freed, speciesId] };
+	const { seen } = seeSpecies(book, speciesId);
+	return { ...book, seen, freed: [...book.freed, speciesId] };
+}
+
+/**
+ * `book` with `speciesId` told about by the druid. Not seen: only a battle
+ * shows a kind. The very same book when nothing changes: already told, or
+ * not a species of the catalog.
+ */
+export function tellSpecies(book: AnimalBook, speciesId: string): AnimalBook {
+	if (!SPECIES.has(speciesId) || book.told.includes(speciesId)) return book;
+	return { ...book, told: [...book.told, speciesId] };
 }
 
 /**
@@ -164,6 +187,18 @@ export function recordWentHome(book: AnimalBook, events: readonly DoctorEvent[])
 }
 
 /**
+ * `book` after a step of a doctor visit, given the step's events: the species
+ * the druid told about (`revealed`, which the reducer emits only on a right
+ * answer to its puzzle) is told. The authority calls it with each accepted
+ * step's events. The very same book when nothing is new.
+ */
+export function recordTold(book: AnimalBook, events: readonly DoctorEvent[]): AnimalBook {
+	let next = book;
+	for (const e of events) if (e.type === 'revealed') next = tellSpecies(next, e.speciesId);
+	return next;
+}
+
+/**
  * A book from its lists as a save holds them: each species once, in the
  * order listed, the caught and set-free ones seen too, and nothing the
  * catalog lacks.
@@ -171,11 +206,13 @@ export function recordWentHome(book: AnimalBook, events: readonly DoctorEvent[])
 export function bookOf(
 	seen: readonly string[],
 	caught: readonly string[],
-	freed: readonly string[] = []
+	freed: readonly string[] = [],
+	told: readonly string[] = []
 ): AnimalBook {
 	let book: AnimalBook = EMPTY_BOOK;
 	for (const id of seen) book = seeSpecies(book, id);
 	for (const id of caught) book = catchSpecies(book, id);
 	for (const id of freed) book = freeSpecies(book, id);
+	for (const id of told) book = tellSpecies(book, id);
 	return book;
 }

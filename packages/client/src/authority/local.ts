@@ -58,6 +58,7 @@ import {
 	normalizeNickname,
 	recordBattle,
 	recordParty,
+	recordTold,
 	recordWentHome,
 	rollEncounterFor,
 	rollSkyEncounter,
@@ -366,7 +367,7 @@ export class LocalAuthority implements Authority {
 		this.puzzles = game.puzzles;
 		// Every animal the kid has was caught (a starter counts), and a battle in progress was
 		// met: whatever the game handed in says (a `restoreGame`'s says so already).
-		this.book = recordParty(bookOf(game.seen, game.caught, game.freed), this.party);
+		this.book = recordParty(bookOf(game.seen, game.caught, game.freed, game.told), this.party);
 		if (game.battle) this.book = recordBattle(this.book, game.battle);
 		this.edits = WorldEdits.decode(game.edits);
 		this.worlds = game.worlds.map(copyStay);
@@ -397,6 +398,7 @@ export class LocalAuthority implements Authority {
 			seen: [...this.book.seen],
 			caught: [...this.book.caught],
 			freed: [...this.book.freed],
+			told: [...this.book.told],
 			newGame: isNew,
 			edits: [...this.edits.encode()]
 		});
@@ -456,6 +458,7 @@ export class LocalAuthority implements Authority {
 			seen: [...book.seen],
 			caught: [...book.caught],
 			freed: [...book.freed],
+			told: [...book.told],
 			battle,
 			edits: [...edits.encode()],
 			worlds: fitted.worlds.map(copyStay),
@@ -513,7 +516,8 @@ export class LocalAuthority implements Authority {
 			party,
 			seen: [...book.seen],
 			caught: [...book.caught],
-			freed: [...book.freed]
+			freed: [...book.freed],
+			told: [...book.told]
 		};
 	}
 
@@ -1192,7 +1196,7 @@ export class LocalAuthority implements Authority {
 			// The surprise trip rewards catching one of each animal: a game a switch opened every
 			// land in earned none, so it is offered nothing.
 			visited: this.options.lands ? LAND_IDS : [this.land, ...this.lands.map((l) => l.land)],
-			caught: this.book.caught
+			book: this.book
 		});
 		// A fresh seed per visit, keyed like everything else here so a session
 		// replays; the visit count keeps a second visit from asking the same
@@ -1223,8 +1227,9 @@ export class LocalAuthority implements Authority {
 			this.party = state.party.map((a) => ({ ...a }));
 			this.emit({ type: 'party-changed', party: this.partyCopy() });
 		}
-		// The kinds that went home are set free in the book, for good.
-		this.note(recordWentHome(this.book, events));
+		// The kinds that went home are set free in the book, for good, and the kind the druid told
+		// about is told.
+		this.note(recordTold(recordWentHome(this.book, events), events));
 		if (events.some((e) => e.type === 'tokens-given' || e.type === 'bought')) {
 			this.tokens = state.tokens;
 			this.items = [...state.items];
@@ -1435,7 +1440,8 @@ export class LocalAuthority implements Authority {
 			type: 'book-changed',
 			seen: [...book.seen],
 			caught: [...book.caught],
-			freed: [...book.freed]
+			freed: [...book.freed],
+			told: [...book.told]
 		});
 		this.unlock();
 	}
