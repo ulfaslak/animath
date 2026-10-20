@@ -299,12 +299,12 @@ describe('pause menu', () => {
 		}
 	});
 
-	it('"Go first" sends select-lead and comes back to the list on the animal, now first', () => {
+	it('"Make active" sends select-lead and comes back to the list on the animal, now first', () => {
 		const { press, sent, species } = setup();
 		const fox = game.party[2]!;
 		press('Escape', 's', 's', 'Enter');
 		expect(pause.screen).toBe('options');
-		expect(pause.option).toBe(0); // "Go first", the first option that can be done
+		expect(pause.option).toBe(0); // "Make active", the first option that can be done
 		press('Enter');
 		expect(sent.at(-1)).toEqual({
 			type: 'party',
@@ -319,7 +319,7 @@ describe('pause menu', () => {
 		const { press, species } = setup();
 		// Up past every menu item to the fox.
 		press('Escape', ...Array<string>(menuItems().length + 1).fill('ArrowUp'), 'Enter');
-		press('s'); // from "Go first" down to "Move up"
+		press('s'); // from "Make active" down to "Move up"
 		expect(pause.option).toBe(1);
 		press('Enter');
 		expect(species()).toEqual(['squirrel', 'fox', 'rabbit']);
@@ -330,15 +330,15 @@ describe('pause menu', () => {
 		expect(pause.cursor).toBe(0);
 	});
 
-	it('skips options that cannot be done, and "Go first" on a tired animal is one of them', () => {
+	it('skips options that cannot be done, and "Make active" on a tired animal is one of them', () => {
 		const { press, sent } = setup('squirrel,rabbit:0');
 		press('Escape', 's', 'Enter'); // the tired rabbit
-		// "Go first" (tired) and "Move down" (last) are greyed: the cursor starts on "Move up".
+		// "Make active" (tired) and "Move down" (last) are greyed: the cursor starts on "Move up".
 		expect(pause.option).toBe(1);
 		press('s');
 		expect(pause.option).toBe(3); // "New name", past the greyed "Move down"
 		press('w', 'w');
-		expect(pause.option).toBe(4); // wraps past the greyed "Go first" to "Back"
+		expect(pause.option).toBe(4); // wraps past the greyed "Make active" to "Back"
 		const before = sent.length;
 		press('Enter');
 		expect(pause.screen).toBe('list');
@@ -417,7 +417,7 @@ describe('pause menu', () => {
  * a language on the Language row its language key, and the name box's Save
  * and Back are Enter and Escape.
  */
-describe('why "Go first" is greyed', () => {
+describe('why "Make active" is greyed', () => {
 	/** The engine's refusal of a lead, as the panel names it. */
 	function refusal(party: ReturnType<typeof bundled>, intent: PartyIntent, realm: Realm) {
 		const [event] = applyPartyIntent(party, intent, 'explore', realm).events;
@@ -430,7 +430,7 @@ describe('why "Go first" is greyed', () => {
 		return reasons[event.reason] ?? event.reason;
 	}
 
-	it('every greyed Go first has a reason, the one the engine refuses with, for an animal and a card', () => {
+	it('every greyed Make active has a reason, the one the engine refuses with, for an animal and a card', () => {
 		const teams = [
 			'squirrel,rabbit:0,crab,otter:0,whale*2,frog',
 			'otter,squirrel*3,crab:0,frog:0*2',
@@ -474,7 +474,7 @@ describe('pause menu with cards of several animals', () => {
 		expect(cards()).toEqual(['squirrel', 'rabbit', 'fox']);
 		press('Escape', 's', 'Enter');
 		expect([pause.screen, pause.species, pause.picked]).toEqual(['bundle', 'rabbit', null]);
-		// Go first (no rabbit leads), Move up, Move down, Back, then three rabbits.
+		// Make active (no rabbit leads), Move up, Move down, Back, then three rabbits.
 		expect(pause.option).toBe(0);
 		press('w');
 		expect(pause.option).toBe(6); // wraps round to the last rabbit
@@ -484,7 +484,7 @@ describe('pause menu with cards of several animals', () => {
 		expect([pause.screen, pause.cursor]).toEqual(['list', 1]);
 	});
 
-	it("the card's Go first leads with its first rabbit standing; its moves move the whole card", () => {
+	it("the card's Make active leads with its first rabbit standing; its moves move the whole card", () => {
 		const { press, sent, cards } = setup('squirrel,rabbit:0,rabbit*2,fox');
 		press('Escape', 's', 'Enter', 's'); // the rabbits' Move up
 		press('Enter');
@@ -499,8 +499,8 @@ describe('pause menu with cards of several animals', () => {
 		press('s', 'Enter', 'Enter');
 		expect(cards()).toEqual(['squirrel', 'fox', 'rabbit']);
 		expect(pause.screen).toBe('bundle');
-		// Go first: its first rabbit standing leads, and the menu goes back to the list, on the top card.
-		press('w', 'w', 'Enter'); // from the greyed Move down, up past Move up to Go first
+		// Make active: its first rabbit standing leads, and the menu goes back to the list, on the top card.
+		press('w', 'w', 'Enter'); // from the greyed Move down, up past Move up to Make active
 		expect(sent.at(-1)).toEqual({
 			type: 'party',
 			intent: { type: 'lead-species', speciesId: 'rabbit' }
@@ -513,7 +513,7 @@ describe('pause menu with cards of several animals', () => {
 	it('an animal of a card goes first, moves within its card, and comes back to the card', () => {
 		const { press, sent, species } = setup('squirrel,rabbit*3');
 		const rabbits = game.party.filter((a) => a.speciesId === 'rabbit').map((a) => a.id);
-		// Go first, Move up, (Move down: greyed, the last card), Back, then the second rabbit.
+		// Make active, Move up, (Move down: greyed, the last card), Back, then the second rabbit.
 		press('Escape', 's', 'Enter', ...Array<string>(4).fill('s'), 'Enter');
 		expect([pause.screen, pause.species, pause.picked]).toEqual(['options', 'rabbit', rabbits[1]]);
 		press('s', 'Enter'); // Move up, within the card
@@ -535,22 +535,22 @@ describe('pause menu with cards of several animals', () => {
 		press('Escape');
 		expect([pause.screen, pause.species, pause.option]).toEqual(['bundle', 'rabbit', 4]);
 		// A new name, saved: back on the card's screen, on the rabbit.
-		press('Enter', 's', 's', 'Enter'); // Go first, (Move up: greyed), Move down, New name
+		press('Enter', 's', 's', 'Enter'); // Make active, (Move up: greyed), Move down, New name
 		expect(pause.screen).toBe('naming');
 		pause.draft = 'Hop';
 		press('Enter');
 		expect(game.party[1]!.nickname).toBe('Hop');
 		expect([pause.screen, pause.species, pause.option]).toEqual(['bundle', 'rabbit', 4]);
-		// Go first: the rabbits' card to the top, Hop at its front, and back to the list.
+		// Make active: the rabbits' card to the top, Hop at its front, and back to the list.
 		press('Enter', 'Enter');
 		expect(game.party[0]!.id).toBe(rabbits[1]);
 		expect([pause.screen, pause.cursor]).toEqual(['list', 0]);
 	});
 
-	it('a card of tired animals greys its Go first', () => {
+	it('a card of tired animals greys its Make active', () => {
 		const { press, sent } = setup('squirrel,rabbit:0*2');
 		press('Escape', 's', 'Enter');
-		expect(pause.option).toBe(1); // Go first is greyed: Move up
+		expect(pause.option).toBe(1); // Make active is greyed: Move up
 		press(optionKey(0));
 		expect(sent).toEqual([]);
 	});

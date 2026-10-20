@@ -37,7 +37,7 @@
 	 * The explore HUD. The party column: one card per species, in battle
 	 * order (`BundleCard`; the party is kept in bundles), a card of several
 	 * animals a stack. The lead — the engine's `leadIndex`, the first animal
-	 * standing, the one a battle sends out — marks its card "goes first".
+	 * standing, the one a battle sends out — marks its card "active".
 	 * Under the cards, the keys for choosing and for the menu; at the bottom,
 	 * the message line (`state/hud.svelte.ts`), which also says who goes first
 	 * after a party edit.

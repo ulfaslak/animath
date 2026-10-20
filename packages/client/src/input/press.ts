@@ -22,7 +22,7 @@ import { DOCTOR_TABS, type DoctorTab } from '../doctor/tabs';
  *   result and on "Leave the match?". A key
  *   says what it touched, never where it sits, so two lists a pointer can
  *   reach at once never share one (#45: the team's `row:0` was read as the
- *   options' first, Go first).
+ *   options' first, Make active).
  * - `level:<n>`: a level button on the highlighted attack (1 easy, 2
  *   medium, 3 hard). It sets the level; it does not attack.
  * - `language:<code>`: a language on a Language row (the pause menu's, the

@@ -1380,7 +1380,7 @@ explore:
   # The first bump into an ice block without the ice pick, and Enter facing one.
   # Leaving the druid's card just after buying the skis: how to ski.
   # Leaving the druid's card just after buying the dog sled: who pulls it.
-  sledHow: Put a reindeer or an Arctic wolf first, and it pulls you on your sled!
+  sledHow: Make a reindeer or an Arctic wolf your active animal, and it pulls you on your sled!
   skiHow: Hold an arrow to go faster and faster on the snow. Let go and you glide on!
   needIcePick: You need an ice pick to break ice blocks. The druid sells one!
   # Enter facing a fishing hole without the fishing rod.
@@ -1413,7 +1413,7 @@ explore:
   holdToFlyTouch: Hold Fly to fly!
   # The druid's goodbye just after buying the harness: a big animal (a deer, a bear…)
   # at the top of the team carries the kid.
-  rideBig: Put a big animal first and hop on!
+  rideBig: Make a big animal active and hop on!
   # A take-off with no ground to land on in the 20 tiles ahead (a lake too wide, a forest too deep).
   tooFar: Too far! There's nowhere to land that way.
   # Up in the air, a wild bird noticed the glider and follows it down; its battle
@@ -1424,13 +1424,13 @@ explore:
 
 hud:
   # The tag on the card of the lead: the animal that steps into the next battle.
-  goesFirst: goes first
+  goesFirst: active
   # Under the party cards, after the number keys 1–n.
-  pickLead: Pick who goes first
+  pickLead: Pick your active animal
   # The same, with the touch controls on: the cards themselves are tapped.
-  pickLeadTouch: Tap an animal to pick who goes first
+  pickLeadTouch: Tap an animal to make it active
   # With the touch controls on, when a card holds several animals of one kind.
-  openTouch: Tap a card to open it, then tap who goes first
+  openTouch: Tap a card to open it, then tap the animal to make active
   # Under the party cards, with two or more: how to put them in another order.
   dragMouse: Drag a card to move it
   dragTouch: Hold a card, then drag it
@@ -1474,17 +1474,17 @@ team:
 party:
   # The tag on an animal at 0 HP.
   tired: tired
-  # The message line, when a number key or "Go first" made {animal} the lead,
+  # The message line, when a number key or "Make active" made {animal} the lead,
   # or a change in the pause menu left {animal} in front.
-  leadChosen: '{animal.name} goes first!'
+  leadChosen: '{animal.name} is now your active animal!'
   # The message line, out on the water, when the number of an animal that can't swim was pressed.
-  leadCantSwim: "{animal.name} can't swim! On the water, an animal that swims goes first."
+  leadCantSwim: "{animal.name} can't swim! On the water, your active animal has to swim."
   # The message line, on land, when the number of a sea animal was pressed.
-  leadInTheSea: '{animal.name} lives in the sea! On land, an animal that walks goes first.'
+  leadInTheSea: '{animal.name} lives in the sea! On land, your active animal has to walk.'
   # The message line, when the number of a tired animal was pressed.
   leadTired: '{animal.name} is tired. Visit the druid!'
   # The message line, when the lead's own number was pressed.
-  leadAlready: '{animal.name} already goes first!'
+  leadAlready: '{animal.name} is already your active animal!'
   # The message line, when the number of a card whose animals are all tired was pressed.
   leadAllTired: They are all tired. Visit the druid!
 
@@ -1953,30 +1953,30 @@ pause:
   soundHelp: Enter or ← → turns the sound on and off. You can also press M.
   soundHelpTouch: Tap Sound to turn it on and off.
   # The picked animal's options: become the lead, move one place, get a nickname.
-  goFirst: Go first
+  goFirst: Make active
   moveUp: Move up
   moveDown: Move down
   newName: New name
   back: Back
   # The right-hand panel before an animal is picked.
   pick: Pick an animal
-  pickHelp: Choose who goes first, move it, or give it a name.
-  # Under the options of a tired animal, whose "Go first" is greyed.
-  tiredHelp: "{animal.name} is tired, so it can't go first."
-  # Under the options, out on the water, of an animal that can't swim, whose "Go first" is greyed.
-  cantSwimHelp: "{animal.name} can't swim, so it can only go first on land."
-  # Under the options, on land, of a sea animal, whose "Go first" is greyed.
-  inTheSeaHelp: '{animal.name} lives in the sea, so it can only go first on the water.'
-  # Under the options of the animal that goes first already, whose "Go first" is greyed.
-  leadHelp: '{animal.name} already goes first.'
+  pickHelp: Make it active, move it, or give it a name.
+  # Under the options of a tired animal, whose "Make active" is greyed.
+  tiredHelp: "{animal.name} is tired, so it can't be your active animal."
+  # Under the options, out on the water, of an animal that can't swim, whose "Make active" is greyed.
+  cantSwimHelp: "{animal.name} can't swim, so it can only be your active animal on land."
+  # Under the options, on land, of a sea animal, whose "Make active" is greyed.
+  inTheSeaHelp: '{animal.name} lives in the sea, so it can only be your active animal on the water.'
+  # Under the options of the animal that is active already, whose "Make active" is greyed.
+  leadHelp: '{animal.name} is already your active animal.'
   # A card of several animals, under its options: its animals are listed below.
   pickOne: Pick one of them to move it or give it a name.
-  # The same, when they are all tired and the card's "Go first" is greyed.
-  allTiredHelp: "They are all tired, so they can't go first."
-  # The same, out on the water, when they can't swim and the card's "Go first" is greyed.
-  allCantSwimHelp: "They can't swim, so they can only go first on land."
-  # The same, on land, when they live in the sea and the card's "Go first" is greyed.
-  allInTheSeaHelp: They live in the sea, so they can only go first on the water.
+  # The same, when they are all tired and the card's "Make active" is greyed.
+  allTiredHelp: "They are all tired, so they can't be active."
+  # The same, out on the water, when they can't swim and the card's "Make active" is greyed.
+  allCantSwimHelp: "They can't swim, so they can only be active on land."
+  # The same, on land, when they live in the sea and the card's "Make active" is greyed.
+  allInTheSeaHelp: They live in the sea, so they can only be active on the water.
   # Above the name box.
   nameTitle: New name for {animal.name}
   # Under the name box; {max} is the most characters a name can have.
@@ -2475,20 +2475,20 @@ where:
   ice: Fish for it through a hole {places}. You need a fishing rod and an animal that can swim.
   # A bird: it notices a kid on the paraglider too, but only one with a bird in the team.
   sky: '{animal.the} can fly. With a bird in your team, it may follow you when you fly with the paraglider.'
-  # Which of the kid's own animals to put first ({lead}, the engine's `bestLead`) to meet this
-  # one ({animal}) most often; `leadKeep` when it goes first already.
-  lead: Put {lead.name} first, and you meet {animal.a} more often.
-  leadKeep: Keep {lead.name} first, and you meet {animal.a} more often.
-  # The same, for an animal of the water: out there the first that swims goes first.
-  leadKeepSwim: On the water {lead.name} already goes first. Good, then you meet {animal.a} more often.
+  # Which of the kid's own animals to make active ({lead}, the engine's `bestLead`) to meet this
+  # one ({animal}) most often; `leadKeep` when it is active already.
+  lead: Make {lead.name} your active animal, and you meet {animal.a} more often.
+  leadKeep: Keep {lead.name} as your active animal, and you meet {animal.a} more often.
+  # The same, for an animal of the water: out there the first that swims is the active one.
+  leadKeepSwim: On the water {lead.name} is already your active animal. Good, then you meet {animal.a} more often.
   # After `lead` or `leadKeep`, when the animal is bigger than that one: near home it hardly
   # comes out for a smaller lead ([[PRODUCT]] §4 "Wild encounters", the distance rule).
   far: '{lead.name} is smaller than {animal.the}, so look far from where you started.'
   # That animal is tired: the tip counts the team as healed, and the druid heals.
   tired: '{lead.name} is tired. Heal it first!'
   # Instead of `lead`: the kid's animals are all so big that it hardly ever comes out for them.
-  tooBig: '{lead.name} is much bigger than {animal.the}. Catch a smaller animal and put it first, then you meet {animal.the} more often.'
-  tooBigSwim: '{lead.name} is much bigger than {animal.the}. Catch a smaller animal that can swim and put it first, then you meet {animal.the} more often.'
+  tooBig: '{lead.name} is much bigger than {animal.the}. Catch a smaller animal and make it your active animal, then you meet {animal.the} more often.'
+  tooBigSwim: '{lead.name} is much bigger than {animal.the}. Catch a smaller animal that can swim. Make it your active animal, then you meet {animal.the} more often.'
   # An animal of the water, and nobody in the team swims.
   noSwimmer: None of your animals can swim yet. Catch one that can first!
 # Each land's tall grass, as `where` names it.

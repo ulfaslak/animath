@@ -234,7 +234,7 @@ function partyWords(notice: PartyNotice): string {
  * can't swim out on the water), since the card at the top goes first
  * everywhere else. Otherwise, whenever the edit changed who goes first (a
  * number key, a card dropped at the top, a move in the pause menu), the line
- * names the new lead, so an earlier "Fox goes first!" never outlives the
+ * names the new lead, so an earlier "Fox is now your active animal!" never outlives the
  * fox's place at the front. A move is undone on a copy to see who led before
  * it.
  */
@@ -478,7 +478,7 @@ class HudView {
 			case 'party-edited': {
 				const notice = leadNotice(event.party, event.events, game.realm);
 				if (notice) this.say({ party: notice });
-				// A new animal in front: ding-ding, with its "goes first!" line.
+				// A new animal in front: ding-ding, with its "is now your active animal!" line.
 				if (notice?.lead === 'chosen') sfx.play('lead');
 				break;
 			}
