@@ -7,7 +7,7 @@ import {
 	NEAR_ONE_UP,
 	SAFE_RADIUS,
 	SKY_CHANCE,
-	SOUGHT_SHARE,
+	SOUGHT_BOOST,
 	TIER_SIGMA,
 	UNCAUGHT_BOOST,
 	VISITORS_WEIGHT,
@@ -2288,19 +2288,19 @@ describe('a kind not caught yet comes out more often within its size', () => {
 	});
 });
 
-describe('the kind the druid told about last comes out at least half its size', () => {
+describe('the kind the druid told about last comes out far more often within its size', () => {
 	const tierShares = (table: readonly EncounterEntry[]) => {
 		const shares = new Map<Tier, number>();
 		for (const e of table) shares.set(e.species.tier, (shares.get(e.species.tier) ?? 0) + e.weight);
 		return shares;
 	};
 
-	it('takes at least half its tier, leaves every tier its share and every other tier as it was', () => {
-		expect(SOUGHT_SHARE).toBe(1 / 2);
+	it('weighs it SOUGHT_BOOST times within its tier, leaving every tier its share and every other tier as it was', () => {
+		expect(SOUGHT_BOOST).toBe(12);
 		const coins = new Rng(23);
 		const bad: string[] = [];
 		const near = (a: number, b: number, eps = 1e-12) => Math.abs(a - b) <= eps;
-		let lifted = 0;
+		let raised = 0;
 		for (const biome of BIOMES) {
 			for (const lead of LEADS) {
 				for (const d of [0, 50, 100, 200]) {
@@ -2321,29 +2321,35 @@ describe('the kind the druid told about last comes out at least half its size', 
 							}
 							const i = table.indexOf(told);
 							const tier = told.species.tier;
-							// Caught already, or not in the grass here at all: as if he had told of nothing.
+							// Caught already, or not here at all: as if he had told of nothing.
 							if (caught.includes(id) || told.weight === 0) {
 								if (out.some((e, j) => e.weight !== plain[j]!.weight))
 									bad.push(`${where}: changed`);
 								continue;
 							}
-							const half = before.get(tier)! * SOUGHT_SHARE;
-							if (!near(out[i]!.weight, Math.max(plain[i]!.weight, half))) {
-								bad.push(`${where}: ${out[i]!.weight}, half its tier ${half}`);
-							}
-							if (plain[i]!.weight < half - 1e-12) lifted++;
-							const k = table.findIndex(
-								(e, n) => n !== i && e.species.tier === tier && plain[n]!.weight > 0
-							);
+							// Never less than it had, never more than SOUGHT_BOOST / UNCAUGHT_BOOST times:
+							// where it is rare (a visitor near home), it stays rare.
+							const most = (SOUGHT_BOOST / UNCAUGHT_BOOST) * plain[i]!.weight;
+							if (out[i]!.weight < plain[i]!.weight - 1e-12 || out[i]!.weight > most + 1e-12)
+								bad.push(`${where}: ${out[i]!.weight} from ${plain[i]!.weight}`);
+							if (out[i]!.weight > plain[i]!.weight + 1e-12) raised++;
+							// Within its tier every pair keeps its ratio, it counted SOUGHT_BOOST times, a
+							// kind not caught UNCAUGHT_BOOST times; every other tier is untouched.
+							const weight = (j: number) =>
+								table[j]!.weight *
+								(j === i
+									? SOUGHT_BOOST
+									: caught.includes(table[j]!.species.id)
+										? 1
+										: UNCAUGHT_BOOST);
 							for (let j = 0; j < table.length; j++) {
 								if (j === i) continue;
-								// Another tier is untouched; its own tier's others keep their ratios.
 								if (table[j]!.species.tier !== tier) {
 									if (out[j]!.weight !== plain[j]!.weight) bad.push(`${where}: moved tier ${j}`);
-								} else if (plain[j]!.weight > 0) {
-									const ratio = out[j]!.weight / out[k]!.weight;
-									if (!near(ratio, plain[j]!.weight / plain[k]!.weight, 1e-9 * ratio)) {
-										bad.push(`${where}: ratio of ${table[j]!.species.id}`);
+								} else if (weight(j) > 0 && out[j]!.weight > 0) {
+									const ratio = out[i]!.weight / out[j]!.weight;
+									if (!near(ratio, weight(i) / weight(j), 1e-9 * ratio)) {
+										bad.push(`${where}: ratio to ${table[j]!.species.id}`);
 									}
 								}
 							}
@@ -2357,8 +2363,8 @@ describe('the kind the druid told about last comes out at least half its size', 
 			}
 		}
 		expect(bad.slice(0, 20)).toEqual([]);
-		// Most of the time half is more than the kind would have had: the rule does something.
-		expect(lifted).toBeGreaterThan(1000);
+		// The tip does something: most of the time the kind told comes out more than before.
+		expect(raised).toBeGreaterThan(1000);
 	});
 
 	it('the grass, the sky and a party’s roll pick from the table favouring the kind told last', () => {
@@ -2395,7 +2401,7 @@ describe('the kind the druid told about last comes out at least half its size', 
 		expect(differ.grass).toBeGreaterThan(0);
 		expect(differ.sky).toBeGreaterThan(0);
 		// The meadow near home, the rabbit in front, every kind caught but the shrew and the
-		// mole, the mole told about last: about half the small animals that come out are moles.
+		// mole, the mole told about last: six moles for each shrew, on open ground alike.
 		const site = siteAt('meadow', 0);
 		const caught = encounterTableAt(site, 1)
 			.map((e) => e.species.id)
@@ -2408,7 +2414,7 @@ describe('the kind the druid told about last comes out at least half its size', 
 			if (wild?.speciesId === 'mole') moles++;
 			if (wild?.speciesId === 'shrew') shrews++;
 		}
-		expect(moles).toBeGreaterThan(2 * shrews);
+		expect(moles).toBeGreaterThan(4 * shrews);
 	});
 
 	/** A roll's draws done by hand: the chance first, then a kind from `table` by the next draw. */

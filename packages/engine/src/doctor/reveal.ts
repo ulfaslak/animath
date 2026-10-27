@@ -4,7 +4,12 @@ import type { AnimalInstance, Biome, Realm, Tier } from '../animals/types.js';
 import type { LandId } from '../lands/ids.js';
 import { getLand } from '../lands/lands.js';
 import { biomeLand } from '../world/biomes.js';
-import { WILD_RADIUS, encounterTable } from '../world/encounters.js';
+import {
+	WILD_RADIUS,
+	encounterTable,
+	favourUncaught,
+	type EncounterEntry
+} from '../world/encounters.js';
 import { holeTable } from '../world/fishing.js';
 
 /**
@@ -84,7 +89,9 @@ export function meetingPlaces(speciesId: string): MeetingPlaces {
  * the druid's tip names it: of the animals that can go where it is met (on
  * land for one that walks, in the water for one of the water), the one whose
  * size brings it out most, by the encounter rules (`encounterTable`,
- * `holeTable`). A size is scored by the animal's share of the table in each
+ * `holeTable`), as the rolls weigh them once the druid has told about it:
+ * with the kinds in `caught` caught and it the one told last
+ * (`favourUncaught`). A size is scored by the animal's share of the table in each
  * of its places, near home and from the wild radius out, all added up, so a
  * smaller lead that meets it far out can win, and so can a bigger one in a
  * place where few sizes live. The tip is read at the druid's, who heals, so
@@ -105,15 +112,16 @@ export function meetingPlaces(speciesId: string): MeetingPlaces {
  */
 export function bestLead(
 	party: readonly AnimalInstance[],
-	speciesId: string
+	speciesId: string,
+	caught: readonly string[]
 ): { index: number; realm: Realm; leads: boolean; far: boolean; big: boolean } | null {
 	const spec = getAnimal(speciesId);
 	const places = meetingPlaces(speciesId);
 	const realm: Realm = places.grass.length > 0 ? 'land' : 'water';
 	const goes = party.flatMap((a, i) => (canFightIn(a.speciesId, realm) ? [i] : []));
 	if (goes.length === 0) return null;
-	const share = (table: readonly { species: { id: string }; weight: number }[]) =>
-		table.find((e) => e.species.id === speciesId)?.weight ?? 0;
+	const share = (table: readonly EncounterEntry[]) =>
+		favourUncaught(table, caught, speciesId).find((e) => e.species.id === speciesId)?.weight ?? 0;
 	/** Its share in each of its places, for a lead of `lead`'s size `distance` tiles out. */
 	const shares = (lead: Tier, distance: number): number[] =>
 		realm === 'land'

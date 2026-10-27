@@ -74,8 +74,8 @@ import { encounterRealm, isEncounterTile, type GridPos, type Tile } from './type
  * ground decide how big an animal comes out exactly as before, and the book
  * only picks, among the animals of that size, the one the kid still needs.
  * The kind the druid told about last, while not caught, comes out far more
- * often: at least `SOUGHT_SHARE` of its tier, the others of its size sharing
- * the rest. Every roll takes the book's `caught` list and that kind
+ * often: it weighs `SOUGHT_BOOST` times what a caught kind would, its tier
+ * still keeping its share. Every roll takes the book's `caught` list and that kind
  * (`soughtOf`); the tables themselves never see them.
  *
  * Every land keeps its own animals (#191): a table lists only species of the
@@ -126,13 +126,16 @@ export const NEAR_ONE_UP = 1 / 9;
 export const UNCAUGHT_BOOST = 2;
 
 /**
- * The least share of its tier the kind the druid told about last takes, while
- * it is not caught (`soughtOf`): half, so it is every other animal of its size
- * wherever it lives, whatever the ground, however many kinds share its size.
+ * What the kind the druid told about last weighs within its tier, while it is
+ * not caught (`soughtOf`), next to a caught one of the same table weight: 12,
+ * six times another kind not caught, so with a lead of its size, where it
+ * lives, it is about every other battle. A weight, not a share: it comes out
+ * at most six times as often as before, so where it is rare (a guest thinning
+ * out towards the wild radius) it stays rare, and thins out the same way.
  * The human: "make it much more probable you actually catch the last animal
  * the druid revealed for you. the kids are grinding too hard".
  */
-export const SOUGHT_SHARE = 1 / 2;
+export const SOUGHT_BOOST = 12;
 
 export interface EncounterEntry {
 	species: AnimalSpec;
@@ -418,12 +421,11 @@ function tableOnGround(
  * `table` with each kind not in `caught` (the animal book's species caught)
  * weighing `UNCAUGHT_BOOST` times its weight within its tier: every tier keeps
  * its share of the table, and its animals split it by their weights, a kind
- * not caught counted `UNCAUGHT_BOOST` times. Then `sought`, the kind the
- * druid told about last (`soughtOf`), when it is in the table with a weight
- * and not in `caught`, takes at least `SOUGHT_SHARE` of its tier's share, the
- * others of its tier keeping their proportions in the rest. The same
- * species, in the same order. A tier all caught, or none of it, without
- * `sought` in it, is unchanged, so an empty book changes nothing.
+ * not caught counted `UNCAUGHT_BOOST` times, and `sought`, the kind the
+ * druid told about last (`soughtOf`), `SOUGHT_BOOST` times unless it is in
+ * `caught`. The same species, in the same order. A tier all caught, or none
+ * of it, without `sought` in it, is unchanged, so an empty book changes
+ * nothing.
  */
 export function favourUncaught(
 	table: readonly EncounterEntry[],
@@ -431,7 +433,8 @@ export function favourUncaught(
 	sought: string | null = null
 ): EncounterEntry[] {
 	const known = new Set(caught);
-	const boost = (e: EncounterEntry) => (known.has(e.species.id) ? 1 : UNCAUGHT_BOOST);
+	const boost = (e: EncounterEntry) =>
+		known.has(e.species.id) ? 1 : e.species.id === sought ? SOUGHT_BOOST : UNCAUGHT_BOOST;
 	const tiers = new Map<Tier, { share: number; boosted: number }>();
 	for (const e of table) {
 		const tier = tiers.get(e.species.tier) ?? { share: 0, boosted: 0 };
@@ -439,24 +442,13 @@ export function favourUncaught(
 		tier.boosted += e.weight * boost(e);
 		tiers.set(e.species.tier, tier);
 	}
-	const favoured = table.map((e) => {
+	return table.map((e) => {
 		const { share, boosted } = tiers.get(e.species.tier)!;
 		return {
 			species: e.species,
 			weight: boosted > 0 ? (share * e.weight * boost(e)) / boosted : 0
 		};
 	});
-	const told = favoured.find((e) => e.species.id === sought && e.weight > 0);
-	if (!told || known.has(told.species.id)) return favoured;
-	const { share } = tiers.get(told.species.tier)!;
-	const least = share * SOUGHT_SHARE;
-	if (told.weight >= least) return favoured;
-	// The rest of the tier shrinks in proportion to make room: share − least over share − told's.
-	const rest = (share - least) / (share - told.weight);
-	return favoured.map((e) => ({
-		species: e.species,
-		weight: e === told ? least : e.species.tier === told.species.tier ? e.weight * rest : e.weight
-	}));
 }
 
 /**

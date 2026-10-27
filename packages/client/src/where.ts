@@ -62,8 +62,12 @@ export function whereLines(speciesId: string): string[] {
  * catch a smaller one instead; with nobody who swims for an animal of the
  * water, to catch one that swims.
  */
-export function leadLines(speciesId: string, party: readonly AnimalInstance[]): string[] {
-	const best = bestLead(party, speciesId);
+export function leadLines(
+	speciesId: string,
+	party: readonly AnimalInstance[],
+	caught: readonly string[]
+): string[] {
+	const best = bestLead(party, speciesId, caught);
 	if (best === null) return [t('where.noSwimmer')];
 	const lead = party[best.index]!;
 	const words = { lead: animalWords(lead), animal: animalWords({ speciesId }) };

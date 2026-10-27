@@ -406,7 +406,7 @@ describe('LocalAuthority: the lead decides who comes out', () => {
 		expect(met.map((m) => m.wild)).toContain('wood-mouse');
 	});
 
-	it('the kind the druid told about last comes out about every other small battle, on the same steps', () => {
+	it('the kind the druid told about last comes out far more often, on the same steps', () => {
 		const plain = reedWalk(session(), 600);
 		const s = session();
 		const inside = s.authority as unknown as { book: AnimalBook };
@@ -415,9 +415,10 @@ describe('LocalAuthority: the lead decides who comes out', () => {
 		// The book never decides whether a step starts a battle, only which kind of a size comes out.
 		expect(told.map((m) => m.step)).toEqual(plain.map((m) => m.step));
 		const mice = (met: { wild: string }[]) => met.filter((m) => m.wild === 'wood-mouse').length;
-		// Near home a wood mouse is one of the twelve small kinds by the water: half of them now.
+		// Near home a wood mouse is one of the twelve small kinds by the water, all not caught but
+		// the squirrel: told about, it weighs six of them.
 		expect(mice(plain)).toBeLessThan(plain.length / 8);
-		expect(mice(told)).toBeGreaterThan(told.length / 3);
+		expect(mice(told)).toBeGreaterThan(told.length / 4);
 	});
 
 	it('the first animal that is not tired leads: with a fox in front the reed has tier-2 animals, now and then a small one and a mute swan, on the same steps', () => {
