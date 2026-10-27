@@ -2363,27 +2363,37 @@ describe('the kind the druid told about last comes out at least half its size', 
 
 	it('the grass, the sky and a party’s roll pick from the table favouring the kind told last', () => {
 		const party = [{ id: 'a', speciesId: 'rabbit', hp: getAnimal('rabbit').maxHp }];
+		/** The last kind of the lead's own size on `table`: one a tip would send a kid after. */
+		const toldIn = (table: readonly EncounterEntry[], lead: Tier) =>
+			table.filter((e) => e.species.tier === lead).at(-1)?.species.id ?? null;
+		const differ = { grass: 0, sky: 0 };
 		for (const biome of BIOMES) {
 			for (const lead of LEADS) {
 				const site = siteAt(biome, 0, GROUNDS[lead]!);
 				const sky = skySite(biome, 0, GROUNDS[lead]!);
 				const grassTable = encounterTableAt(site, lead);
 				const skyTable = skyTableAt(sky, lead);
-				const grassTold = grassTable[grassTable.length - 1]?.species.id ?? null;
-				const skyTold = skyTable[skyTable.length - 1]?.species.id ?? null;
-				for (let s = 0; s < 40; s++) {
+				const grassTold = toldIn(grassTable, lead);
+				const skyTold = toldIn(skyTable, lead);
+				for (let s = 0; s < 200; s++) {
 					const where = `tier-${lead} lead in ${biome}, seed ${s}`;
-					expect(
-						rollEncounter(new Rng(s), site, lead, [], grassTold)?.speciesId ?? null,
-						where
-					).toBe(byHand(new Rng(s), ENCOUNTER_CHANCE, favourUncaught(grassTable, [], grassTold)));
-					expect(
-						rollSkyEncounter(new Rng(s), sky, lead, [], skyTold)?.speciesId ?? null,
-						where
-					).toBe(byHand(new Rng(s), SKY_CHANCE, favourUncaught(skyTable, [], skyTold)));
+					const grass = rollEncounter(new Rng(s), site, lead, [], grassTold)?.speciesId ?? null;
+					expect(grass, where).toBe(
+						byHand(new Rng(s), ENCOUNTER_CHANCE, favourUncaught(grassTable, [], grassTold))
+					);
+					if (grass !== byHand(new Rng(s), ENCOUNTER_CHANCE, favourUncaught(grassTable, [])))
+						differ.grass++;
+					const bird = rollSkyEncounter(new Rng(s), sky, lead, [], skyTold)?.speciesId ?? null;
+					expect(bird, where).toBe(
+						byHand(new Rng(s), SKY_CHANCE, favourUncaught(skyTable, [], skyTold))
+					);
+					if (bird !== byHand(new Rng(s), SKY_CHANCE, favourUncaught(skyTable, []))) differ.sky++;
 				}
 			}
 		}
+		// The kind told changed some of those rolls, in the grass and in the sky: both read it.
+		expect(differ.grass).toBeGreaterThan(0);
+		expect(differ.sky).toBeGreaterThan(0);
 		// The meadow near home, the rabbit in front, every kind caught but the shrew and the
 		// mole, the mole told about last: about half the small animals that come out are moles.
 		const site = siteAt('meadow', 0);
