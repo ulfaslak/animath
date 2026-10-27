@@ -129,7 +129,8 @@ export const UNCAUGHT_BOOST = 2;
  * What the kind the druid told about last weighs within its tier, while it is
  * not caught (`soughtOf`), next to a caught one of the same table weight: 12,
  * six times another kind not caught, so with a lead of its size, where it
- * lives, it is about every other battle. A weight, not a share: it comes out
+ * lives near home, it is one battle in two or three (in three for most of
+ * the middle sizes, whose places hold many kinds of their size). A weight, not a share: it comes out
  * at most six times as often as before, so where it is rare (a guest thinning
  * out towards the wild radius) it stays rare, and thins out the same way.
  * The human: "make it much more probable you actually catch the last animal
