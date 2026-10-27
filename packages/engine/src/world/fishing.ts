@@ -85,7 +85,8 @@ export interface CastSite {
  * it is in (`holeTable`, the world as it was made: a hole the ice pick made
  * is in the ice the block stood on), sized to the lead in the water (the first
  * swimmer standing, `leadIndex`, who fights first), favouring the kinds the
- * kid has not caught (`favourUncaught`, `caught` the animal book's). With nobody to fight in
+ * kid has not caught, and the one the druid told about last most
+ * (`favourUncaught`, `caught` and `sought` the animal book's). With nobody to fight in
  * the water nothing is drawn (`no-swimmer`); with nothing living there, or a
  * roll over `BITE_CHANCE`, nothing bites. Throws without the rod, or with no
  * hole there: the caller asks both first.
@@ -97,7 +98,8 @@ export function castLine(
 	site: CastSite,
 	owner: { readonly items: readonly string[] },
 	party: readonly AnimalInstance[],
-	caught: readonly string[]
+	caught: readonly string[],
+	sought: string | null = null
 ): Catch {
 	if (!hasItem(owner, 'fishing-rod')) throw new Error('castLine: no fishing rod');
 	const { hole, spawn } = site;
@@ -110,7 +112,7 @@ export function castLine(
 		distanceFromSpawn(hole, spawn),
 		getAnimal(lead.speciesId).tier
 	);
-	const wild = rollCast(rng, favourUncaught(table, caught));
+	const wild = rollCast(rng, favourUncaught(table, caught, sought));
 	return wild ? { outcome: 'bite', wild } : { outcome: 'nothing' };
 }
 

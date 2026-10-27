@@ -85,6 +85,7 @@ export {
 	recordTold,
 	recordWentHome,
 	seeSpecies,
+	soughtOf,
 	tellSpecies
 } from './animals/book.js';
 export type { AnimalBook } from './animals/book.js';
@@ -322,6 +323,7 @@ export {
 	NEAR_ONE_UP,
 	SAFE_RADIUS,
 	SKY_CHANCE,
+	SOUGHT_SHARE,
 	TIER_SIGMA,
 	UNCAUGHT_BOOST,
 	VISITORS_WEIGHT,

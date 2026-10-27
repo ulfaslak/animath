@@ -7,6 +7,7 @@ import {
 	NEAR_ONE_UP,
 	SAFE_RADIUS,
 	SKY_CHANCE,
+	SOUGHT_SHARE,
 	TIER_SIGMA,
 	UNCAUGHT_BOOST,
 	VISITORS_WEIGHT,
@@ -2285,4 +2286,129 @@ describe('a kind not caught yet comes out more often within its size', () => {
 		}
 		expect(shrews).toBeGreaterThan(shrewsWithoutBook);
 	});
+});
+
+describe('the kind the druid told about last comes out at least half its size', () => {
+	const tierShares = (table: readonly EncounterEntry[]) => {
+		const shares = new Map<Tier, number>();
+		for (const e of table) shares.set(e.species.tier, (shares.get(e.species.tier) ?? 0) + e.weight);
+		return shares;
+	};
+
+	it('takes at least half its tier, leaves every tier its share and every other tier as it was', () => {
+		expect(SOUGHT_SHARE).toBe(1 / 2);
+		const coins = new Rng(23);
+		const bad: string[] = [];
+		const near = (a: number, b: number, eps = 1e-12) => Math.abs(a - b) <= eps;
+		let lifted = 0;
+		for (const biome of BIOMES) {
+			for (const lead of LEADS) {
+				for (const d of [0, 50, 100, 200]) {
+					for (const around of GROUNDS) {
+						const table = encounterTableAt(siteAt(biome, d, around), lead);
+						const ids = table.map((e) => e.species.id).join();
+						const caught = table.filter(() => coins.chance(0.5)).map((e) => e.species.id);
+						const plain = favourUncaught(table, caught);
+						const before = tierShares(table);
+						for (const told of table) {
+							const id = told.species.id;
+							const where = `${id} told, tier-${lead} lead in ${biome} at ${d}`;
+							const out = favourUncaught(table, caught, id);
+							if (out.map((e) => e.species.id).join() !== ids) bad.push(`${where}: other kinds`);
+							if (!near(total(out), 1)) bad.push(`${where}: adds up to ${total(out)}`);
+							for (const [tier, share] of tierShares(out)) {
+								if (!near(share, before.get(tier)!)) bad.push(`${where}: tier ${tier} ${share}`);
+							}
+							const i = table.indexOf(told);
+							const tier = told.species.tier;
+							// Caught already, or not in the grass here at all: as if he had told of nothing.
+							if (caught.includes(id) || told.weight === 0) {
+								if (out.some((e, j) => e.weight !== plain[j]!.weight))
+									bad.push(`${where}: changed`);
+								continue;
+							}
+							const half = before.get(tier)! * SOUGHT_SHARE;
+							if (!near(out[i]!.weight, Math.max(plain[i]!.weight, half))) {
+								bad.push(`${where}: ${out[i]!.weight}, half its tier ${half}`);
+							}
+							if (plain[i]!.weight < half - 1e-12) lifted++;
+							const k = table.findIndex(
+								(e, n) => n !== i && e.species.tier === tier && plain[n]!.weight > 0
+							);
+							for (let j = 0; j < table.length; j++) {
+								if (j === i) continue;
+								// Another tier is untouched; its own tier's others keep their ratios.
+								if (table[j]!.species.tier !== tier) {
+									if (out[j]!.weight !== plain[j]!.weight) bad.push(`${where}: moved tier ${j}`);
+								} else if (plain[j]!.weight > 0) {
+									const ratio = out[j]!.weight / out[k]!.weight;
+									if (!near(ratio, plain[j]!.weight / plain[k]!.weight, 1e-9 * ratio)) {
+										bad.push(`${where}: ratio of ${table[j]!.species.id}`);
+									}
+								}
+							}
+						}
+						// One the table does not hold changes nothing.
+						const none = favourUncaught(table, caught, 'not-a-species');
+						if (none.some((e, j) => e.weight !== plain[j]!.weight))
+							bad.push(`${biome}: a stranger`);
+					}
+				}
+			}
+		}
+		expect(bad.slice(0, 20)).toEqual([]);
+		// Most of the time half is more than the kind would have had: the rule does something.
+		expect(lifted).toBeGreaterThan(1000);
+	});
+
+	it('the grass, the sky and a party’s roll pick from the table favouring the kind told last', () => {
+		const party = [{ id: 'a', speciesId: 'rabbit', hp: getAnimal('rabbit').maxHp }];
+		for (const biome of BIOMES) {
+			for (const lead of LEADS) {
+				const site = siteAt(biome, 0, GROUNDS[lead]!);
+				const sky = skySite(biome, 0, GROUNDS[lead]!);
+				const grassTable = encounterTableAt(site, lead);
+				const skyTable = skyTableAt(sky, lead);
+				const grassTold = grassTable[grassTable.length - 1]?.species.id ?? null;
+				const skyTold = skyTable[skyTable.length - 1]?.species.id ?? null;
+				for (let s = 0; s < 40; s++) {
+					const where = `tier-${lead} lead in ${biome}, seed ${s}`;
+					expect(
+						rollEncounter(new Rng(s), site, lead, [], grassTold)?.speciesId ?? null,
+						where
+					).toBe(byHand(new Rng(s), ENCOUNTER_CHANCE, favourUncaught(grassTable, [], grassTold)));
+					expect(
+						rollSkyEncounter(new Rng(s), sky, lead, [], skyTold)?.speciesId ?? null,
+						where
+					).toBe(byHand(new Rng(s), SKY_CHANCE, favourUncaught(skyTable, [], skyTold)));
+				}
+			}
+		}
+		// The meadow near home, the rabbit in front, every kind caught but the shrew and the
+		// mole, the mole told about last: about half the small animals that come out are moles.
+		const site = siteAt('meadow', 0);
+		const caught = encounterTableAt(site, 1)
+			.map((e) => e.species.id)
+			.filter((id) => id !== 'shrew' && id !== 'mole');
+		let moles = 0;
+		let shrews = 0;
+		for (let s = 0; s < 3000; s++) {
+			const wild = rollEncounterFor(new Rng(s), site, party, caught, 'mole');
+			expect(wild).toEqual(rollEncounter(new Rng(s), site, 1, caught, 'mole'));
+			if (wild?.speciesId === 'mole') moles++;
+			if (wild?.speciesId === 'shrew') shrews++;
+		}
+		expect(moles).toBeGreaterThan(2 * shrews);
+	});
+
+	/** A roll's draws done by hand: the chance first, then a kind from `table` by the next draw. */
+	function byHand(rng: Rng, chance: number, table: readonly EncounterEntry[]): string | null {
+		if (table.length === 0 || !rng.chance(chance)) return null;
+		let r = rng.next();
+		for (const e of table) {
+			r -= e.weight;
+			if (r < 0) return e.species.id;
+		}
+		return table[table.length - 1]!.species.id;
+	}
 });

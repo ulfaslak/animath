@@ -1760,7 +1760,9 @@ describe('asking the druid about an animal', () => {
 			expect(new Set(told.slice(0, 3))).toEqual(new Set(['badger', 'plaice', 'robin']));
 			expect(told[3]).toBe('moose');
 			expect(missing).toContain(told[4]);
-			expect(state.book.told).toEqual(told.slice(0, 4));
+			// The book lists each once, in the order last told: the one told last ends it.
+			expect(state.book.told).toEqual(told.filter((id, j) => told.lastIndexOf(id) === j));
+			expect(state.book.told.at(-1)).toBe(told.at(-1));
 		}
 		expect([...first].sort()).toEqual(['badger', 'plaice', 'robin']);
 	});

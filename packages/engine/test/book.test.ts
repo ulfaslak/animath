@@ -14,6 +14,7 @@ import {
 	recordTold,
 	recordWentHome,
 	seeSpecies,
+	soughtOf,
 	tellSpecies,
 	type AnimalBook
 } from '../src/animals/book.js';
@@ -145,10 +146,16 @@ describe('seeing and catching', () => {
 							: roll < 0.85
 								? freeSpecies(book, id)
 								: tellSpecies(book, id);
-				// Everything in the book before is still there, in its place.
-				for (const key of ['seen', 'caught', 'freed', 'told'] as const) {
+				// Everything in the book before is still there, in its place; a kind told again
+				// moves to the end of `told` instead, which keeps the others in their order.
+				for (const key of ['seen', 'caught', 'freed'] as const) {
 					if (before[key].some((x, j) => book[key][j] !== x)) bad.push(`${s}: ${key} shrank`);
 				}
+				const kept = book.told.slice(0, before.told.length);
+				const moved = before.told.filter((x) => x !== book.told.at(-1));
+				if (!before.told.every((x) => book.told.includes(x))) bad.push(`${s}: told shrank`);
+				else if (book !== before && moved.some((x, j) => kept[j] !== x))
+					bad.push(`${s}: told reordered`);
 				bad.push(...whole(book).map((w) => `${s}: ${w}`));
 			}
 		}
@@ -331,12 +338,13 @@ describe('setting free', () => {
 });
 
 describe('told by the druid', () => {
-	it('tells of a species once, in the order first told, and sees nothing', () => {
+	it('tells of a species once, in the order last told, and sees nothing', () => {
 		let book = bookOf(['fox'], []);
 		book = tellSpecies(book, 'bear');
 		book = tellSpecies(book, 'otter');
-		const same = tellSpecies(book, 'bear');
-		expect(same).toBe(book);
+		expect(tellSpecies(book, 'otter')).toBe(book);
+		// Told again, it moves to the end: the one told last is the one the grass favours.
+		expect(tellSpecies(book, 'bear').told).toEqual(['otter', 'bear']);
 		expect(book).toEqual({ seen: ['fox'], caught: [], freed: [], told: ['bear', 'otter'] });
 		expect([hasTold(book, 'bear'), hasSeen(book, 'bear'), hasTold(book, 'fox')]).toEqual([
 			true,
@@ -345,7 +353,19 @@ describe('told by the druid', () => {
 		]);
 		// Meeting it later keeps it told; a save's list reads back the same.
 		expect(seeSpecies(book, 'bear').told).toEqual(['bear', 'otter']);
-		expect(bookOf(['fox'], [], [], ['bear', 'otter', 'bear', 'later-species'])).toEqual(book);
+		expect(bookOf(['fox'], [], [], ['otter', 'bear', 'otter', 'later-species'])).toEqual(book);
+	});
+
+	it('seeks the kind told about last until it is caught, then none', () => {
+		expect(soughtOf(bookOf(['fox'], ['fox']))).toBeNull();
+		let book = tellSpecies(tellSpecies(bookOf([], ['fox']), 'bear'), 'otter');
+		expect(soughtOf(book)).toBe('otter');
+		// Met is not caught: still sought.
+		expect(soughtOf(seeSpecies(book, 'otter'))).toBe('otter');
+		// Told again, the bear is sought; once caught, nothing is, not even the otter told before.
+		book = tellSpecies(book, 'bear');
+		expect(soughtOf(book)).toBe('bear');
+		expect(soughtOf(catchSpecies(book, 'bear'))).toBeNull();
 	});
 
 	it('tells of exactly the kind the druid revealed, at the step whose right answer revealed it', () => {

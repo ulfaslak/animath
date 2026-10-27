@@ -46,10 +46,11 @@ export interface AnimalBook {
 	readonly freed: readonly string[];
 	/**
 	 * Every species the druid has told the kid about, each once, in the order
-	 * first told: a right answer to the puzzle he asks for it
-	 * (`recordTold`, the `revealed` event). Told is not seen: the book shows a
-	 * kind told and never met so the kid knows what to look for, and the
-	 * grass still counts it as not caught.
+	 * last told: a right answer to the puzzle he asks for it
+	 * (`recordTold`, the `revealed` event), one told again moving to the end.
+	 * Told is not seen: the book shows a kind told and never met so the kid
+	 * knows what to look for. The last one, while not caught, is the one the
+	 * grass favours most (`soughtOf`).
 	 */
 	readonly told: readonly string[];
 }
@@ -99,6 +100,17 @@ export function hasTold(book: AnimalBook, speciesId: string): boolean {
 }
 
 /**
+ * The kind the druid told about last, while it is not caught: the one every
+ * roll favours most (`favourUncaught`, [[PRODUCT]] §4 "Wild encounters").
+ * Null once it is caught, or before he has told about any.
+ */
+export function soughtOf(book: AnimalBook): string | null {
+	// Not `.at(-1)`: Safari 15.0 lacks it ([[INVARIANTS]] § Serving).
+	const last = book.told[book.told.length - 1];
+	return last === undefined || book.caught.includes(last) ? null : last;
+}
+
+/**
  * `book` with `speciesId` seen, at the end of `seen` when it is new there.
  * The very same book when nothing changes: already seen, or not a species of
  * the catalog.
@@ -129,13 +141,14 @@ export function freeSpecies(book: AnimalBook, speciesId: string): AnimalBook {
 }
 
 /**
- * `book` with `speciesId` told about by the druid. Not seen: only a battle
- * shows a kind. The very same book when nothing changes: already told, or
- * not a species of the catalog.
+ * `book` with `speciesId` told about by the druid, at the end of `told`,
+ * moved there when he had told about it before. Not seen: only a battle
+ * shows a kind. The very same book when nothing changes: the last told
+ * already, or not a species of the catalog.
  */
 export function tellSpecies(book: AnimalBook, speciesId: string): AnimalBook {
-	if (!SPECIES.has(speciesId) || book.told.includes(speciesId)) return book;
-	return { ...book, told: [...book.told, speciesId] };
+	if (!SPECIES.has(speciesId) || book.told[book.told.length - 1] === speciesId) return book;
+	return { ...book, told: [...book.told.filter((id) => id !== speciesId), speciesId] };
 }
 
 /**

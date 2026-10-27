@@ -146,7 +146,8 @@ export interface SavedGame {
 	freed: string[];
 	/**
 	 * The animal book's species the druid told about, each once, in the
-	 * order first told (`recordTold`). It only grows.
+	 * order last told (`recordTold`): the last is the one the grass favours
+	 * most while it is not caught (`soughtOf`). It only grows.
 	 */
 	told: string[];
 	/**
@@ -311,7 +312,7 @@ export interface SaveV5 {
 	freed?: string[];
 	/**
 	 * The animal book's species the druid told about, by id, in the order
-	 * first told. Written only once he has told about one: a save without it
+	 * last told. Written only once he has told about one: a save without it
 	 * has been told about none. No version for it: a build from before it
 	 * tells about none, so carrying on with it unread loses nothing (it keeps
 	 * it as an extra). A species this build does not have makes the save a

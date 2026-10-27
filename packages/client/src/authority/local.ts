@@ -47,6 +47,7 @@ import {
 	getLand,
 	shopFor,
 	skiMove,
+	soughtOf,
 	unlockLands,
 	isWireCoord,
 	joinParty,
@@ -725,7 +726,7 @@ export class LocalAuthority implements Authority {
 			spawn: this.spawn,
 			around: surroundings(this.seed, next)
 		};
-		const wild = rollEncounterFor(rng, site, this.party, this.book.caught);
+		const wild = rollEncounterFor(rng, site, this.party, this.book.caught, soughtOf(this.book));
 		if (wild) this.beginBattle({ ...wild, id: mintId() }, tileRealm(tile.kind));
 	}
 
@@ -1012,7 +1013,13 @@ export class LocalAuthority implements Authority {
 			spawn: this.spawn,
 			around: surroundings(this.seed, pos)
 		};
-		const bird = rollSkyEncounter(rng, site, getAnimal(lead.speciesId).tier, this.book.caught);
+		const bird = rollSkyEncounter(
+			rng,
+			site,
+			getAnimal(lead.speciesId).tier,
+			this.book.caught,
+			soughtOf(this.book)
+		);
 		if (!bird) return null;
 		// One id per step a bird notices on, however often a save lands the flight ahead of time.
 		if (this.minted?.steps !== steps) this.minted = { steps, id: mintId() };
@@ -1169,7 +1176,16 @@ export class LocalAuthority implements Authority {
 		this.steps += 1;
 		const rng = new Rng(hashInts(this.seed, FISHING_SALT, this.steps));
 		const site = { hole, spawn: this.spawn };
-		const cast = castLine(rng, this.seed, this.edits, site, owner, this.party, this.book.caught);
+		const cast = castLine(
+			rng,
+			this.seed,
+			this.edits,
+			site,
+			owner,
+			this.party,
+			this.book.caught,
+			soughtOf(this.book)
+		);
 		const speciesId = cast.outcome === 'bite' ? { speciesId: cast.wild.speciesId } : {};
 		this.emit({
 			type: 'line-cast',

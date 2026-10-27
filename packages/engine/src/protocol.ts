@@ -321,9 +321,9 @@ export type GameEvent =
 	 * The animal book grew (`animals/book.ts`): a wild battle started against
 	 * a species never seen before, a leash throw caught one never caught
 	 * before, a hand-over at the druid's set free one never set free
-	 * before, or the druid told about one he had never told about (a friendly
-	 * match never changes it). Always all four lists,
-	 * whole, each in the order first met. Sent right after the event that
+	 * before, or the druid told about one he had not told about last (a
+	 * friendly match never changes it). Always all four lists, whole, each
+	 * in the order first met, but `told` in the order last told. Sent right after the event that
 	 * showed it; never when nothing is new.
 	 */
 	| { type: 'book-changed'; seen: string[]; caught: string[]; freed: string[]; told: string[] }

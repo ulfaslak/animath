@@ -361,7 +361,7 @@ describe('fishing', () => {
 		expect(rng.next()).toBe(before);
 	});
 
-	it('a cast picks from the hole’s table favouring the kinds not caught', () => {
+	it('a cast picks from the hole’s table favouring the kinds not caught, and the one told last most', () => {
 		const seed = arctic(1);
 		const spawn = spawnPoint(seed);
 		const rod = { items: ['fishing-rod'] };
@@ -373,18 +373,21 @@ describe('fishing', () => {
 				getAnimal('otter').tier
 			);
 			for (const caught of [[], table.slice(1).map((e) => e.species.id)]) {
-				for (let i = 0; i < 30; i++) {
-					const got = castLine(
-						new Rng(i),
-						seed,
-						WorldEdits.none,
-						{ hole, spawn },
-						rod,
-						swimmers,
-						caught
-					);
-					const want = rollCast(new Rng(i), favourUncaught(table, caught));
-					expect(got).toEqual(want ? { outcome: 'bite', wild: want } : { outcome: 'nothing' });
+				for (const sought of [null, table[table.length - 1]!.species.id]) {
+					for (let i = 0; i < 30; i++) {
+						const got = castLine(
+							new Rng(i),
+							seed,
+							WorldEdits.none,
+							{ hole, spawn },
+							rod,
+							swimmers,
+							caught,
+							sought
+						);
+						const want = rollCast(new Rng(i), favourUncaught(table, caught, sought));
+						expect(got).toEqual(want ? { outcome: 'bite', wild: want } : { outcome: 'nothing' });
+					}
 				}
 			}
 		}
