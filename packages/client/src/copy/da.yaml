@@ -1709,6 +1709,10 @@ pause:
   makeAccount: Lav en konto
   logIn: Log ind
   logOut: Log ud
+  logOutTitle: Log ud?
+  logOutAsk: Kan du huske din hemmelige kode? Du skal bruge den for at logge ind igen som {name}.
+  logOutStay: Nej, bliv logget ind
+  logOutYes: Ja, log ud
   language: Sprog
   sound: Lyd
   soundOn: Til
