@@ -575,6 +575,8 @@ cd ~/mathgame && docker compose -f docker-compose.prod.yml logs --tail 200 -f ap
 - **The keys the deploy uses.** The workflow logs in with a key of its own, whose private half is only in the `VPS_SSH_KEY` secret. The server fetches the repo with a read-only deploy key, `mathgame-prod` in the repo's settings, whose copy is in `~/mathgame-backups/.ssh/`.
 - **The domain.** At Porkbun, the human's account: an A record for `animath.xyz` to the IP and a CNAME `www` to `animath.xyz`, no AAAA (`/redeploy` § DNS). A new IP means changing that A record, and `VPS_HOST`.
 
+**Who plays.** `pnpm roster` (the `/roster` skill) prints every account on production with its last save, puzzles solved, share right overall and lately, animal book, land and world, and each puzzle topic's share right, with the whole site's screen time and pages opened by day, guests too: a page on screen asks `/api/account/ready` every 30 s, and the log holds no address. It reads only, and keeps a day's numbers (no save) in `~/Library/Application Support/mathgame/roster/` to say what moved since the last earlier day it ran. `--keep <file>` writes what it fetched, `--from <file>` reads that instead of the server.
+
 Never change a file on the server: the next deploy resets the checkout, and a change that belongs there belongs in a PR.
 
 ### Trying it on a Mac
