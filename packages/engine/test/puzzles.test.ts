@@ -350,14 +350,17 @@ describe('difficulty ladder', () => {
 		const g = getGenerator('sequence');
 		type Seen = { firstLo: number; firstHi: number; answerLo: number };
 		const seen = new Map<string, Map<number, Seen>>();
+		const countingShare: number[] = [];
 		for (let d = g.minDifficulty; d <= g.maxDifficulty; d++) {
 			const rng = new Rng(9000 + d);
+			let counting = 0;
 			for (let i = 0; i < SAMPLES * 3; i++) {
 				const p = g.generate(rng, d);
 				const t = numbersIn(p.prompt);
 				const r = readings(t);
 				expect(r.size, `d=${d}: ${p.prompt} reads as ${[...r.keys()]}`).toBe(1);
 				const [pattern] = [...r.keys()] as [string];
+				if (pattern === 'counting') counting++;
 				const byD = seen.get(pattern) ?? new Map<number, Seen>();
 				const s = byD.get(d) ?? { firstLo: Infinity, firstHi: -Infinity, answerLo: Infinity };
 				byD.set(d, {
@@ -367,14 +370,29 @@ describe('difficulty ladder', () => {
 				});
 				seen.set(pattern, byD);
 			}
+			countingShare.push(counting / (SAMPLES * 3));
 		}
+		// Every pattern is found from the gaps: nothing triples or adds the
+		// last two, which kids who got their sums right could not find (#235).
 		expect([...seen.keys()].sort()).toEqual([
-			'add-last-two',
 			'counting',
-			'doubling-or-tripling',
+			'doubling',
 			'squares',
 			'triangle-numbers'
 		]);
+		const firstAsked = Object.fromEntries(
+			[...seen].map(([pattern, byD]) => [pattern, Math.min(...byD.keys())])
+		);
+		expect(firstAsked).toEqual({ counting: 1, doubling: 4, 'triangle-numbers': 6, squares: 7 });
+		// Up to 3 every sequence counts; from 4 about half of them do (900 draws a difficulty).
+		countingShare.forEach((share, i) => {
+			if (i < 3) {
+				expect(share, `d=${i + 1}`).toBe(1);
+			} else {
+				expect(share, `d=${i + 1}`).toBeGreaterThan(0.45);
+				expect(share, `d=${i + 1}`).toBeLessThan(0.55);
+			}
+		});
 		for (const [pattern, byD] of seen) {
 			for (const [d, s] of byD) {
 				const prev = byD.get(d - 1);
@@ -448,7 +466,7 @@ function readings(t: number[]): Map<string, number> {
 		ratio >= 2 &&
 		t.every((v, i) => i === 0 || v === t[i - 1]! * ratio)
 	)
-		out.set('doubling-or-tripling', last * ratio);
+		out.set(ratio === 2 ? 'doubling' : 'tripling-or-more', last * ratio);
 	if (t.every((v, i) => i < 2 || v === t[i - 1]! + t[i - 2]!))
 		out.set('add-last-two', last + t[t.length - 2]!);
 	const growth = gaps.slice(1).map((v, i) => v - gaps[i]!);
