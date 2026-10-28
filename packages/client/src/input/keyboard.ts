@@ -32,6 +32,15 @@ export function keyName(e: Pick<KeyboardEvent, 'key' | 'code'>): string {
 }
 
 /**
+ * A key event with no key: Chrome's autofill sends a keydown and a keyup
+ * without one when a saved name or password is picked from its list. No key
+ * was pressed, so no screen hears it.
+ */
+export function isKeyless(e: Pick<KeyboardEvent, 'key'>): boolean {
+	return typeof (e.key as unknown) !== 'string';
+}
+
+/**
  * A browser shortcut: a key pressed with Ctrl, Cmd or Alt held (bookmark,
  * save, select all, back). The game uses none of them, so every screen
  * leaves them to the browser.
@@ -139,6 +148,7 @@ export class Keyboard {
 	 */
 	constructor(target: Window) {
 		target.addEventListener('keyup', (e) => {
+			if (isKeyless(e)) return;
 			const code = e.code || keyName(e);
 			this.held.delete(code);
 			// Space let go: a tap talks, as Space always did; a hold that flew lands.

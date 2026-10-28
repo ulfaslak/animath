@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { HOLD_TO_FLY, Keyboard, keyName } from '../src/input/keyboard';
+import { HOLD_TO_FLY, isKeyless, Keyboard, keyName } from '../src/input/keyboard';
 import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
 import { animalKey, bundleKey, moveKey, openKey } from '../src/input/press';
 import { everyMash } from './mash';
@@ -94,6 +94,22 @@ describe('keyName', () => {
 			[{ key: 'Dead', code: 'KeyD' }, 'Dead']
 		];
 		expect(cases.map(([e]) => keyName(e))).toEqual(cases.map(([, name]) => name));
+	});
+});
+
+describe('a key event with no key (Chrome autofill picking a saved password)', () => {
+	it('is keyless, and every key a kid presses is not', () => {
+		expect(isKeyless({} as KeyboardEvent)).toBe(true);
+		expect(isKeyless({ key: undefined } as unknown as KeyboardEvent)).toBe(true);
+		for (const key of ['d', 'Enter', ' ', 'Unidentified', 'Process', ''])
+			expect(isKeyless({ key })).toBe(false);
+	});
+
+	it('lets go of nothing on release, and throws nothing', () => {
+		const t = setup();
+		t.down({ key: 'ArrowRight', code: 'ArrowRight' });
+		expect(() => t.up({ key: undefined } as unknown as Press)).not.toThrow();
+		expect(t.keyboard.heldDirection()).toBe('right');
 	});
 });
 
