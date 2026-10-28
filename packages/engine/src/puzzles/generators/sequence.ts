@@ -3,16 +3,31 @@ import { facePrompt } from '../face.js';
 import type { Puzzle, PuzzleGenerator } from '../types.js';
 import { band, type Band } from './arithmetic.js';
 
-type Family = 'arithmetic' | 'geometric' | 'squares' | 'triangular' | 'fibonacci';
+/**
+ * Every pattern is one a kid finds by looking at the gaps between the
+ * numbers: they are all the same (counting), each is twice the one before
+ * (doubling), or each is one more (triangle numbers) or two more (squares)
+ * than the one before. A sequence's difficulty is in its numbers and in how
+ * far along its pattern starts, never in knowing a trick: tripling and add-the-last-two, which no gap gives away,
+ * were where kids who got their sums right 85–95% of the time got their
+ * sequences right 26–54%.
+ */
+type Family = 'counting' | 'doubling' | 'triangular' | 'squares';
 
-// Which families are available at which difficulty. Lower difficulties stay on
-// small-step counting; higher ones mix in multiplicative and quadratic growth.
-function familiesFor(difficulty: number): Family[] {
-	if (difficulty <= 2) return ['arithmetic'];
-	if (difficulty <= 4) return ['arithmetic', 'geometric'];
-	if (difficulty <= 6) return ['arithmetic', 'geometric', 'squares'];
-	return ['arithmetic', 'geometric', 'squares', 'triangular', 'fibonacci'];
+/**
+ * The patterns other than counting at each difficulty. Up to 3 a sequence
+ * only counts, so the frog's Croak never asks another pattern and a tier-1
+ * animal's strongest attack asks one only on medium and hard; from 4
+ * counting is half of them and the rest share the other half.
+ */
+function othersFor(difficulty: number): Family[] {
+	if (difficulty <= 3) return [];
+	if (difficulty <= 5) return ['doubling'];
+	if (difficulty <= 6) return ['doubling', 'triangular'];
+	return ['doubling', 'triangular', 'squares'];
 }
+
+const COUNTING_SHARE = 0.5;
 
 const SHOWN = 4; // terms shown before the "?"
 
@@ -53,60 +68,47 @@ const COUNTING_START: readonly Band[] = [
  * difficulty that introduces a pattern are unused). Both ends climb, and each
  * floor sits above the ceiling two difficulties down, so a pattern never asks
  * at difficulty d what it asks at d − 2 or below: the textbook opening —
- * "1, 2, 4, 8", "1, 4, 9, 16", "1, 3, 6, 10" — stays near the difficulty that
+ * "1, 2, 4, 8", "1, 3, 6, 10", "1, 4, 9, 16" — stays near the difficulty that
  * introduces it, and the bear's hardest attack never asks what the rabbit
  * asks (#7).
  */
-const GEOMETRIC_START: readonly Band[] = [
-	[1, 4], //  (1–2: unused)
+const DOUBLING_START: readonly Band[] = [
+	[1, 4], //  (1–3: unused)
 	[1, 4],
-	[1, 4], //  3: doubling from 1–4
+	[1, 4],
+	[1, 4], //  4: 1, 2, 4, 8 up to 4, 8, 16, 32: the answer a sum of the 4's band
 	[2, 5],
 	[5, 8],
-	[6, 9], //  6: ×3 joins
+	[6, 9],
 	[9, 12],
 	[10, 14],
-	[13, 20],
-	[15, 25]
+	[13, 20] // 10: up to 20, 40, 80, 160
 ];
-/** The first number squared. */
-const SQUARES_START: readonly Band[] = [
-	[1, 2], //  (1–4: unused)
-	[1, 2],
-	[1, 2],
-	[1, 2],
-	[1, 2], //  5: 1, 4, 9, 16 or 4, 9, 16, 25
+/** Which triangle number comes first (1 → 1, 3, 6, 10: the gaps 2, 3, 4). */
+const TRIANGULAR_START: readonly Band[] = [
+	[1, 3], //  (1–5: unused)
 	[1, 3],
-	[3, 5],
+	[1, 3],
+	[1, 3],
+	[1, 3],
+	[1, 3], //  6: 1, 3, 6, 10 · 3, 6, 10, 15 · 6, 10, 15, 21
+	[2, 5],
 	[4, 7],
 	[6, 9],
-	[8, 12] // 10: from 64, 81, 100, 121 up to 144, 169, 196, 225
+	[8, 12] // 10: up to 78, 91, 105, 120
 ];
-/** Which triangle number comes first (1 → 1, 3, 6, 10). */
-const TRIANGULAR_START: readonly Band[] = [
+/** The first number squared (1 → 1, 4, 9, 16: the gaps 3, 5, 7). */
+const SQUARES_START: readonly Band[] = [
 	[1, 3], //  (1–6: unused)
 	[1, 3],
 	[1, 3],
 	[1, 3],
 	[1, 3],
 	[1, 3],
-	[1, 3], //  7: 1, 3, 6, 10
-	[2, 5],
-	[4, 7],
-	[6, 10]
-];
-/** The first term of an add-the-last-two sequence. */
-const FIBONACCI_START: readonly Band[] = [
-	[1, 3], //  (1–6: unused)
-	[1, 3],
-	[1, 3],
-	[1, 3],
-	[1, 3],
-	[1, 3],
-	[1, 3], //  7: 1, 2, 3, 5 · 1, 3, 4, 7 · 2, 4, 6, 10 · 3, 4, 7, 11 · 3, 5, 8, 13
-	[2, 5],
-	[4, 7],
-	[6, 10]
+	[1, 3], //  7: 1, 4, 9, 16 · 4, 9, 16, 25 · 9, 16, 25, 36
+	[2, 4],
+	[4, 6],
+	[5, 9] //  10: up to 81, 100, 121, 144
 ];
 
 function draw(rng: Rng, table: readonly Band[], difficulty: number): number {
@@ -117,21 +119,15 @@ function draw(rng: Rng, table: readonly Band[], difficulty: number): number {
 function terms(family: Family, rng: Rng, difficulty: number): number[] {
 	const out: number[] = [];
 	switch (family) {
-		case 'arithmetic': {
+		case 'counting': {
 			const step = draw(rng, STEP_BAND, difficulty);
 			const start = draw(rng, COUNTING_START, difficulty);
 			for (let i = 0; i <= SHOWN; i++) out.push(start + i * step);
 			return out;
 		}
-		case 'geometric': {
-			const ratio = difficulty <= 5 ? 2 : rng.int(2, 3);
-			const start = draw(rng, GEOMETRIC_START, difficulty);
-			for (let i = 0; i <= SHOWN; i++) out.push(start * ratio ** i);
-			return out;
-		}
-		case 'squares': {
-			const start = draw(rng, SQUARES_START, difficulty);
-			for (let i = 0; i <= SHOWN; i++) out.push((start + i) ** 2);
+		case 'doubling': {
+			const start = draw(rng, DOUBLING_START, difficulty);
+			for (let i = 0; i <= SHOWN; i++) out.push(start * 2 ** i);
 			return out;
 		}
 		case 'triangular': {
@@ -142,18 +138,9 @@ function terms(family: Family, rng: Rng, difficulty: number): number[] {
 			}
 			return out;
 		}
-		case 'fibonacci': {
-			let a = draw(rng, FIBONACCI_START, difficulty);
-			// a, b, a + b, a + 2b has gaps b − a, a, b, and a prompt must have one
-			// right answer. b = a ("4, 4, 8, 12") ends in a counting run a kid
-			// reads as 16, not 20; 2b = 3a ("2, 3, 5, 8": gaps 1, 2, 3) has gaps
-			// that grow by one, which answers 12, not 13. Skip both.
-			const gaps = [1, 2].filter((k) => 2 * (a + k) !== 3 * a);
-			let b = a + rng.pick(gaps);
-			for (let i = 0; i <= SHOWN; i++) {
-				out.push(a);
-				[a, b] = [b, a + b];
-			}
+		case 'squares': {
+			const start = draw(rng, SQUARES_START, difficulty);
+			for (let i = 0; i <= SHOWN; i++) out.push((start + i) ** 2);
 			return out;
 		}
 	}
@@ -166,7 +153,9 @@ export const sequence: PuzzleGenerator = {
 	maxDifficulty: 10,
 	topics: () => ['sequence'],
 	generate(rng: Rng, difficulty: number): Puzzle {
-		const family = rng.pick(familiesFor(difficulty));
+		const others = othersFor(difficulty);
+		const family =
+			others.length === 0 || rng.chance(COUNTING_SHARE) ? 'counting' : rng.pick(others);
 		const seq = terms(family, rng, difficulty);
 		const answer = seq[SHOWN] as number;
 		return {
