@@ -21,7 +21,7 @@ import { ExploreController } from './explore/controller';
 import { DoctorWay } from './explore/doctor-way';
 import { errorReports } from './error-reports';
 import { authorityOptions, flags } from './flags';
-import { Keyboard } from './input/keyboard';
+import { isKeyless, Keyboard } from './input/keyboard';
 import { press } from './input/press';
 import { clearBoxes } from './keep-clear';
 import { isSoundKey, typingNow } from './input/sound-key';
@@ -426,6 +426,7 @@ watchTaps(
 // the save takes no key at all. A click or a tap arrives here too, as a key
 // press (`input/press.ts`).
 window.addEventListener('keydown', (e) => {
+	if (isKeyless(e)) return;
 	if (autosave.behind !== null) {
 		// Behind (`save/behind.ts`): no key reaches the game, nor a letter the name box.
 		// The browser's own keys (with Ctrl, Alt or Cmd, and F1–F12) still work. Enter,
