@@ -633,6 +633,7 @@ function frame(now: number) {
 			if (battle.active && !battle.vs) battleController.update(dt);
 			matchController.update(dt);
 			if (doctor.active) doctorController.update(dt);
+			if (pause.open) pauseController.update(dt);
 			// A trip to another world: the cover closes, the world changes under it, and it opens.
 			travelController.update(dt);
 			// A flight to another land: the plane comes, takes the kid, and brings them down.

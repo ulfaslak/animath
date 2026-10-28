@@ -11,6 +11,7 @@ import {
 import { sfx } from '../audio/sfx.svelte';
 import { isLanguage, language, nextLanguage } from '../copy';
 import { isShortcut, keyName } from '../input/keyboard';
+import { PickGuard } from '../input/pick-guard';
 import { tappedLand, tappedLanguage, tappedOption, tappedRow } from '../input/press';
 import { book, bookLands } from '../state/book.svelte';
 import { game } from '../state/game.svelte';
@@ -78,6 +79,9 @@ export interface PauseHooks {
  * what it shows is the authority's, from `welcome` and `book-changed`.
  */
 export class PauseController {
+	/** Log out's question takes a pick only after a quiet moment, as every choice does. */
+	private guard = new PickGuard();
+
 	constructor(
 		private authority: Authority,
 		private readonly options: PauseHooks = {}
@@ -158,7 +162,9 @@ export class PauseController {
 								? this.bookKey(key)
 								: pause.screen === 'puzzles'
 									? this.puzzlesKey(key)
-									: this.optionsKey(key);
+									: pause.screen === 'logOut'
+										? this.logOutKey(key)
+										: this.optionsKey(key);
 		if (handled) e.preventDefault();
 	}
 
@@ -282,8 +288,11 @@ export class PauseController {
 				this.options.logIn?.();
 				break;
 			case 'logOut':
+				// Not at once: a kid who has forgotten their password can't come back.
 				sfx.play('confirm');
-				this.options.logOut?.();
+				pause.screen = 'logOut';
+				pause.option = 0;
+				this.guard.show();
 				break;
 			case 'puzzles':
 				sfx.play('confirm');
@@ -513,6 +522,74 @@ export class PauseController {
 				return true;
 		}
 		return false;
+	}
+
+	/**
+	 * Log out's question on the right: "No, stay logged in" (lit first) or
+	 * "Yes, log out". Left, right, up and down move between them without
+	 * wrapping; Enter, Space or a tap pick, after the quiet moment; Escape is
+	 * No. Either way the cursor is back on Log out, which reads "Just a
+	 * moment…" while the logout goes.
+	 */
+	private logOutKey(key: string): boolean {
+		const back = (): void => {
+			this.backToList();
+			pause.cursor = bundles(game.party).length + menuItems().indexOf('logOut');
+		};
+		// Logged out meanwhile (another tab): nothing left to ask.
+		if (!menuItems().includes('logOut')) {
+			this.backToList();
+			return true;
+		}
+		// The team and the rows stay on screen beside the question, and a tap on one of them
+		// does that row, as on the list: not logging out.
+		if (tappedRow(key) !== undefined || tappedLanguage(key) !== undefined) {
+			this.backToList();
+			return this.listKey(key);
+		}
+		const pick = (choice: number): boolean => {
+			if (!this.guard.press()) return true;
+			sfx.play('confirm');
+			back();
+			if (choice === 1) this.options.logOut?.();
+			return true;
+		};
+		const tapped = tappedOption(key);
+		if (tapped !== undefined) {
+			if (tapped > 1) return true;
+			pause.option = tapped;
+			return pick(tapped);
+		}
+		switch (key) {
+			case 'ArrowUp':
+			case 'w':
+			case 'ArrowLeft':
+			case 'a':
+			case 'ArrowDown':
+			case 's':
+			case 'ArrowRight':
+			case 'd': {
+				const to = key === 'ArrowUp' || key === 'w' || key === 'ArrowLeft' || key === 'a' ? 0 : 1;
+				if (to !== pause.option) {
+					pause.option = to;
+					sfx.play('move');
+				}
+				return true;
+			}
+			case 'Enter':
+			case ' ':
+				return pick(pause.option);
+			case 'Escape':
+				sfx.play('move');
+				back();
+				return true;
+		}
+		return false;
+	}
+
+	/** Frame time: Log out's question waits a quiet moment before it takes a pick. */
+	update(dt: number): void {
+		this.guard.tick(dt);
 	}
 
 	/** Turned on, the sound says so itself; turned off, only the switch does. */

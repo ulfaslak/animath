@@ -24,10 +24,12 @@ import { account } from './account.svelte';
  * each one a "Go to" (`presence.roster`); `book` is the animal book, a page
  * per land (`book.land`) with a card for every species of the land in the
  * book's order (`bookOrder`), the lit one `option`; `puzzles` is "My
- * puzzles", a row per topic (`statRows`), the lit one `option`.
+ * puzzles", a row per topic (`statRows`), the lit one `option`; `logOut`
+ * asks on the right whether the kid remembers their password, before Log
+ * out does it: `option` 0 stays, 1 logs out.
  */
 export type PauseScreen =
-	'list' | 'bundle' | 'options' | 'naming' | 'worlds' | 'players' | 'book' | 'puzzles';
+	'list' | 'bundle' | 'options' | 'naming' | 'worlds' | 'players' | 'book' | 'puzzles' | 'logOut';
 
 /**
  * The rows under the team, in order: Worlds, Who's here, the settings, the
@@ -45,7 +47,7 @@ export type PauseScreen =
  * on the right, where picking one goes to them; `language` switches every
  * word on screen to the next language at once and remembers it on this
  * device; `sound` turns the sound off and on (`sfx`); the account's rows
- * open the account card or log out (`PauseHooks`); `quit` (Start screen)
+ * open the account card, or ask on the right and then log out (`PauseHooks`); `quit` (Start screen)
  * saves the game as it stands and goes back to the title, where Continue
  * picks it up; `puzzles` opens "My puzzles" in the menu's place, and `book`
  * the animal book.

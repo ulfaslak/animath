@@ -357,7 +357,8 @@
 		type="button"
 		class="row item"
 		class:lit={(pause.screen === 'list' && lit === row) ||
-			(pause.screen === 'players' && item === 'players')}
+			(pause.screen === 'players' && item === 'players') ||
+			(pause.screen === 'logOut' && item === 'logOut')}
 		data-press={rowKey(row)}
 		{@attach unfocusable}
 	>
@@ -760,6 +761,28 @@
 							</div>
 							<div class="note">{t('pause.playersHelp')}</div>
 						{/if}
+					{:else if pause.screen === 'logOut'}
+						<!-- Before Log out: without the password, the account's game can't come back. -->
+						<div class="side-title wraps">{t('pause.logOutTitle')}</div>
+						<div class="note ask">{t('pause.logOutAsk', { name: account.name ?? '' })}</div>
+						<button
+							type="button"
+							class="row option"
+							class:lit={pause.option === 0}
+							data-press={optionKey(0)}
+							{@attach unfocusable}
+						>
+							<span class="caret">▸</span>{t('pause.logOutStay')}
+						</button>
+						<button
+							type="button"
+							class="row option"
+							class:lit={pause.option === 1}
+							data-press={optionKey(1)}
+							{@attach unfocusable}
+						>
+							<span class="caret">▸</span>{t('pause.logOutYes')}
+						</button>
 					{:else if pause.screen === 'list' && soundLit}
 						<div class="side-title">{t('pause.sound')}</div>
 						<!-- With the touch controls on, what a tap does; the keys only with a keyboard (#53). -->
@@ -791,7 +814,7 @@
 					{t('pause.keysSound')}
 				{:else if pause.screen === 'list'}
 					{t('pause.keysList')}
-				{:else if pause.screen === 'options' || pause.screen === 'bundle'}
+				{:else if pause.screen === 'options' || pause.screen === 'bundle' || pause.screen === 'logOut'}
 					{t('pause.keysOptions')}
 				{:else if pause.screen === 'worlds'}
 					{t('worlds.keys')}
@@ -1198,6 +1221,11 @@
 		font-weight: 600;
 		font-size: 16px;
 		margin: 10px 2px 0;
+	}
+	/* Log out's question, over its two choices; a long name breaks rather than running off. */
+	.note.ask {
+		margin: 0 2px 10px;
+		overflow-wrap: anywhere;
 	}
 	.preview {
 		font-weight: 800;

@@ -15,7 +15,8 @@ import { LocalAuthority } from '../src/authority/local';
 import { language } from '../src/copy';
 import { parseParty } from '../src/flags';
 import { landKey, languageKey, optionKey, rowKey } from '../src/input/press';
-import { PauseController } from '../src/pause/controller';
+import { PauseController, type PauseHooks } from '../src/pause/controller';
+import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
 import { account } from '../src/state/account.svelte';
 import { book, bookLands } from '../src/state/book.svelte';
 import { game } from '../src/state/game.svelte';
@@ -74,9 +75,13 @@ function key(
  * trips the Worlds screen asks for (as the travel transition is); without it,
  * the menu sends `travel` itself.
  */
-function setup(startingParty = 'squirrel,rabbit,fox', travel?: (world: number) => void) {
+function setup(
+	startingParty = 'squirrel,rabbit,fox',
+	travel?: (world: number) => void,
+	hooks: PauseHooks = {}
+) {
 	const authority = new LocalAuthority({ party: parseParty(startingParty)! });
-	const controller = new PauseController(authority, { travel });
+	const controller = new PauseController(authority, { travel, ...hooks });
 	const events: GameEvent[] = [];
 	const sent: Intent[] = [];
 	const dispatch = authority.dispatch.bind(authority);
@@ -1029,5 +1034,82 @@ describe('the Worlds screen', () => {
 		expect([pause.open, pause.screen, pause.worldDraft]).toEqual([true, 'worlds', '4']);
 		authority.dispatch({ type: 'travel', world: 12 });
 		expect([pause.open, game.world]).toEqual([false, 12]);
+	});
+});
+
+describe('Log out asks first', () => {
+	/** A player logged in to Ida's account, the menu open on Log out; how many times it logged out. */
+	function onLogOut() {
+		account.name = 'Ida';
+		let logOuts = 0;
+		const t = setup('squirrel,rabbit,fox', undefined, { logOut: () => logOuts++ });
+		const row = bundles(game.party).length + menuItems().indexOf('logOut');
+		t.press('Escape', ...t.downTo('logOut'));
+		expect(pause.cursor).toBe(row);
+		const quiet = () => t.controller.update(PICK_QUIET_SECONDS);
+		return { ...t, row, quiet, logOuts: () => logOuts };
+	}
+
+	afterEach(() => {
+		account.name = null;
+	});
+
+	it('asks on the right, No lit first, and logs out only on Yes', () => {
+		const { press, row, quiet, logOuts } = onLogOut();
+		press('Enter');
+		expect([pause.screen, pause.option, logOuts()]).toEqual(['logOut', 0, 0]);
+		quiet();
+		press('Enter');
+		expect([pause.screen, pause.cursor, logOuts()]).toEqual(['list', row, 0]);
+
+		press('Enter');
+		quiet();
+		press('ArrowRight');
+		expect(pause.option).toBe(1);
+		press('ArrowRight', 'ArrowDown', 's', 'd'); // no wrapping: Yes stays lit
+		expect(pause.option).toBe(1);
+		press('ArrowUp');
+		expect(pause.option).toBe(0);
+		press('a', 'w', 'ArrowLeft');
+		expect(pause.option).toBe(0);
+		press('ArrowDown', 'Enter');
+		expect([pause.open, pause.screen, pause.cursor, logOuts()]).toEqual([true, 'list', row, 1]);
+	});
+
+	it('Escape is No, and goes back to the Log out row', () => {
+		const { press, row, logOuts } = onLogOut();
+		press('Enter', 'ArrowDown');
+		expect(press('Escape').prevented).toBe(true);
+		expect([pause.open, pause.screen, pause.cursor, logOuts()]).toEqual([true, 'list', row, 0]);
+	});
+
+	it('an Enter mashed through, or a tap too soon, never logs out', () => {
+		const { press, controller, quiet, logOuts } = onLogOut();
+		press('Enter', 'ArrowDown', 'Enter', 'Enter', 'Enter');
+		expect([pause.screen, logOuts()]).toEqual(['logOut', 0]);
+		// Each press started the quiet moment again; a moment short of it is not enough.
+		controller.update(PICK_QUIET_SECONDS / 2);
+		press(optionKey(1));
+		expect([pause.screen, logOuts()]).toEqual(['logOut', 0]);
+		quiet();
+		press(optionKey(1));
+		expect([pause.screen, logOuts()]).toEqual(['list', 1]);
+	});
+
+	it('a tap on a row of the list does that row, and logs out nothing', () => {
+		const { press, quiet, logOuts } = onLogOut();
+		press('Enter');
+		quiet();
+		press(rowKey(bundles(game.party).length + menuItems().indexOf('players')));
+		expect([pause.screen, logOuts()]).toEqual(['players', 0]);
+	});
+
+	it('logged out in another tab meanwhile: the question goes, and nothing logs out', () => {
+		const { press, quiet, logOuts } = onLogOut();
+		press('Enter', 'ArrowDown');
+		quiet();
+		account.name = null;
+		press('Enter');
+		expect([pause.screen, logOuts()]).toEqual(['list', 0]);
 	});
 });

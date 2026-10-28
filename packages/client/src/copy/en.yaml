@@ -1942,6 +1942,12 @@ pause:
   makeAccount: Make an account
   logIn: Log in
   logOut: Log out
+  # On the right after Log out is picked, before it logs out: without the password the
+  # account's game can't come back. {name}: the account's name. Stay is lit first.
+  logOutTitle: Log out?
+  logOutAsk: Do you remember your secret password? You need it to log in again as {name}.
+  logOutStay: No, stay logged in
+  logOutYes: Yes, log out
   # The row that switches every word to another language; each language is
   # listed by its own name (language.name above).
   language: Language
