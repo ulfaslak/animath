@@ -373,7 +373,7 @@ describe('difficulty ladder', () => {
 			countingShare.push(counting / (SAMPLES * 3));
 		}
 		// Every pattern is found from the gaps: nothing triples or adds the
-		// last two, which kids who got their sums right could not find (#235).
+		// last two, which kids who got their sums right could not find (#236).
 		expect([...seen.keys()].sort()).toEqual([
 			'counting',
 			'doubling',
