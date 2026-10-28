@@ -7,8 +7,8 @@ import { band, type Band } from './arithmetic.js';
  * Every pattern is one a kid finds by looking at the gaps between the
  * numbers: they are all the same (counting), each is twice the one before
  * (doubling), or each is one more (triangle numbers) or two more (squares)
- * than the one before. A sequence's difficulty is in its numbers, never in
- * knowing a trick: tripling and add-the-last-two, which no gap gives away,
+ * than the one before. A sequence's difficulty is in its numbers and in how
+ * far along its pattern starts, never in knowing a trick: tripling and add-the-last-two, which no gap gives away,
  * were where kids who got their sums right 85–95% of the time got their
  * sequences right 26–54%.
  */
@@ -16,9 +16,9 @@ type Family = 'counting' | 'doubling' | 'triangular' | 'squares';
 
 /**
  * The patterns other than counting at each difficulty. Up to 3 a sequence
- * only counts, so a tier-1 animal's hardest level asks a kid's first pattern
- * and no other; from 4 counting is half of them and the rest share the other
- * half.
+ * only counts, so the frog's Croak never asks another pattern and a tier-1
+ * animal's strongest attack asks one only on medium and hard; from 4
+ * counting is half of them and the rest share the other half.
  */
 function othersFor(difficulty: number): Family[] {
 	if (difficulty <= 3) return [];
@@ -34,12 +34,9 @@ const SHOWN = 4; // terms shown before the "?"
 /**
  * Counting sequences (index = difficulty − 1): the step and the first term
  * both come from bands. The step floor stops difficulty 10 from asking
- * "12, 13, 14, 15, ?" (#7); each first-term floor sits above the ceiling two
- * difficulties down, so no two difficulties that far apart ever ask the same
- * counting sequence ("0, 10, 20, 30, ?" used to be possible at every
- * difficulty from 4 to 10). From 6 the numbers climb the way the adding
- * ladder's do, a couple of rungs below it, since the kid does two sums (the
- * gap, then the next number), so a bear's counting is three-digit.
+ * "12, 13, 14, 15, ?" (#7); the first-term bands don't overlap at all, so no
+ * two difficulties ever ask the same counting sequence ("0, 10, 20, 30, ?"
+ * used to be possible at every difficulty from 4 to 10).
  */
 const STEP_BAND: readonly Band[] = [
 	[1, 2],
@@ -47,11 +44,11 @@ const STEP_BAND: readonly Band[] = [
 	[3, 8],
 	[4, 10],
 	[5, 12],
-	[6, 15],
-	[8, 20],
-	[11, 30],
-	[15, 45],
-	[21, 60]
+	[6, 14],
+	[7, 16],
+	[8, 18],
+	[9, 20],
+	[10, 25]
 ];
 const COUNTING_START: readonly Band[] = [
 	[0, 5],
@@ -59,11 +56,11 @@ const COUNTING_START: readonly Band[] = [
 	[11, 15],
 	[16, 20],
 	[21, 25],
-	[26, 50],
-	[51, 100],
-	[101, 200],
-	[201, 500],
-	[501, 1000]
+	[26, 30],
+	[31, 35],
+	[36, 40],
+	[41, 45],
+	[46, 50]
 ];
 
 /**

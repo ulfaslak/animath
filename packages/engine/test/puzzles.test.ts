@@ -384,6 +384,14 @@ describe('difficulty ladder', () => {
 			[...seen].map(([pattern, byD]) => [pattern, Math.min(...byD.keys())])
 		);
 		expect(firstAsked).toEqual({ counting: 1, doubling: 4, 'triangle-numbers': 6, squares: 7 });
+		// A textbook opening ("1, 2, 4, 8", "1, 3, 6, 10") only at the difficulty that brings it:
+		// the next one up starts every pattern further along.
+		for (const [pattern, byD] of seen) {
+			const d = firstAsked[pattern] as number;
+			expect(byD.get(d + 1)!.firstLo, `${pattern} at d=${d + 1}`).toBeGreaterThan(
+				byD.get(d)!.firstLo
+			);
+		}
 		// Up to 3 every sequence counts; from 4 about half of them do (900 draws a difficulty).
 		countingShare.forEach((share, i) => {
 			if (i < 3) {
