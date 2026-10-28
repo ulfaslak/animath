@@ -1,6 +1,7 @@
 import {
 	ATTACK_LEVELS,
 	recordParty,
+	tellSpecies,
 	type AnimalBook,
 	answerText,
 	EDITS_BUDGET,
@@ -403,6 +404,21 @@ describe('LocalAuthority: the lead decides who comes out', () => {
 		const river = encounterTable('river', 0, 1).map((e) => e.species.id);
 		expect(met.every((m) => river.includes(m.wild))).toBe(true);
 		expect(met.map((m) => m.wild)).toContain('wood-mouse');
+	});
+
+	it('the kind the druid told about last comes out far more often, on the same steps', () => {
+		const plain = reedWalk(session(), 600);
+		const s = session();
+		const inside = s.authority as unknown as { book: AnimalBook };
+		inside.book = tellSpecies(inside.book, 'wood-mouse');
+		const told = reedWalk(s, 600);
+		// The book never decides whether a step starts a battle, only which kind of a size comes out.
+		expect(told.map((m) => m.step)).toEqual(plain.map((m) => m.step));
+		const mice = (met: { wild: string }[]) => met.filter((m) => m.wild === 'wood-mouse').length;
+		// Near home a wood mouse is one of the twelve small kinds by the water, all not caught but
+		// the squirrel: told about, it weighs six of them.
+		expect(mice(plain)).toBeLessThan(plain.length / 8);
+		expect(mice(told)).toBeGreaterThan(told.length / 4);
 	});
 
 	it('the first animal that is not tired leads: with a fox in front the reed has tier-2 animals, now and then a small one and a mute swan, on the same steps', () => {
@@ -3410,6 +3426,33 @@ describe('LocalAuthority: birds in the air (#91)', () => {
 		}
 		expect(birds).toBe(3);
 		expect(cuts).toBeGreaterThanOrEqual(8);
+	});
+
+	it('the bird the druid told about last notices the glider far more often', () => {
+		/** The birds met on 160 flights over the lake with the tawny owl in front in the air. */
+		const birds = (told: string[]) => {
+			const met: string[] = [];
+			for (let steps = 0; steps < 160 * REACH; steps += REACH) {
+				const authority = new LocalAuthority();
+				const events: GameEvent[] = [];
+				authority.subscribe((e) => events.push(e));
+				const game = newGame(1, testStarter());
+				const team = [animal('squirrel'), animal('tawny-owl')];
+				authority.start({
+					game: { ...game, pos: SPAWN, facing: 'up', steps, items: ['glider'], party: team, told }
+				});
+				dispatchAll({ authority, events }, [{ type: 'take-off' }, ...glides(REACH + 1)]);
+				met.push(...follows({ authority, events }).map((b) => b.speciesId));
+			}
+			return met;
+		};
+		const plain = birds([]);
+		const told = birds(['buzzard']);
+		// The same flights meet a bird: the book only picks which of a size.
+		expect(told.length).toBe(plain.length);
+		const buzzards = (met: string[]) => met.filter((id) => id === 'buzzard').length;
+		expect(buzzards(told)).toBeGreaterThan(2 * buzzards(plain));
+		expect(buzzards(told)).toBeGreaterThan(told.length / 3);
 	});
 
 	it('the lead in the air is the first bird standing, whoever leads on the ground; the squirrel sits it out', () => {

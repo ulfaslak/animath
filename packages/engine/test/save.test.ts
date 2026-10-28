@@ -1743,12 +1743,13 @@ describe('the animal book in a save', () => {
 		expect(game.told).toEqual([]);
 		// A game told of nothing saves as a build from before the druid's tip wrote it.
 		expect('told' in saveDocument(game, { lineage: 'L', seq: 2 })).toBe(false);
-		// Told once, and its order kept; a kind listed twice, or one met since, stays once.
+		// Told once, and its order kept, the last told last; a kind listed twice stays once, in its
+		// last place, as one told again moves to the end; one met since stays unseen.
 		const told = restoreGame({ ...read.save, told: ['moose', 'lynx', 'moose'] }, mint);
-		expect(told.told).toEqual(['moose', 'lynx']);
+		expect(told.told).toEqual(['lynx', 'moose']);
 		expect(told.seen).toEqual(game.seen);
 		const doc = saveDocument(told, { lineage: 'L', seq: 2 });
-		expect(doc.told).toEqual(['moose', 'lynx']);
+		expect(doc.told).toEqual(['lynx', 'moose']);
 		expect(validateSaveWrite(JSON.parse(JSON.stringify(doc))).ok).toBe(true);
 	});
 

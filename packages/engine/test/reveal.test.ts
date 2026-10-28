@@ -4,7 +4,7 @@ import type { AnimalInstance, Biome, Realm, Tier } from '../src/animals/types.js
 import { bestLead, meetingPlaces } from '../src/doctor/reveal.js';
 import { LAND_IDS, landSeed, type LandId } from '../src/lands/ids.js';
 import { getLand } from '../src/lands/lands.js';
-import { WILD_RADIUS, encounterTable } from '../src/world/encounters.js';
+import { WILD_RADIUS, encounterTable, favourUncaught } from '../src/world/encounters.js';
 import { holeTable } from '../src/world/fishing.js';
 import { tileAtWorld } from '../src/world/generate.js';
 import { spawnPoint } from '../src/world/spawn.js';
@@ -129,12 +129,16 @@ describe('bestLead', () => {
 												: []),
 											...(places.ice.includes(b) ? [holeTable(b, d, lead)] : [])
 										];
-							return tables.map((t) => t.find((e) => e.species.id === id)?.weight ?? 0);
+							// As the rolls weigh it once the druid has told about it: the team caught,
+							// it the kind told last.
+							return tables.map(
+								(t) => favourUncaught(t, ids, id).find((e) => e.species.id === id)?.weight ?? 0
+							);
 						});
 					const total = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 					const meets = (lead: Tier) => total(at(lead, 0)) + total(at(lead, WILD_RADIUS));
 					const can = party.filter((a) => canFightIn(a.speciesId, realm));
-					const got = bestLead(party, id);
+					const got = bestLead(party, id, ids);
 					if (can.length === 0) {
 						if (got !== null) bad.push(`${ids} → ${id}: names ${got.index}, nobody can go`);
 						continue;
@@ -172,14 +176,18 @@ describe('bestLead', () => {
 	it('names the first of the best size, tired or not: the druid heals', () => {
 		const party = team('squirrel', 'rabbit', 'fox');
 		const small = { realm: 'land', far: false, big: false };
-		expect(bestLead(party, 'shrew')).toEqual({ index: 0, leads: true, ...small });
-		expect(bestLead([party[2]!, party[1]!], 'shrew')).toEqual({ index: 1, leads: false, ...small });
+		expect(bestLead(party, 'shrew', [])).toEqual({ index: 0, leads: true, ...small });
+		expect(bestLead([party[2]!, party[1]!], 'shrew', [])).toEqual({
+			index: 1,
+			leads: false,
+			...small
+		});
 		// A tired squirrel in front is still the one: it leads again once it is well.
 		const tired = [{ ...party[0]!, hp: 0 }, party[2]!, party[1]!];
-		expect(bestLead(tired, 'shrew')).toEqual({ index: 0, leads: true, ...small });
+		expect(bestLead(tired, 'shrew', [])).toEqual({ index: 0, leads: true, ...small });
 		// Behind a tired bear the squirrel does not lead: the bear will, once healed.
 		const bear = team('bear', 'squirrel');
-		expect(bestLead([{ ...bear[0]!, hp: 0 }, bear[1]!], 'shrew')).toEqual({
+		expect(bestLead([{ ...bear[0]!, hp: 0 }, bear[1]!], 'shrew', [])).toEqual({
 			index: 1,
 			leads: false,
 			...small
@@ -187,23 +195,23 @@ describe('bestLead', () => {
 	});
 
 	it('sends a small team far out for a big animal, a big team for a smaller one, and nobody to sea without a swimmer', () => {
-		expect(bestLead(team('squirrel'), 'bear')).toEqual({
+		expect(bestLead(team('squirrel'), 'bear', [])).toEqual({
 			index: 0,
 			realm: 'land',
 			leads: true,
 			far: true,
 			big: false
 		});
-		expect(bestLead(team('bear'), 'shrew')).toEqual({
+		expect(bestLead(team('bear'), 'shrew', [])).toEqual({
 			index: 0,
 			realm: 'land',
 			leads: true,
 			far: false,
 			big: true
 		});
-		expect(bestLead(team('squirrel', 'fox'), 'whale')).toBeNull();
+		expect(bestLead(team('squirrel', 'fox'), 'whale', [])).toBeNull();
 		// Out on the water the frog leads, the first that swims.
-		expect(bestLead(team('squirrel', 'frog'), 'whale')).toEqual({
+		expect(bestLead(team('squirrel', 'frog'), 'whale', [])).toEqual({
 			index: 1,
 			realm: 'water',
 			leads: true,
@@ -211,20 +219,36 @@ describe('bestLead', () => {
 			big: false
 		});
 		// Under a frozen lake the char is alone, whoever leads: no need to go far for it.
-		expect(bestLead(team('arctic-fox', 'puffin'), 'arctic-char')).toEqual({
+		expect(bestLead(team('arctic-fox', 'puffin'), 'arctic-char', [])).toEqual({
 			index: 1,
 			realm: 'water',
 			leads: true,
 			far: false,
 			big: false
 		});
-		// The meadow holds nothing bigger than red deer, so a bear meets them more than a wolf does.
-		expect(bestLead(team('wolf', 'bear'), 'deer')).toEqual({
+		// Caught already, red deer meet a bear most: the meadow holds nothing bigger than them.
+		expect(bestLead(team('wolf', 'bear'), 'deer', ['deer'])).toEqual({
 			index: 1,
 			realm: 'land',
 			leads: false,
 			far: false,
 			big: false
 		});
+		// Told about, the wolf: in the forest, where the red deer is now most of its size, a wolf
+		// meets it four times as often as a bear, and in the meadow nearly as often.
+		expect(bestLead(team('wolf', 'bear'), 'deer', [])).toEqual({
+			index: 0,
+			realm: 'land',
+			leads: true,
+			far: false,
+			big: false
+		});
+	});
+
+	it('weighs the places as the rolls do once the druid has told about the animal', () => {
+		// Plain, a bear meets the sea eagle more by the river than a wolf; told about, it is the
+		// wolf, of its size, that meets it most, so that is the one the tip names.
+		const lead = (caught: string[]) => bestLead(team('wolf', 'bear'), 'white-tailed-eagle', caught);
+		expect(lead(['wolf', 'bear'])).toMatchObject({ index: 0, leads: true, big: false });
 	});
 });
