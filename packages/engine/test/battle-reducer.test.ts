@@ -175,8 +175,7 @@ describe('applyBattleIntent', () => {
 		for (const seed of [-1, 1.5, NaN, 2 ** 32, Infinity]) {
 			expect(() => applyBattleIntent(start, flee, seed), String(seed)).toThrow(/seed/);
 		}
-		for (const seed of [0, 1, 0xffffffff])
-			expect(outcome(runAway(start, seed).state)).toBe('fled');
+		for (const seed of [0, 1, 0xffffffff]) expect(outcome(runAway(start, seed).state)).toBe('fled');
 	});
 
 	it('rejects a missing intent instead of throwing', () => {

@@ -24,6 +24,7 @@ import { game } from '../src/state/game.svelte';
 import { NEEDS, PROMPTS, hud } from '../src/state/hud.svelte';
 import { skyPieces } from './sky-pieces';
 import { testStarter } from './minted';
+import { runAway } from './run-away';
 
 /**
  * The Arctic's shop in the browser (#191 step 6): the land's money on every
@@ -335,7 +336,7 @@ describe('fishing', () => {
 				if (line?.type !== 'line-cast') throw new Error(`cast ${i}: no line cast`);
 				seen.push(line.outcome === 'bite' ? `bite ${line.speciesId}` : line.outcome);
 				if (line.outcome === 'bite') {
-					s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+					runAway(s.authority);
 				}
 			}
 			return seen;

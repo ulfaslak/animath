@@ -104,8 +104,7 @@ export function wildFight(state: BattleState): FightView {
 		a: fightAnimal(state.party[state.active]!),
 		b: fightAnimal(state.opponent),
 		turn: phase.kind === 'ended' ? null : 'a',
-		puzzle:
-			phase.kind === 'solving' || phase.kind === 'escaping' ? puzzleFace(phase.puzzle) : null
+		puzzle: phase.kind === 'solving' || phase.kind === 'escaping' ? puzzleFace(phase.puzzle) : null
 	};
 }
 
