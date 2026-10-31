@@ -308,3 +308,10 @@ To become `[learned]`: a line in `.claude/commands/cleanse.md` (or [[DEVELOPMENT
 - **A test that could not fail.** The first roll test for the sky told about the last kind of each sky table, which near home was a tier the lead hardly meets, so dropping `sought` from `rollSkyEncounter` left it green. Its negative control caught it; the test now counts the rolls the tip changed. Fishing holes hold one kind per size, so the favour cannot change a cast at all, and no test there can fail on it.
 
 To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology that a change to how a table is weighed lists every reader of that table, and that a share floor or cap is checked on a table's thinnest entries and at the radii where weights go to zero.
+
+### 2026-10-31 — the escape puzzle (feat/escape-puzzle, PR #237) — a new battle phase shipped without the save bump its DEFERRED trigger demanded, and prose that still said the old rule `[not codified]`
+
+- **A DEFERRED trigger not looked up.** The PR added a battle phase (`escaping`) and argued in its body that no `SAVE_VERSION` bump was needed, because an older build drops a battle in a phase it does not know "as if the kid ran away". `DEFERRED.md` names exactly this change as the trigger for a bump: the older build's next write replaces the save with no copy kept, losing the battle and handing the kid a free escape. Found by the adversarial review. Before shipping a change to anything a save holds (a phase, an attack list, a realm, a range), grep [[DEFERRED]] for its kind of change.
+- **The old rule left in prose the diff did not open.** UI_SPEC still quoted the Run row as "You always get away" two lines above the paragraph the PR added, and DEVELOPMENT's battle recipe pressed Run and expected the result card. A grep for the old copy string and for the intent's name across `AGENTS/` finds both.
+
+To become `[learned]`: a line in [[DEVELOPMENT]] (or CLAUDE.md § Regardless of what the change is) that a change to a saved shape greps [[DEFERRED]] for its triggers, and that a changed copy string is grepped across `AGENTS/` by its old text.

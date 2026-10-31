@@ -12,6 +12,10 @@ import type { Puzzle, PuzzleTopic } from '../puzzles/types.js';
  * player's action, so the state never rests in an "opponent's turn" phase —
  * the client animates the events in order and only then shows the new state.
  *
+ * `escaping` follows a `flee`: the player solves one puzzle to get away
+ * (`escapePuzzle`). A right answer ends the battle `fled`; a wrong one counts
+ * as a missed attack, and the wild animal takes its turn.
+ *
  * `choose-animal` follows a knock-out while someone else in the party is
  * still standing: the animal in front (`active`) is the tired one, and the
  * only intent that fits is a `switch` naming who steps in.
@@ -20,6 +24,7 @@ export type BattlePhase =
 	| { kind: 'choose-action' }
 	| { kind: 'choose-animal' }
 	| { kind: 'solving'; attackIndex: number; level: AttackLevel; puzzle: Puzzle }
+	| { kind: 'escaping'; puzzle: Puzzle }
 	| { kind: 'ended'; outcome: BattleOutcome };
 
 export type BattleOutcome = 'won' | 'lost' | 'caught' | 'fled';
@@ -67,6 +72,7 @@ export type BattleIntent =
 	| { type: 'attack'; attackIndex: number; level: AttackLevel }
 	| { type: 'answer'; input: string }
 	| { type: 'throw-leash' }
+	/** Try to run away: the escape puzzle comes up, and its answer decides. */
 	| { type: 'flee' }
 	/**
 	 * Send in the party member at `partyIndex`. On the player's turn it is the
@@ -106,6 +112,8 @@ export type BattleRejection =
  */
 export type BattleEvent =
 	| { type: 'puzzle-shown'; attackIndex: number; level: AttackLevel; puzzle: Puzzle }
+	/** The player tried to run away: the puzzle to solve to get away. */
+	| { type: 'escape-shown'; puzzle: Puzzle }
 	| {
 			type: 'answer-judged';
 			input: string;
@@ -129,6 +137,8 @@ export type BattleEvent =
 	| { type: 'switched'; animal: AnimalInstance; partyIndex: number }
 	| { type: 'leash-thrown'; chance: number; success: boolean }
 	| { type: 'fled' }
+	/** The escape puzzle was answered wrong: the player stays, and the wild animal takes its turn. */
+	| { type: 'escape-failed' }
 	| { type: 'ended'; outcome: BattleOutcome; caught?: AnimalInstance }
 	/** The intent was not valid in the current phase. The state is unchanged. */
 	| { type: 'rejected'; reason: BattleRejection };

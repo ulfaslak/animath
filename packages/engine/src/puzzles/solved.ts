@@ -4,8 +4,9 @@ import type { MatchEvent, MatchSide } from '../match/types.js';
 
 /**
  * The count of puzzles a kid has solved ([[PRODUCT]] §4 "Puzzles"): every
- * right answer adds one, wherever it was judged (an attack in a wild battle,
- * a heal or a token sum at the doctor, an attack in a friendly match), and a
+ * right answer adds one, wherever it was judged (an attack or the escape
+ * puzzle in a wild battle, a heal or a token sum at the doctor, an attack in
+ * a friendly match), and a
  * wrong one adds none, so the count never goes down. Every reducer that
  * judges an answer, with `checkAnswer`, says so in one `answer-judged` event,
  * and the count is read from those events: it follows the judgement itself,

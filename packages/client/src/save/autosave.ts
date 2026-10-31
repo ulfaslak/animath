@@ -11,7 +11,7 @@ import {
 	saveVersion,
 	validateSaveWrite,
 	type GameEvent,
-	type SaveV5,
+	type SaveV6,
 	type SaveWrite,
 	type SavedGame
 } from '@mathgame/engine';
@@ -179,7 +179,7 @@ export class Autosave {
 	private writtenText: string | null = null;
 	private writtenSeq = 0;
 	/** The save this page's game grows from: the one it loaded, carried on from, or last wrote. */
-	private base: SaveV5 | null = null;
+	private base: SaveV6 | null = null;
 	/** Fields a newer build left in the loaded save, written back unchanged. */
 	private extras: Record<string, unknown> = {};
 	/** The newest document built, for the server. */
@@ -680,7 +680,7 @@ export class Autosave {
 	}
 
 	/** Take `save` as the one this page's game grows from. */
-	private carryOn(save: SaveV5): void {
+	private carryOn(save: SaveV6): void {
 		this.lineage = saveLineage(save) || this.mintId();
 		this.seq = Math.max(this.seq, saveSeq(save));
 		this.extras = saveExtras(save);
@@ -985,7 +985,7 @@ export class Autosave {
 	 * its `replaced` key (or `unreadable`), make the server's the saved
 	 * game, and reload into it.
 	 */
-	private adopt(save: SaveV5, doc: unknown): void {
+	private adopt(save: SaveV6, doc: unknown): void {
 		const store = this.store;
 		if (!store || this.local === 'frozen' || this.local === 'none') return;
 		const current = store.get(this.keys.save);

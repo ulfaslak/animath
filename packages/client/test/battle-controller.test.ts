@@ -1,6 +1,7 @@
 import {
 	ANIMALS,
 	ATTACK_LEVELS,
+	answerText,
 	attackDamage,
 	getAnimal,
 	newGame,
@@ -149,6 +150,12 @@ function setup(from: { party?: string; game?: SavedGame; landing?: () => boolean
 			run(PICK_QUIET_SECONDS);
 			press(n);
 		});
+	/** After Run: wait for the escape puzzle, then type its answer, right unless told otherwise, and Enter. */
+	const escape = (right = true) => {
+		runUntil(() => battle.screen === 'puzzle');
+		const puzzle = battle.puzzle as Puzzle;
+		press(...answerText({ ...puzzle, answer: puzzle.answer + (right ? 0 : 1) }), 'Enter');
+	};
 	/** Play the narration until the action menu is back and past its quiet moment, so it takes a pick. */
 	const toMenu = () => {
 		runUntil(() => battle.screen === 'actions');
@@ -264,6 +271,7 @@ function setup(from: { party?: string; game?: SavedGame; landing?: () => boolean
 		press,
 		pressEvery,
 		pick,
+		escape,
 		toMenu,
 		walkIntoBattle,
 		latest,
@@ -363,6 +371,7 @@ describe('battle screen', () => {
 		// Leaving never leaves a transition behind.
 		t.toMenu();
 		t.press('ArrowUp', 'Enter'); // Run
+		t.escape();
 		t.runUntil(() => battle.screen === 'result');
 		t.run(1);
 		t.press('Enter');
@@ -434,11 +443,44 @@ describe('battle screen', () => {
 		expect(battle.opponent!.hp).toBe(hp);
 	});
 
+	it('asks a puzzle to run away: a wrong answer loses the turn to the wild animal, a right one gets away', () => {
+		const t = setup();
+		t.walkIntoBattle();
+		t.toMenu();
+		t.press('ArrowUp', 'Enter'); // Run
+		t.runUntil(() => battle.screen === 'puzzle');
+		expect(t.latest().phase.kind).toBe('escaping');
+		expect(battle.escaping).toBe(true);
+		const mine = battle.party[battle.front]!;
+		expect(said()).toBe(`Can ${name(mine)} get away?`);
+		// The Run row stays lit beside the puzzle, and no attack's hit is promised.
+		const attacks = getAnimal(mine.speciesId).attacks.length;
+		expect(actionAt(battle.cursor, attacks, WILD_MOVES)).toMatchObject({ kind: 'run' });
+
+		t.escape(false);
+		t.run(0.1);
+		expect(said()).toBe('Not quite!');
+		t.run(1.1);
+		expect(said()).toBe(`The wild ${name(battle.opponent!)} blocks the way!`);
+		t.runUntil(() => battle.screen === 'actions');
+		expect(battle.escaping).toBe(false);
+		// The wild animal had its turn, and the battle goes on.
+		expect(t.latest()).toMatchObject({ turn: 2, phase: { kind: 'choose-action' } });
+		expect(actionAt(battle.cursor, attacks, WILD_MOVES)).toMatchObject({ kind: 'run' });
+
+		t.pick('Enter'); // Run again
+		t.escape();
+		t.runUntil(() => battle.screen === 'result');
+		expect(battle.outcome).toBe('fled');
+		expect(battle.escaping).toBe(false);
+	});
+
 	it('keeps the result card up through a mashed Enter, however long, then leaves on the next one', () => {
 		const t = setup();
 		t.walkIntoBattle();
 		t.toMenu();
 		t.press('ArrowUp', 'Enter'); // Run
+		t.escape();
 		t.runUntil(() => battle.screen === 'result');
 		expect(battle.outcome).toBe('fled');
 		expect(battle.closing && words(battle.closing)).toBe(
@@ -458,6 +500,7 @@ describe('battle screen', () => {
 		t.press('ArrowUp');
 		t.pressEvery(0.15, 'Enter'); // Run
 		expect(battle.screen).not.toBe('actions');
+		t.escape();
 		for (let i = 0; battle.screen !== 'result'; i++) {
 			if (i > 100) throw new Error('no result card');
 			t.pressEvery(0.15, 'Enter');
@@ -477,6 +520,7 @@ describe('battle screen', () => {
 			scene.scene.children.filter((o) => ANIMALS.some((a) => a.id === o.name)).map((o) => o.name);
 		expect(figures()).toHaveLength(2);
 		t.press('ArrowUp', 'Enter'); // Run
+		t.escape();
 		t.runUntil(() => battle.screen === 'result');
 		t.run(1);
 		// Still on screen behind the result card.
@@ -491,6 +535,7 @@ describe('battle screen', () => {
 		t.walkIntoBattle();
 		t.toMenu();
 		t.press('ArrowUp', 'Enter'); // Run
+		t.escape();
 		t.runUntil(() => battle.screen === 'result');
 		t.run(1);
 		t.press('Enter');
@@ -547,6 +592,7 @@ describe('attack levels', () => {
 		t.press(...String((battle.puzzle as Puzzle).answer + 1), 'Enter');
 		t.toMenu();
 		t.press('ArrowUp', 'ArrowUp', 'Enter'); // Scurry Kick → Nut Toss → Run
+		t.escape();
 		t.runUntil(() => battle.screen === 'result');
 		t.run(1);
 		t.press('Enter');

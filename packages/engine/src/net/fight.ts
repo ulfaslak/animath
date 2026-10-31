@@ -104,7 +104,7 @@ export function wildFight(state: BattleState): FightView {
 		a: fightAnimal(state.party[state.active]!),
 		b: fightAnimal(state.opponent),
 		turn: phase.kind === 'ended' ? null : 'a',
-		puzzle: phase.kind === 'solving' ? puzzleFace(phase.puzzle) : null
+		puzzle: phase.kind === 'solving' || phase.kind === 'escaping' ? puzzleFace(phase.puzzle) : null
 	};
 }
 
@@ -122,7 +122,8 @@ export function wildFightEvents(events: readonly BattleEvent[]): FightEvent[] {
 	const seen: FightEvent[] = [];
 	for (const event of events) {
 		switch (event.type) {
-			case 'puzzle-shown': {
+			case 'puzzle-shown':
+			case 'escape-shown': {
 				const puzzle = puzzleFace(event.puzzle);
 				if (puzzle) seen.push({ type: 'puzzle', side: 'a', puzzle });
 				break;
@@ -155,8 +156,9 @@ export function wildFightEvents(events: readonly BattleEvent[]): FightEvent[] {
 				seen.push({ type: 'ended', ...WILD_END[event.outcome] });
 				break;
 			case 'fled':
+			case 'escape-failed':
 			case 'rejected':
-				// Running is its `ended`; a refusal changed nothing.
+				// Running is its `ended`, and a run that failed the wild animal's turn; a refusal changed nothing.
 				break;
 		}
 	}

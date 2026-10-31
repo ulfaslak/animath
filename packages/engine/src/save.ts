@@ -41,7 +41,7 @@ import {
  */
 
 /** The newest save format this build reads and writes. */
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 
 /** The longest animal id, or lineage id, a save may hold. */
 export const MAX_SAVE_ID_LENGTH = 64;
@@ -227,9 +227,11 @@ export interface SavedLandStay {
 }
 
 /**
- * Version 5 of the save document, since the puzzle record (`puzzles`): the
- * version this build writes. Version 4, since lands (#191), was the same
- * document without it, read through `SAVE_UPGRADES[4]`. `land` is the land
+ * Version 6 of the save document, since a battle can be saved in the middle
+ * of its escape puzzle (`escaping`): the version this build writes. Version 5,
+ * since the puzzle record (`puzzles`), was the same document, read through
+ * `SAVE_UPGRADES[5]`. Version 4, since lands (#191), was version 5 without the
+ * record, read through `SAVE_UPGRADES[4]`. `land` is the land
  * the player is in, whose are the position, the
  * facing, the cleared tiles, the worlds left behind, the party, the tokens,
  * the items and a battle; `lands` are the lands left behind, and `unlocked`
@@ -246,8 +248,8 @@ export interface SavedLandStay {
  * when an old document becomes unreadable, and add the upgrade that reads it
  * (`SAVE_UPGRADES`).
  */
-export interface SaveV5 {
-	version: 5;
+export interface SaveV6 {
+	version: 6;
 	/** The world the game began in. */
 	home: number;
 	/** The world the player is in; `pos`, `facing` and `edits` are that world's. */
@@ -345,10 +347,10 @@ export interface SaveV5 {
 }
 
 /** A document ready to be written: every field a write must carry is present. */
-export type SaveWrite = SaveV5 &
-	Required<Pick<SaveV5, 'facing' | 'steps' | 'visits' | 'lineage' | 'seq'>>;
+export type SaveWrite = SaveV6 &
+	Required<Pick<SaveV6, 'facing' | 'steps' | 'visits' | 'lineage' | 'seq'>>;
 
-/** The fields `SaveV5` names. Everything else in a document is an extra and is kept as sent. */
+/** The fields `SaveV6` names. Everything else in a document is an extra and is kept as sent. */
 const SAVE_KEYS: ReadonlySet<string> = new Set([
 	'version',
 	'name',
@@ -417,7 +419,7 @@ export type SaveProblem = 'newer' | 'invalid';
  * [[INVARIANTS]] § Saves.
  */
 export type SaveRead =
-	{ ok: true; save: SaveV5 } | { ok: false; reason: SaveProblem; error: string };
+	{ ok: true; save: SaveV6 } | { ok: false; reason: SaveProblem; error: string };
 
 /** A document someone wants to write, checked (`validateSaveWrite`). */
 export type SaveWriteCheck =
@@ -507,6 +509,13 @@ const NAMED_SINCE_V5 = ['puzzles'] as const;
  * it was; a v4 extra under a key v5 has taken goes under `V4_KEPT`. A bump,
  * not an optional field: an older build would carry on judging puzzles
  * without writing them down ([[DECISIONS]] § Saves).
+ *
+ * v5 → v6: a battle can be saved in the middle of its escape puzzle, a phase
+ * (`escaping`) a v5 build does not know. The document is the same, so the
+ * upgrade changes nothing but the number. A bump all the same: a v5 build
+ * would drop such a battle as if the kid had run away and write over it; now
+ * it calls the save `newer` and leaves it be ([[DEFERRED]]'s trigger for a new
+ * battle phase).
  */
 export const SAVE_UPGRADES: Readonly<Record<number, (doc: Doc) => Doc>> = {
 	1: (doc) => {
@@ -561,7 +570,8 @@ export const SAVE_UPGRADES: Readonly<Record<number, (doc: Doc) => Doc>> = {
 		}
 		if (Object.keys(kept).length > 0) out[V4_KEPT] = kept;
 		return out;
-	}
+	},
+	5: (doc) => ({ ...doc, version: 6 })
 };
 
 /**
@@ -712,20 +722,20 @@ function validateLandStay(v: unknown, label: string): string | null {
 }
 
 /**
- * Checks an untrusted value against the v5 document. `version`, `home`,
+ * Checks an untrusted value against the v6 document. `version`, `home`,
  * `world`, `pos` and `party` are required; the other fields are checked when
  * present, except `battle`, which only has to be storable (a load checks it
  * with `readBattle`). A document of the right shape that names something
  * this build does not have (`findUnknownContent`) is refused too. On success
  * the value is the input object itself.
  */
-export function validateSave(input: unknown): SaveCheck<SaveV5> {
+export function validateSave(input: unknown): SaveCheck<SaveV6> {
 	const checked = checkSave(input);
 	return checked.ok ? { ok: true, value: checked.save } : { ok: false, error: checked.error };
 }
 
 /**
- * The v5 check, saying why a document fails: its shape makes it `invalid`;
+ * The v6 check, saying why a document fails: its shape makes it `invalid`;
  * a document of the right shape that names content this build does not have
  * was written by a newer build, and is `newer`.
  */
@@ -736,7 +746,7 @@ function checkSave(input: unknown): SaveRead {
 	if (error) return { ok: false, reason: 'invalid', error };
 	const unknown = findUnknownContent(input);
 	if (unknown) return { ok: false, reason: 'newer', error: unknown };
-	return { ok: true, save: input as unknown as SaveV5 };
+	return { ok: true, save: input as unknown as SaveV6 };
 }
 
 /**
@@ -1091,7 +1101,7 @@ function cleanAnimal(animal: AnimalInstance): AnimalInstance {
  * The animal book comes back as saved, made whole with what the save proves
  * itself (`savedBook`): a save from before the book gets one back.
  */
-export function restoreGame(save: SaveV5, mintId: () => string): SavedGame {
+export function restoreGame(save: SaveV6, mintId: () => string): SavedGame {
 	// Known to this build: a land it lacks makes the save a newer build's (`readSave`).
 	const land = (save.land ?? FIRST_LAND) as LandId;
 	const seed = landSeed(land, save.world);
@@ -1192,7 +1202,7 @@ function landStayOf(home: number): (saved: SavedLandStay) => LandStay {
  * not which. `party` is the party the game goes on with (`restoreGame`'s,
  * which a starter may have joined); by default the save's own.
  */
-function savedBook(save: SaveV5, party: readonly AnimalInstance[] = save.party): AnimalBook {
+function savedBook(save: SaveV6, party: readonly AnimalInstance[] = save.party): AnimalBook {
 	let book = recordParty(
 		bookOf(save.seen ?? [], save.caught ?? [], save.freed ?? [], save.told ?? []),
 		party
@@ -1290,11 +1300,9 @@ export function readBattle(
 		if (!Number.isSafeInteger(attackIndex) || (attackIndex as number) < 1) return null;
 		if ((attackIndex as number) > attacks) return null;
 		if (!(ATTACK_LEVELS as readonly unknown[]).includes(level)) return null;
-		if (!isRecord(puzzle) || !PUZZLE_KINDS.has(puzzle.kind as string)) return null;
-		if (typeof puzzle.prompt !== 'string' || !Number.isSafeInteger(puzzle.answer)) return null;
-		if (!Number.isSafeInteger(puzzle.difficulty)) return null;
-		const difficulty = puzzle.difficulty as number;
-		if (difficulty < MIN_DIFFICULTY || difficulty > MAX_DIFFICULTY) return null;
+		if (!isSavedPuzzle(puzzle)) return null;
+	} else if (phase.kind === 'escaping') {
+		if (!isSavedPuzzle(phase.puzzle)) return null;
 	} else if (phase.kind !== 'choose-action' && phase.kind !== 'choose-animal') {
 		return null;
 	}
@@ -1313,8 +1321,17 @@ export function readBattle(
 	};
 }
 
-/** The top-level fields of a document that `SaveV5` does not name. */
-export function saveExtras(doc: SaveV5): Doc {
+/** A saved battle's open puzzle (an attack's or the escape's): a kind, a prompt, a whole answer, a difficulty in range. */
+function isSavedPuzzle(puzzle: unknown): boolean {
+	if (!isRecord(puzzle) || !PUZZLE_KINDS.has(puzzle.kind as string)) return false;
+	if (typeof puzzle.prompt !== 'string' || !Number.isSafeInteger(puzzle.answer)) return false;
+	if (!Number.isSafeInteger(puzzle.difficulty)) return false;
+	const difficulty = puzzle.difficulty as number;
+	return difficulty >= MIN_DIFFICULTY && difficulty <= MAX_DIFFICULTY;
+}
+
+/** The top-level fields of a document that `SaveV6` does not name. */
+export function saveExtras(doc: SaveV6): Doc {
 	const extras: Doc = {};
 	for (const [key, value] of Object.entries(doc)) if (!SAVE_KEYS.has(key)) extras[key] = value;
 	return extras;
@@ -1445,7 +1462,7 @@ export function replacesAnotherGame(
  * that only walked around can take the save back without losing anything a
  * kid would miss.
  */
-export function sameProgress(a: SaveV5, b: SaveV5): boolean {
+export function sameProgress(a: SaveV6, b: SaveV6): boolean {
 	const left = withProgressDefaults(a);
 	const right = withProgressDefaults(b);
 	const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
@@ -1464,7 +1481,7 @@ export function sameProgress(a: SaveV5, b: SaveV5): boolean {
  * that writes it out. The book's lists compare as sets: the order a species
  * was first met in is no progress.
  */
-function withProgressDefaults(doc: SaveV5): Doc {
+function withProgressDefaults(doc: SaveV6): Doc {
 	const out: Doc = { ...(doc as unknown as Doc) };
 	if (out.tokens === undefined) out.tokens = 0;
 	if (out.items === undefined) out.items = [];
