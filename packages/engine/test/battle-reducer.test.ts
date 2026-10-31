@@ -109,6 +109,17 @@ function attackAndAnswer(
 	);
 }
 
+/** Try to run away, then answer the escape puzzle (correctly unless told otherwise). Two intents. */
+function runAway(state: BattleState, seed: number, correct = true): BattleStep {
+	const escaping = applyBattleIntent(state, { type: 'flee' }, seed).state;
+	if (escaping.phase.kind !== 'escaping') throw new Error('flee was rejected');
+	return applyBattleIntent(
+		escaping,
+		{ type: 'answer', input: typed(escaping.phase.puzzle, correct) },
+		seed
+	);
+}
+
 describe('startBattle', () => {
 	it('puts the first conscious party member in front and copies its inputs', () => {
 		const party = makeParty(['squirrel', 'rabbit', 'fox']);
@@ -165,7 +176,7 @@ describe('applyBattleIntent', () => {
 			expect(() => applyBattleIntent(start, flee, seed), String(seed)).toThrow(/seed/);
 		}
 		for (const seed of [0, 1, 0xffffffff])
-			expect(outcome(applyBattleIntent(start, flee, seed).state)).toBe('fled');
+			expect(outcome(runAway(start, seed).state)).toBe('fled');
 	});
 
 	it('rejects a missing intent instead of throwing', () => {
@@ -422,14 +433,45 @@ describe('every battle in the catalog', () => {
 						});
 						break;
 					}
-					case 'answer-judged': {
-						expect(intent.type).toBe('answer');
-						if (before.phase.kind !== 'solving' || intent.type !== 'answer') throw new Error(where);
-						expect(e.answer).toBe(before.phase.puzzle.answer);
-						expect(e.correct).toBe(checkAnswer(before.phase.puzzle, intent.input));
-						expect(next?.type).toBe(e.correct ? 'hit' : 'missed');
+					case 'escape-shown': {
+						// The wild animal's own easiest puzzle: its first attack on easy, at its tier.
+						expect(intent.type).toBe('flee');
+						expect(i).toBe(0);
+						expect(next).toBeUndefined();
+						const wild = getAnimal(before.opponent.speciesId);
+						expect(wild.attacks[0]!.kinds).toContain(e.puzzle.kind);
+						const wanted = puzzleDifficulty(wild.tier, 1, 1);
+						const supported = wild.attacks[0]!.kinds.some((k) => {
+							const g = getGenerator(k);
+							return wanted >= g.minDifficulty && wanted <= g.maxDifficulty;
+						});
+						if (supported) expect(e.puzzle.difficulty).toBe(wanted);
+						expect(state.phase).toEqual({ kind: 'escaping', puzzle: e.puzzle });
+						expect(state.party).toEqual(before.party);
+						expect(state.opponent).toEqual(before.opponent);
+						expect(state.turn).toBe(before.turn);
 						break;
 					}
+					case 'answer-judged': {
+						expect(intent.type).toBe('answer');
+						if (before.phase.kind !== 'solving' && before.phase.kind !== 'escaping')
+							throw new Error(where);
+						if (intent.type !== 'answer') throw new Error(where);
+						expect(e.answer).toBe(before.phase.puzzle.answer);
+						expect(e.correct).toBe(checkAnswer(before.phase.puzzle, intent.input));
+						if (before.phase.kind === 'escaping')
+							expect(next?.type).toBe(e.correct ? 'fled' : 'escape-failed');
+						else expect(next?.type).toBe(e.correct ? 'hit' : 'missed');
+						break;
+					}
+					case 'escape-failed':
+						// A wrong answer to the escape puzzle is a missed attack: the wild animal replies.
+						expect(before.phase.kind).toBe('escaping');
+						expect(events[i - 1]).toMatchObject({ type: 'answer-judged', correct: false });
+						expect(oppHp).toBe(before.opponent.hp);
+						expect(['hit', 'missed']).toContain(next?.type);
+						expect(next).toMatchObject({ attacker: 'opponent' });
+						break;
 					case 'hit': {
 						if (e.attacker === 'player') {
 							if (before.phase.kind !== 'solving') throw new Error(where);
@@ -523,7 +565,9 @@ describe('every battle in the catalog', () => {
 						break;
 					}
 					case 'fled':
-						expect(intent.type).toBe('flee');
+						// Only a right answer to the escape puzzle gets the player away.
+						expect(before.phase.kind).toBe('escaping');
+						expect(events[i - 1]).toMatchObject({ type: 'answer-judged', correct: true });
 						expect(next).toEqual({ type: 'ended', outcome: 'fled' });
 						expect(state.party).toEqual(before.party);
 						expect(state.opponent).toEqual(before.opponent);
@@ -913,17 +957,59 @@ describe('the leash', () => {
 });
 
 describe('fleeing', () => {
-	it('always works and costs nothing', () => {
+	it("asks the wild animal's easiest puzzle, and a right answer gets away at no cost", () => {
+		for (const w of ids) {
+			const wild = getAnimal(w);
+			for (let seed = 0; seed < 5; seed++) {
+				const p = arena('squirrel', w) ? 'squirrel' : 'frog';
+				const realm = arena(p, w)!;
+				const start = deepFreeze(startBattle(makeParty([p]), makeWild(w), { realm }));
+				const asked = applyBattleIntent(start, { type: 'flee' }, seed);
+				const { phase } = asked.state;
+				if (phase.kind !== 'escaping') throw new Error(`${w}: ${phase.kind}`);
+				expect(asked.events).toEqual([{ type: 'escape-shown', puzzle: phase.puzzle }]);
+				expect(wild.attacks[0]!.kinds).toContain(phase.puzzle.kind);
+				// Whoever is in front: the same puzzle from a bear as a squirrel or a frog sees it.
+				if (canFightIn('bear', realm)) {
+					const bear = startBattle(makeParty(['bear']), makeWild(w), { realm });
+					expect(applyBattleIntent(bear, { type: 'flee' }, seed).state.phase).toEqual(phase);
+				}
+
+				const { state, events } = runAway(start, seed);
+				expect(events.map((e) => e.type)).toEqual(['answer-judged', 'fled', 'ended']);
+				expect(outcome(state)).toBe('fled');
+				expect(state.party).toEqual(start.party);
+				expect(state.opponent).toEqual(start.opponent);
+			}
+		}
+	});
+
+	it('gets harder the bigger the wild animal is, never with the animal in front', () => {
+		const by = new Map<number, number>();
+		for (const w of ids) {
+			const tier = getAnimal(w).tier;
+			by.set(tier, puzzleDifficulty(tier, 1, 1));
+		}
+		const tiers = [...by.keys()].sort((a, b) => a - b);
+		for (let i = 1; i < tiers.length; i++)
+			expect(by.get(tiers[i]!)!).toBeGreaterThan(by.get(tiers[i - 1]!)!);
+	});
+
+	it('a wrong answer is a missed attack: the wild animal takes the very same turn', () => {
 		for (const w of ids) {
 			for (let seed = 0; seed < 5; seed++) {
 				const p = arena('squirrel', w) ? 'squirrel' : 'frog';
 				const realm = arena(p, w)!;
 				const start = deepFreeze(startBattle(makeParty([p]), makeWild(w), { realm }));
-				const { state, events } = applyBattleIntent(start, { type: 'flee' }, seed);
-				expect(events).toEqual([{ type: 'fled' }, { type: 'ended', outcome: 'fled' }]);
-				expect(outcome(state)).toBe('fled');
-				expect(state.party).toEqual(start.party);
-				expect(state.opponent).toEqual(start.opponent);
+				const ran = runAway(start, seed, false);
+				const missed = attackAndAnswer(start, seed, 1, 1, false);
+				expect(ran.events.slice(0, 2).map((e) => e.type)).toEqual([
+					'answer-judged',
+					'escape-failed'
+				]);
+				expect(ran.events.slice(2)).toEqual(missed.events.slice(2));
+				expect(ran.state).toEqual(missed.state);
+				expect(outcome(ran.state)).not.toBe('fled');
 			}
 		}
 	});
@@ -1264,7 +1350,13 @@ describe('rejected intents', () => {
 		expectRejected(solving, { type: 'throw-leash' });
 		expectRejected(solving, { type: 'flee' });
 
-		const ended = applyBattleIntent(start, { type: 'flee' }, 9).state;
+		const escaping = applyBattleIntent(start, { type: 'flee' }, 9).state;
+		expectRejected(escaping, { type: 'attack', attackIndex: 1, level: 1 });
+		expectRejected(escaping, { type: 'throw-leash' });
+		expectRejected(escaping, { type: 'flee' });
+		expectRejected(escaping, { type: 'switch', partyIndex: 0 });
+
+		const ended = runAway(start, 9).state;
 		expectRejected(ended, { type: 'attack', attackIndex: 1, level: 1 });
 		expectRejected(ended, { type: 'answer', input: '4' });
 		expectRejected(ended, { type: 'throw-leash' });
@@ -1284,7 +1376,9 @@ describe('rejected intents', () => {
 
 		const solving = applyBattleIntent(start, { type: 'attack', attackIndex: 1, level: 1 }, 9).state;
 		expectRejected(solving, to(2));
-		const ended = applyBattleIntent(start, { type: 'flee' }, 9).state;
+		const escaping = applyBattleIntent(start, { type: 'flee' }, 9).state;
+		expectRejected(escaping, to(2));
+		const ended = runAway(start, 9).state;
 		expectRejected(ended, to(2));
 
 		// A party of one has nobody to switch to.

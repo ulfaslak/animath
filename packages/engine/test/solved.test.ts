@@ -135,7 +135,8 @@ describe('countSolved', () => {
 					for (let i = 0; i < 2000 && state.phase.kind !== 'ended'; i++) {
 						let intent: BattleIntent;
 						let meant = false;
-						if (state.phase.kind === 'solving') {
+						// An attack's puzzle or the one to run away: both count.
+						if (state.phase.kind === 'solving' || state.phase.kind === 'escaping') {
 							const answer = typed(rng, state.phase.puzzle, 0.6);
 							intent = { type: 'answer', input: answer.input };
 							meant = answer.right;
