@@ -1580,11 +1580,17 @@ battle:
   run:
     row: Run
     # What the row says when highlighted. {animal}: the wild animal.
-    detail: 'You always get away. {animal.theWild} stays in the grass.'
+    detail: 'Solve a puzzle to get away. {animal.theWild} stays in the grass.'
     # The same, out on the water.
-    detailSea: 'You always get away. {animal.theWild} stays in the water.'
+    detailSea: 'Solve a puzzle to get away. {animal.theWild} stays in the water.'
     # The same, up in the air.
-    detailAir: 'You always get away. {animal.theWild} stays up in the sky.'
+    detailAir: 'Solve a puzzle to get away. {animal.theWild} stays up in the sky.'
+    # Narration while the puzzle to run away is up. {animal} is yours.
+    tries: 'Can {animal.name} get away?'
+    # The line over that puzzle's prompt.
+    story: Get it right to run away!
+    # A wrong answer to it: the turn is lost, and the wild animal's reply follows.
+    blocked: '{animal.theWild} blocks the way!'
   switch:
     # The Switch row of the action menu, and what it says when highlighted.
     row: Switch

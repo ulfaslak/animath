@@ -282,6 +282,7 @@ export class BattleController {
 		// A battle picked up from a save mid-puzzle: the menu lights the attack and the level
 		// of the puzzle coming back from the first frame, not the first attack on easy (#155).
 		if (state.phase.kind === 'solving') this.lightPicked(state.phase);
+		if (state.phase.kind === 'escaping') this.lightRun();
 		this.latest = state;
 		this.closing = null;
 		this.beats = [];
@@ -317,6 +318,7 @@ export class BattleController {
 		battle.opponent = { ...state.opponent };
 		battle.pickable = state.party.map((_, i) => canSwitchTo(state, i));
 		battle.hit = null;
+		battle.escaping = state.phase.kind === 'escaping';
 		// A choice or a puzzle is up: the player's turn, until the battle is over.
 		battle.turn = state.phase.kind === 'ended' ? null : 'player';
 		const front = this.front();
@@ -355,6 +357,15 @@ export class BattleController {
 				battle.screen = 'puzzle';
 				break;
 			}
+			case 'escaping':
+				// The Run row stays lit beside the puzzle that decides whether the kid gets away.
+				this.lightRun();
+				battle.puzzle = state.phase.puzzle;
+				battle.input = '';
+				battle.judged = null;
+				battle.line = line('battle.run.tries', { animal: front });
+				battle.screen = 'puzzle';
+				break;
 			case 'ended':
 				if (state.phase.outcome === 'won') {
 					// A little celebration for a win: a hop and a few stars, with the fanfare.
@@ -384,6 +395,11 @@ export class BattleController {
 		);
 		battle.cursor = picked.cursor;
 		if (picked.levels !== battle.levels) battle.levels = picked.levels;
+	}
+
+	/** The menu as it stands while the escape puzzle is up: the Run row highlighted. */
+	private lightRun(): void {
+		battle.cursor = rowOf('run', getAnimal(this.front().speciesId).attacks.length, WILD_MOVES);
 	}
 
 	private leave(): void {
@@ -516,6 +532,7 @@ export class BattleController {
 		const scene = this.scene!;
 		switch (e.type) {
 			case 'puzzle-shown':
+			case 'escape-shown':
 				return []; // `settle` shows the puzzle once the beats have played
 			case 'answer-judged':
 				// The right answer is never shown (UI_SPEC): the kid meets the puzzle again.
@@ -662,6 +679,9 @@ export class BattleController {
 				];
 			case 'fled':
 				return [{ run: () => line('battle.gotAway'), hold: 0.8 }];
+			case 'escape-failed':
+				// A wrong answer to the escape puzzle is a missed turn: the wild animal's reply follows.
+				return [{ run: () => line('battle.run.blocked', { animal: battle.opponent! }), hold: 1.3 }];
 			case 'ended':
 				return []; // `settle` shows the result card
 			case 'rejected':

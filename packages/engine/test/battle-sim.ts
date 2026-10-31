@@ -71,7 +71,8 @@ export function nextIntent(state: BattleState, model: PlayerModel, rng: Rng): Ba
 	switch (state.phase.kind) {
 		case 'ended':
 			return null;
-		case 'solving': {
+		case 'solving':
+		case 'escaping': {
 			const correct = rng.chance(model.accuracy);
 			return { type: 'answer', input: typed(state.phase.puzzle, correct) };
 		}

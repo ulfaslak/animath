@@ -46,6 +46,16 @@ export function attackPuzzle(
 }
 
 /**
+ * The puzzle a kid solves to run away from `wild`: the easiest one the wild
+ * animal itself would ask, its first attack on easy, at the difficulty of its
+ * own tier. So getting away from a bear is harder than from a mouse, whoever
+ * is in front. Draws from `rng` exactly as `attackPuzzle` does.
+ */
+export function escapePuzzle(rng: Rng, wild: AnimalSpec): Puzzle {
+	return attackPuzzle(rng, wild, 1, 1);
+}
+
+/**
  * A hit that lands: the damage `spec`'s attack `attackIndex` deals at `level`
  * (`attackDamage`, solved, with the solved puzzle's topic's `bonus`), and the
  * target with its HP after it, never below 0. With `hitSpan`, the functions

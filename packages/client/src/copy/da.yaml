@@ -1455,9 +1455,12 @@ battle:
     brokeFree: Snoren gled af!
   run:
     row: Løb væk
-    detail: 'Du slipper altid væk. {animal.theWild} bliver i græsset.'
-    detailSea: 'Du slipper altid væk. {animal.theWild} bliver i vandet.'
-    detailAir: 'Du slipper altid væk. {animal.theWild} bliver oppe i luften.'
+    detail: 'Løs en opgave for at slippe væk. {animal.theWild} bliver i græsset.'
+    detailSea: 'Løs en opgave for at slippe væk. {animal.theWild} bliver i vandet.'
+    detailAir: 'Løs en opgave for at slippe væk. {animal.theWild} bliver oppe i luften.'
+    tries: 'Kan {animal.the} slippe væk?'
+    story: Svar rigtigt for at løbe væk!
+    blocked: '{animal.theWild} spærrer vejen!'
   switch:
     row: Skift
     detail: Send et andet dyr ind. Det koster din tur.

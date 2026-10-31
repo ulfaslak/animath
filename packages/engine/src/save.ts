@@ -1290,11 +1290,9 @@ export function readBattle(
 		if (!Number.isSafeInteger(attackIndex) || (attackIndex as number) < 1) return null;
 		if ((attackIndex as number) > attacks) return null;
 		if (!(ATTACK_LEVELS as readonly unknown[]).includes(level)) return null;
-		if (!isRecord(puzzle) || !PUZZLE_KINDS.has(puzzle.kind as string)) return null;
-		if (typeof puzzle.prompt !== 'string' || !Number.isSafeInteger(puzzle.answer)) return null;
-		if (!Number.isSafeInteger(puzzle.difficulty)) return null;
-		const difficulty = puzzle.difficulty as number;
-		if (difficulty < MIN_DIFFICULTY || difficulty > MAX_DIFFICULTY) return null;
+		if (!isSavedPuzzle(puzzle)) return null;
+	} else if (phase.kind === 'escaping') {
+		if (!isSavedPuzzle(phase.puzzle)) return null;
 	} else if (phase.kind !== 'choose-action' && phase.kind !== 'choose-animal') {
 		return null;
 	}
@@ -1311,6 +1309,15 @@ export function readBattle(
 		...(bonus && Object.keys(bonus).length > 0 ? { bonus } : {}),
 		phase: JSON.parse(JSON.stringify(phase)) as BattleState['phase']
 	};
+}
+
+/** A saved battle's open puzzle (an attack's or the escape's): a kind, a prompt, a whole answer, a difficulty in range. */
+function isSavedPuzzle(puzzle: unknown): boolean {
+	if (!isRecord(puzzle) || !PUZZLE_KINDS.has(puzzle.kind as string)) return false;
+	if (typeof puzzle.prompt !== 'string' || !Number.isSafeInteger(puzzle.answer)) return false;
+	if (!Number.isSafeInteger(puzzle.difficulty)) return false;
+	const difficulty = puzzle.difficulty as number;
+	return difficulty >= MIN_DIFFICULTY && difficulty <= MAX_DIFFICULTY;
 }
 
 /** The top-level fields of a document that `SaveV5` does not name. */

@@ -535,7 +535,8 @@
 				input={battle.input}
 				judged={battle.judged}
 				typing={battle.screen === 'puzzle'}
-				{reward}
+				story={battle.escaping ? t('battle.run.story') : undefined}
+				reward={battle.escaping ? undefined : reward}
 			/>
 		{:else if vs && battle.screen === 'waiting'}
 			<div class="soft">{t('match.theirTurn', { whose: whose(vs.name) })}</div>

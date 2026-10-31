@@ -4,7 +4,7 @@ import { leadIndex } from '../party/reducer.js';
 import { bonusOf, puzzleTopic, type TopicBonus } from '../puzzles/record.js';
 import { checkAnswer } from '../puzzles/registry.js';
 import { Rng, hashInts } from '../rng.js';
-import { attackPuzzle, attackRefusal, landHit } from './attack.js';
+import { attackPuzzle, attackRefusal, escapePuzzle, landHit } from './attack.js';
 import { catchProbability } from './catch.js';
 import type {
 	BattleEvent,
@@ -34,7 +34,9 @@ import type {
  *
  * Turn order is fixed: the player acts, then the wild animal takes its turn in
  * the same call. A wrong answer, a leash that breaks free or a switch still
- * hands the turn to the wild animal; fleeing always works. The wild animal
+ * hands the turn to the wild animal. Running away asks a puzzle first
+ * (`escapePuzzle`): right, the player gets away; wrong, it is a missed
+ * attack, and the wild animal takes its turn. The wild animal
  * picks one of its attacks at random and hits for that attack's level-1
  * damage — unless it faces an animal of its own tier or fiercer, when it
  * misses `WILD_MISS_CHANCE` of the time.
@@ -207,6 +209,7 @@ function chooseAttack(
 }
 
 function answer(state: BattleState, seed: number, input: string): BattleStep {
+	if (state.phase.kind === 'escaping') return answerEscape(state, seed, input);
 	if (state.phase.kind !== 'solving') return reject(state, 'no-puzzle');
 	const { attackIndex, level, puzzle } = state.phase;
 	const draft = Draft.from(state, seed);
@@ -261,11 +264,34 @@ function throwLeash(state: BattleState, seed: number): BattleStep {
 	return draft.finish();
 }
 
+/** Try to run away: the escape puzzle comes up. Nothing is decided until it is answered. */
 function flee(state: BattleState, seed: number): BattleStep {
 	if (state.phase.kind !== 'choose-action') return reject(state, 'not-choosing-an-action');
 	const draft = Draft.from(state, seed);
-	draft.events.push({ type: 'fled' });
-	draft.end('fled');
+	const puzzle = escapePuzzle(draft.rng, getAnimal(draft.opponent.speciesId));
+	draft.phase = { kind: 'escaping', puzzle };
+	draft.events.push({ type: 'escape-shown', puzzle });
+	return draft.finish();
+}
+
+/**
+ * The escape puzzle's answer. Right, the player gets away. Wrong, it counts
+ * as a missed attack: the player stays, and the wild animal takes its turn.
+ */
+function answerEscape(state: BattleState, seed: number, input: string): BattleStep {
+	if (state.phase.kind !== 'escaping') return reject(state, 'no-puzzle');
+	const { puzzle } = state.phase;
+	const draft = Draft.from(state, seed);
+	const correct = checkAnswer(puzzle, input);
+	const topic = puzzleTopic(puzzle);
+	draft.events.push({ type: 'answer-judged', input, correct, answer: puzzle.answer, topic });
+	if (correct) {
+		draft.events.push({ type: 'fled' });
+		draft.end('fled');
+		return draft.finish();
+	}
+	draft.events.push({ type: 'escape-failed' });
+	opponentTurn(draft);
 	return draft.finish();
 }
 
