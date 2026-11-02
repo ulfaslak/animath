@@ -36,7 +36,8 @@ import type {
  * the same call. A wrong answer, a leash that breaks free or a switch still
  * hands the turn to the wild animal. Running away asks a puzzle first
  * (`escapePuzzle`): right, the player gets away; wrong, it is a missed
- * attack, and the wild animal takes its turn. The wild animal
+ * attack, and the wild animal takes its turn, and every later try asks the
+ * easiest puzzle of the animal in front if it is the smaller one. The wild animal
  * picks one of its attacks at random and hits for that attack's level-1
  * damage — unless it faces an animal of its own tier or fiercer, when it
  * misses `WILD_MISS_CHANCE` of the time.
@@ -268,7 +269,12 @@ function throwLeash(state: BattleState, seed: number): BattleStep {
 function flee(state: BattleState, seed: number): BattleStep {
 	if (state.phase.kind !== 'choose-action') return reject(state, 'not-choosing-an-action');
 	const draft = Draft.from(state, seed);
-	const puzzle = escapePuzzle(draft.rng, getAnimal(draft.opponent.speciesId));
+	const puzzle = escapePuzzle(
+		draft.rng,
+		getAnimal(draft.opponent.speciesId),
+		getAnimal(draft.active().speciesId),
+		state.escapeFailed === true
+	);
 	draft.phase = { kind: 'escaping', puzzle };
 	draft.events.push({ type: 'escape-shown', puzzle });
 	return draft.finish();
@@ -277,6 +283,7 @@ function flee(state: BattleState, seed: number): BattleStep {
 /**
  * The escape puzzle's answer. Right, the player gets away. Wrong, it counts
  * as a missed attack: the player stays, and the wild animal takes its turn.
+ * The battle remembers the miss, so the next try can be an easier puzzle.
  */
 function answerEscape(state: BattleState, seed: number, input: string): BattleStep {
 	if (state.phase.kind !== 'escaping') return reject(state, 'no-puzzle');
@@ -291,6 +298,7 @@ function answerEscape(state: BattleState, seed: number, input: string): BattleSt
 		return draft.finish();
 	}
 	draft.events.push({ type: 'escape-failed' });
+	draft.escapeFailed = true;
 	opponentTurn(draft);
 	return draft.finish();
 }
@@ -391,6 +399,7 @@ class Draft {
 	opponent: AnimalInstance;
 	phase: BattlePhase;
 	turn: number;
+	escapeFailed: boolean;
 	readonly events: BattleEvent[] = [];
 
 	private constructor(
@@ -403,6 +412,7 @@ class Draft {
 		this.opponent = base.opponent;
 		this.phase = base.phase;
 		this.turn = base.turn;
+		this.escapeFailed = base.escapeFailed === true;
 	}
 
 	static from(state: BattleState, seed: number): Draft {
@@ -438,6 +448,7 @@ class Draft {
 				party: this.party,
 				active: this.activeIndex,
 				opponent: this.opponent,
+				...(this.escapeFailed ? { escapeFailed: true as const } : {}),
 				phase: this.phase
 			},
 			events: this.events

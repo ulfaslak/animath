@@ -49,10 +49,18 @@ export function attackPuzzle(
  * The puzzle a kid solves to run away from `wild`: the easiest one the wild
  * animal itself would ask, its first attack on easy, at the difficulty of its
  * own tier. So getting away from a bear is harder than from a mouse, whoever
- * is in front. Draws from `rng` exactly as `attackPuzzle` does.
+ * is in front. Once a try has failed (`failedBefore`) and `own`, the animal
+ * in front, is of a smaller tier, it is `own`'s easiest puzzle instead: a kid
+ * who can't solve a bear's puzzle is never stuck with it. Draws from `rng`
+ * exactly as `attackPuzzle` does.
  */
-export function escapePuzzle(rng: Rng, wild: AnimalSpec): Puzzle {
-	return attackPuzzle(rng, wild, 1, 1);
+export function escapePuzzle(
+	rng: Rng,
+	wild: AnimalSpec,
+	own: AnimalSpec,
+	failedBefore: boolean
+): Puzzle {
+	return attackPuzzle(rng, failedBefore && own.tier < wild.tier ? own : wild, 1, 1);
 }
 
 /**

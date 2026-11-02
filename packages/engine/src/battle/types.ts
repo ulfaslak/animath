@@ -14,7 +14,8 @@ import type { Puzzle, PuzzleTopic } from '../puzzles/types.js';
  *
  * `escaping` follows a `flee`: the player solves one puzzle to get away
  * (`escapePuzzle`). A right answer ends the battle `fled`; a wrong one counts
- * as a missed attack, and the wild animal takes its turn.
+ * as a missed attack, and the wild animal takes its turn. Every later try in
+ * the battle asks the smaller of the two animals' easiest puzzles.
  *
  * `choose-animal` follows a knock-out while someone else in the party is
  * still standing: the animal in front (`active`) is the tired one, and the
@@ -61,6 +62,13 @@ export interface BattleState {
 	 * the bonus, and on a topic it lacks: the hit lands as it is.
 	 */
 	bonus?: TopicBonus;
+	/**
+	 * Set once an escape puzzle has been answered wrong in this battle: every
+	 * later try asks the easiest puzzle of the animal in front, when it is the
+	 * smaller one (`escapePuzzle`). Missing until then, and in a battle saved
+	 * before it existed.
+	 */
+	escapeFailed?: true;
 	phase: BattlePhase;
 }
 

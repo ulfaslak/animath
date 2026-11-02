@@ -1317,6 +1317,7 @@ export function readBattle(
 		leashQuality,
 		realm,
 		...(bonus && Object.keys(bonus).length > 0 ? { bonus } : {}),
+		...(value.escapeFailed === true ? { escapeFailed: true as const } : {}),
 		phase: JSON.parse(JSON.stringify(phase)) as BattleState['phase']
 	};
 }
