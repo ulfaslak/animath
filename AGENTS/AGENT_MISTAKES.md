@@ -315,3 +315,9 @@ To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology that a chan
 - **The old rule left in prose the diff did not open.** UI_SPEC still quoted the Run row as "You always get away" two lines above the paragraph the PR added, and DEVELOPMENT's battle recipe pressed Run and expected the result card. A grep for the old copy string and for the intent's name across `AGENTS/` finds both.
 
 To become `[learned]`: a line in [[DEVELOPMENT]] (or CLAUDE.md § Regardless of what the change is) that a change to a saved shape greps [[DEFERRED]] for its triggers, and that a changed copy string is grepped across `AGENTS/` by its old text.
+
+### 2026-11-02 — the easier escape retry (feat/escape-retry-own-size, PR #238) — a rule narrowed in one sentence of a paragraph, its absolute words kept in the next `[not codified]`
+
+- **"Whoever is in front" and "exactly" survived the edit that made them false.** The PR made the escape puzzle depend on the animal in front after a wrong try, and added that sentence to PRODUCT §4, INVARIANTS, CHEATSHEET and `escapePuzzle`'s doc comment, but each still opened with "the same puzzle whoever is in front" or "a wrong answer counts exactly as a missed attack". Same category as 2026-10-31's second item, inside the very paragraph edited this time. Found by the adversarial review. When a change adds an exception, grep the touched paragraphs for the absolutes it breaks ("whoever", "always", "exactly", "never", "the same").
+
+To become `[learned]`: the same line as 2026-10-31's, extended to absolutes in an edited paragraph.

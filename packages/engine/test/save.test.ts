@@ -2622,6 +2622,33 @@ describe('the v5 → v6 upgrade', () => {
 	});
 });
 
+describe('a missed escape in a saved battle', () => {
+	const start = startBattle(written.party, { id: 'wild-1', speciesId: 'fox', hp: 30 });
+
+	it('survives the round-trip, so the easier retry comes back after a reload', () => {
+		for (const battle of [
+			{ ...start, escapeFailed: true as const },
+			applyBattleIntent({ ...start, escapeFailed: true }, { type: 'flee' }, 7).state
+		]) {
+			const read = readSave({ ...written, battle });
+			expect(read.ok).toBe(true);
+			if (!read.ok) return;
+			const game = restoreGame(read.save, mint);
+			expect(game.battle).toEqual(battle);
+			const again = readSave(saveDocument(game, { lineage: 'L', seq: 4 }));
+			if (again.ok) expect(restoreGame(again.save, mint).battle).toEqual(battle);
+		}
+	});
+
+	it('reads anything but true as no miss yet, and keeps the battle', () => {
+		for (const escapeFailed of [false, 'yes', 1, null, {}]) {
+			const read = readSave({ ...written, battle: { ...start, escapeFailed } });
+			expect(read.ok).toBe(true);
+			if (read.ok) expect(restoreGame(read.save, mint).battle).toEqual(start);
+		}
+	});
+});
+
 describe('the puzzle record in a save', () => {
 	const record = {
 		div: { tried: 9, right: 4, recent: '010110100' },
