@@ -96,6 +96,8 @@ class BattleView {
 	input = $state('');
 	/** How the last answer was judged. Never the right answer: UI_SPEC keeps it hidden. */
 	judged = $state<{ correct: boolean } | null>(null);
+	/** The puzzle on screen is the one to solve to run away, not an attack's. */
+	escaping = $state(false);
 	/** The one-line narration above the panel, as data: worded when drawn. */
 	line = $state<Line | null>(null);
 	/**
@@ -140,6 +142,7 @@ class BattleView {
 		this.puzzle = null;
 		this.input = '';
 		this.judged = null;
+		this.escaping = false;
 		this.line = null;
 		this.hit = null;
 		this.turn = null;

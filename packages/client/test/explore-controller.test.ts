@@ -29,6 +29,7 @@ import { skyPieces } from './sky-pieces';
 import { hud } from '../src/state/hud.svelte';
 import { team } from '../src/state/team.svelte';
 import { testStarter } from './minted';
+import { runAway } from './run-away';
 
 /**
  * Explore input against the real authority: what a frame sends, and in which
@@ -331,8 +332,7 @@ describe('the glider', () => {
 		expect(s.explore.landing).toBe(false);
 		// Its battle over, the bird is gone.
 		s.release(' ');
-		for (let i = 0; i < 40 && count(s.events, 'battle-ended') === 0; i++)
-			s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+		for (let i = 0; i < 40 && count(s.events, 'battle-ended') === 0; i++) runAway(s.authority);
 		expect(count(s.events, 'battle-ended')).toBe(1);
 		expect(s.sky.chaser.species).toBe(null);
 	});

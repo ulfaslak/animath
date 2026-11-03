@@ -205,7 +205,8 @@ function checkWild(state: BattleState, view: FightView, bad: string[], where: st
 	if (view.realm !== state.realm) bad.push(`${where}: realm`);
 	const phase = state.phase;
 	if (view.turn !== (phase.kind === 'ended' ? null : 'a')) bad.push(`${where}: turn ${view.turn}`);
-	if (phase.kind === 'solving') {
+	// An attack's puzzle or the one to run away: either way the others see the kid thinking.
+	if (phase.kind === 'solving' || phase.kind === 'escaping') {
 		if (!view.puzzle || facePrompt(view.puzzle) !== phase.puzzle.prompt) {
 			bad.push(
 				`${where}: the puzzle ${phase.puzzle.prompt} shows as ${JSON.stringify(view.puzzle)}`

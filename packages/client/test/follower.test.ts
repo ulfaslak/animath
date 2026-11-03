@@ -43,6 +43,7 @@ import { game } from '../src/state/game.svelte';
 import { besideA, gameBeside } from './clearing';
 import { skyPieces } from './sky-pieces';
 import { testStarter } from './minted';
+import { runAway } from './run-away';
 
 /**
  * The lead walking behind the trainer, driven as the game drives it: the real
@@ -183,7 +184,7 @@ describe('the lead walks behind the trainer', () => {
 			s.authority.dispatch({ type: 'move', dir });
 			const fresh = s.events.slice(from);
 			if (fresh.some((e) => e.type === 'battle-started')) {
-				s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+				runAway(s.authority);
 			}
 			s.settle(0.2);
 			const now = s.follower.tile;
@@ -410,7 +411,7 @@ describe('out on the water', () => {
 			const dir = rng.next() < 0.6 ? (rng.next() < 0.55 ? 'up' : 'down') : dirs[rng.int(0, 3)]!;
 			s.authority.dispatch({ type: 'move', dir });
 			if (s.events.slice(from).some((e) => e.type === 'battle-started')) {
-				s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+				runAway(s.authority);
 			}
 			s.settle(0.7);
 			const now = s.follower.tile;

@@ -316,3 +316,16 @@ To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology that a chan
 - **A comment described the starter level, not the attack.** "A tier-1 animal's hardest level asks no other pattern" was false: the strongest tier-1 attacks reach difficulty 5 on hard. A claim about "an animal" is checked against `puzzleDifficulty` for every attack and level it names.
 
 To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology that a balance PR names each number it moves, with a simulation that can see each one, and that a range claimed in prose is measured from the generator's output.
+
+### 2026-10-31 — the escape puzzle (feat/escape-puzzle, PR #237) — a new battle phase shipped without the save bump its DEFERRED trigger demanded, and prose that still said the old rule `[not codified]`
+
+- **A DEFERRED trigger not looked up.** The PR added a battle phase (`escaping`) and argued in its body that no `SAVE_VERSION` bump was needed, because an older build drops a battle in a phase it does not know "as if the kid ran away". `DEFERRED.md` names exactly this change as the trigger for a bump: the older build's next write replaces the save with no copy kept, losing the battle and handing the kid a free escape. Found by the adversarial review. Before shipping a change to anything a save holds (a phase, an attack list, a realm, a range), grep [[DEFERRED]] for its kind of change.
+- **The old rule left in prose the diff did not open.** UI_SPEC still quoted the Run row as "You always get away" two lines above the paragraph the PR added, and DEVELOPMENT's battle recipe pressed Run and expected the result card. A grep for the old copy string and for the intent's name across `AGENTS/` finds both.
+
+To become `[learned]`: a line in [[DEVELOPMENT]] (or CLAUDE.md § Regardless of what the change is) that a change to a saved shape greps [[DEFERRED]] for its triggers, and that a changed copy string is grepped across `AGENTS/` by its old text.
+
+### 2026-11-02 — the easier escape retry (feat/escape-retry-own-size, PR #238) — a rule narrowed in one sentence of a paragraph, its absolute words kept in the next `[not codified]`
+
+- **"Whoever is in front" and "exactly" survived the edit that made them false.** The PR made the escape puzzle depend on the animal in front after a wrong try, and added that sentence to PRODUCT §4, INVARIANTS, CHEATSHEET and `escapePuzzle`'s doc comment, but each still opened with "the same puzzle whoever is in front" or "a wrong answer counts exactly as a missed attack". Same category as 2026-10-31's second item, inside the very paragraph edited this time. Found by the adversarial review. When a change adds an exception, grep the touched paragraphs for the absolutes it breaks ("whoever", "always", "exactly", "never", "the same").
+
+To become `[learned]`: the same line as 2026-10-31's, extended to absolutes in an edited paragraph.

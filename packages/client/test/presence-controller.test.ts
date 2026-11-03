@@ -40,6 +40,7 @@ import { plane } from '../src/state/plane.svelte';
 import { title } from '../src/state/title.svelte';
 import { presence } from '../src/state/presence.svelte';
 import { testStarter } from './minted';
+import { runAway } from './run-away';
 
 // The glue between the game, the socket and the screen: when the page is
 // present and when not, what it says about itself, and "Go to", end to end
@@ -278,7 +279,7 @@ describe('presence on the page', () => {
 		expect(s.sentOf('battle').at(-1)).toEqual({ t: 'battle', view: step.view, events: [] });
 		// Its end goes out, and then nothing more, however the socket comes and goes.
 		s.authority.dispatch({ type: 'battle', intent: { type: 'answer', input: 'no' } });
-		s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+		runAway(s.authority);
 		s.frame();
 		expect(s.sentOf('battle').at(-1)?.events).toContainEqual({
 			type: 'ended',

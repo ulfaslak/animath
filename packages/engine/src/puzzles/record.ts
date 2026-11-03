@@ -13,7 +13,8 @@ import { ALL_PUZZLE_TOPICS, type Puzzle, type PuzzleTopic } from './types.js';
  * the judgement itself, never a screen. The kid sees the counts ("My
  * puzzles", in the pause menu); the last few set how hard a wild battle's
  * hit of that topic lands (`topicBonus`), which nothing on screen says.
- * Only a wild battle's answers go into them: a miss there costs the turn,
+ * Only a wild battle's answers go into them, its escape puzzles' too: a
+ * miss there costs the turn,
  * where a miss at the druid's or in a friendly match costs nothing,
  * so a kid could miss there on purpose to make a topic look hard.
  */

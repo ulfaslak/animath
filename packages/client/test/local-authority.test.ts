@@ -60,6 +60,7 @@ import { parseParty } from '../src/flags';
 import { game } from '../src/state/game.svelte';
 import { besideA, gameBeside } from './clearing';
 import { mint, testStarter } from './minted';
+import { runAway } from './run-away';
 
 /**
  * The single-player authority's own rules — the ones around the engine, not
@@ -138,7 +139,7 @@ function reedWalk(s: Session, steps: number): { step: number; wild: string; lead
 		if (started?.type !== 'battle-started') continue;
 		const { opponent, party, active } = started.state;
 		met.push({ step, wild: opponent.speciesId, lead: party[active]!.speciesId });
-		s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+		runAway(s.authority);
 	}
 	return met;
 }
@@ -348,7 +349,7 @@ describe('LocalAuthority: encounters', () => {
 			for (const s of [a, b]) {
 				s.authority.dispatch({ type: 'battle', intent: { type: 'answer', input: '1' } });
 				if (latestBattle(s).phase.kind !== 'ended') {
-					s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+					runAway(s.authority);
 				}
 			}
 			// The same animals, as HP goes: each game's starter has an id of its own.
@@ -368,14 +369,14 @@ describe('LocalAuthority: encounters', () => {
 			if (step?.type !== 'player-moved') throw new Error(`battle after ${step?.type}`);
 			expect(isEncounterTile(tileAtWorld(seed, step.pos.x, step.pos.y).kind)).toBe(true);
 			expect(state.opponent.hp).toBe(getAnimal(state.opponent.speciesId).maxHp);
-			s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+			runAway(s.authority);
 		}
 	});
 
 	it('mid-battle, walking and talking do nothing; outside one, battle intents do nothing', () => {
 		const s = session();
 		const idle = s.events.length;
-		s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+		runAway(s.authority);
 		expect(s.events.length).toBe(idle);
 
 		walkIntoBattle(s);
@@ -384,7 +385,7 @@ describe('LocalAuthority: encounters', () => {
 		s.authority.dispatch({ type: 'move', dir: 'right' });
 		s.authority.dispatch({ type: 'interact' });
 		expect(s.events.length).toBe(before);
-		s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+		runAway(s.authority);
 		expect(position(s)).toEqual(pos);
 	});
 });
@@ -528,7 +529,7 @@ describe('LocalAuthority: outcomes', () => {
 		const s = session();
 		walkIntoBattle(s);
 		const before = party(s);
-		s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+		runAway(s.authority);
 		expect(latestBattle(s).phase).toEqual({ kind: 'ended', outcome: 'fled' });
 		expect(party(s)).toEqual(before);
 		expect(lastMessage(s)).toBe('battle.closing.fled');
@@ -929,7 +930,7 @@ describe('LocalAuthority: saved games', () => {
 		const s = session();
 		expect(s.authority.snapshot().battle).toBeNull();
 		walkIntoBattle(s);
-		s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+		runAway(s.authority);
 		expect(s.authority.snapshot().battle).toBeNull();
 		walkIntoBattle(s);
 		attack(s, 1, 1, false);
@@ -955,7 +956,7 @@ describe('LocalAuthority: saved games', () => {
 			n < 40 && !s.events.slice(blockedAt).some((e) => e.type === 'player-blocked');
 			n++
 		) {
-			if (inBattle(s)) s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+			if (inBattle(s)) runAway(s.authority);
 			s.authority.dispatch({ type: 'move', dir: 'up' });
 		}
 		expect(s.events.slice(blockedAt).some((e) => e.type === 'player-blocked')).toBe(true);
@@ -1156,7 +1157,7 @@ describe('LocalAuthority: the party', () => {
 			s.authority.dispatch({ type: 'party', intent });
 			expect(lastEdit(s).events).toEqual([{ type: 'rejected', reason: 'not-exploring' }]);
 		}
-		s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+		runAway(s.authority);
 		expect(party(s).map((a) => [a.id, a.nickname])).toEqual([
 			[squirrel!.id, undefined],
 			[rabbit!.id, undefined]
@@ -1205,7 +1206,7 @@ describe('LocalAuthority: the doctor', () => {
 		const pos = position(s);
 		const quiet = s.events.length;
 		move(s, 'up', 'left');
-		s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+		runAway(s.authority);
 		expect(s.events.length).toBe(quiet);
 
 		// A healthy animal can't be picked: the engine says why, nothing changes.
@@ -1482,7 +1483,7 @@ describe('LocalAuthority: the boat', () => {
 				met.push(e.state.opponent.speciesId);
 				expect(e.state.realm).toBe('water');
 				expect(e.state.party[e.state.active]!.speciesId).toBe('otter');
-				s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+				runAway(s.authority);
 				// It stays in the water, not in the grass.
 				expect(lastMessage(s)).toBe('battle.closing.fledSea');
 			}
@@ -1724,7 +1725,7 @@ describe('LocalAuthority: the title', () => {
 		const walk = (s: Session, from: number, to: number) => {
 			for (let i = from; i < to; i++) move(s, i % 2 === 0 ? 'left' : 'right');
 			if (lastIndexOf(s, 'battle-started') > lastIndexOf(s, 'battle-ended')) {
-				s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+				runAway(s.authority);
 			}
 		};
 		walk(a, 0, 5);
@@ -1898,7 +1899,11 @@ describe('LocalAuthority: trees and rocks', () => {
 		/** A kid wandering the woods by the tree with both tools: walks, Enter, and runs from any battle. */
 		const script = (s: Session, i: number): Intent => {
 			if (lastIndexOf(s, 'battle-started') > lastIndexOf(s, 'battle-ended')) {
-				return { type: 'battle', intent: { type: 'flee' } };
+				// Run, then the escape puzzle answered right.
+				const phase = latestBattle(s).phase;
+				return phase.kind === 'escaping'
+					? { type: 'battle', intent: { type: 'answer', input: answerText(phase.puzzle) } }
+					: { type: 'battle', intent: { type: 'flee' } };
 			}
 			const rng = new Rng(i * 7919 + 13);
 			if (rng.chance(0.3)) return { type: 'interact' };
@@ -1954,8 +1959,7 @@ describe('LocalAuthority: trees and rocks', () => {
 			);
 			for (const e of s.events.slice(before)) {
 				game.apply(e);
-				if (e.type === 'battle-started')
-					s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+				if (e.type === 'battle-started') runAway(s.authority);
 				if (e.type !== 'tile-cleared') continue;
 				regrown += e.regrown.length;
 				expect(game.edits.encode()).toEqual(s.authority.snapshot().edits);
@@ -2212,7 +2216,7 @@ describe('LocalAuthority: names and worlds', () => {
 			for (const s of [a, b]) {
 				s.authority.dispatch({ type: 'move', dir });
 				if (lastIndexOf(s, 'battle-started') > lastIndexOf(s, 'battle-ended')) {
-					s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+					runAway(s.authority);
 				}
 			}
 		}
@@ -2298,7 +2302,7 @@ describe('LocalAuthority: puzzles solved', () => {
 			while (latestBattle(s).phase.kind !== 'ended') {
 				stepIn(s);
 				if (latestBattle(s).phase.kind === 'ended') break;
-				if (rng.chance(0.1)) s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+				if (rng.chance(0.1)) runAway(s.authority);
 				else attack(s, 1, rng.pick([1, 2] as const), rng.chance(0.6));
 			}
 			// A lost battle leaves the team tired, and the reed quiet: enough battles.
@@ -2374,10 +2378,10 @@ describe('LocalAuthority: puzzles solved', () => {
 		stepIn(t);
 		attack(t, 1, 1, true);
 		expect(t.authority.snapshot().solved).toBe(2);
-		t.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+		runAway(t.authority);
 		while (latestBattle(t).phase.kind !== 'ended') {
 			stepIn(t);
-			t.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+			runAway(t.authority);
 		}
 
 		// Back on the title and a new game: a count of its own, from 0.
@@ -2396,10 +2400,11 @@ describe('LocalAuthority: puzzles solved', () => {
 		attack(s, 1, 1, true);
 		while (latestBattle(s).phase.kind !== 'ended') {
 			stepIn(s);
-			s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+			runAway(s.authority);
 		}
 		const before = s.authority.snapshot();
-		expect(before.solved).toBe(1);
+		// The attack's puzzle, and the one solved to run away.
+		expect(before.solved).toBe(2);
 
 		// A real match's steps, as its authority sends them to both players.
 		const { steps, right } = playedMatch(before.party);
@@ -2414,7 +2419,7 @@ describe('LocalAuthority: puzzles solved', () => {
 		);
 		expect(told.filter((e) => e.type === 'solved-changed').at(-1)).toEqual({
 			type: 'solved-changed',
-			solved: 1 + right.a
+			solved: before.solved + right.a
 		});
 		// One `solved-changed` for each step with a right answer of the player's, never one for
 		// nothing; one `puzzles-changed` for each step with an answer of the player's, right or wrong.
@@ -2432,7 +2437,11 @@ describe('LocalAuthority: puzzles solved', () => {
 		const triedBefore = Object.values(before.puzzles).reduce((n, r) => n + r!.tried, 0);
 		expect(tried - triedBefore).toBe(judging.length);
 		// Nothing else about the game changed: a match changes nothing but the count and the record.
-		expect(s.authority.snapshot()).toEqual({ ...before, solved: 1 + right.a, puzzles: record });
+		expect(s.authority.snapshot()).toEqual({
+			...before,
+			solved: before.solved + right.a,
+			puzzles: record
+		});
 		// The other player's answers are nobody's here (in a match of its own).
 		const theirs = steps.map((st) => ({
 			...st,
@@ -3479,7 +3488,9 @@ describe('LocalAuthority: birds in the air (#91)', () => {
 				const state = latestBattle(s);
 				const intent =
 					plan === 'fled'
-						? { type: 'flee' as const }
+						? state.phase.kind === 'escaping'
+							? { type: 'answer' as const, input: answerText(state.phase.puzzle) }
+							: { type: 'flee' as const }
 						: state.phase.kind === 'solving'
 							? {
 									type: 'answer' as const,
