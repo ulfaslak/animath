@@ -5,9 +5,10 @@ import { step, type Band } from './arithmetic.js';
 
 /**
  * The skills of square roots, easiest first: the squares of the times table
- * (√49), of whole tens (√4900: the table with two noughts), and of 15 and 25
- * (√225: between √100 and √400, and ending in 5). A step of `ROOT_LADDER`
- * never asks a skill before one the step below it asks.
+ * to 12 (√49, √144), of whole tens (√4900: the table with two noughts, which
+ * needs the place value of thousands) and of 15 and 25 (√225: between √100
+ * and √400, and ending in 25). A step of `ROOT_LADDER` never asks a skill
+ * before one the step below it asks.
  */
 export const ROOT_SKILLS = ['table', 'tens', 'fives'] as const;
 export type RootSkill = (typeof ROOT_SKILLS)[number];
@@ -30,22 +31,23 @@ export function rootOf(skill: RootSkill, k: number): number {
 /**
  * Square roots on the school-year scale ([[DECISIONS]] § Gameplay; index =
  * difficulty − 1). Only difficulties ≥ 3 offer them; the first two rows are
- * unused. The squares of the small tables first, then of the hard corner,
- * then 11² and 12², then whole tens, and at 10 also 15² and 25², which a kid
- * finds by reasoning and checks with a teen times a teen. Never a root a kid
- * can only guess at ("√196", "√2025"). Within a skill neither end of a band
- * ever falls.
+ * unused. The squares a kid knows from the times tables first, climbing with
+ * them to 11² and 12² at 7–8, then whole tens at 9–10, and at 10 also 15²
+ * and 25², which a kid finds by reasoning and checks with a teen times a
+ * teen. Never a root a kid can only guess at ("√196", "√2025"). Within a
+ * skill neither end of a band ever falls, and no two neighbouring steps are
+ * the same.
  */
 export const ROOT_LADDER: readonly (readonly RootForm[])[] = [
-	[{ skill: 'table', of: [2, 5] }], //  (1: unused)
-	[{ skill: 'table', of: [2, 5] }], //  (2: unused)
-	[{ skill: 'table', of: [2, 5] }], //  3: √4 to √25
-	[{ skill: 'table', of: [2, 5] }], //  4
-	[{ skill: 'table', of: [6, 9] }], //  5: √36 to √81
-	[{ skill: 'table', of: [6, 9] }], //  6
-	[{ skill: 'table', of: [6, 12] }], // 7: and √121, √144
-	[{ skill: 'tens', of: [2, 5] }], //   8: √400 to √2500
-	[{ skill: 'tens', of: [2, 7] }], //   9: to √4900
+	[{ skill: 'table', of: [2, 4] }], //  (1: unused)
+	[{ skill: 'table', of: [2, 4] }], //  (2: unused)
+	[{ skill: 'table', of: [2, 4] }], //  3: √4 to √16
+	[{ skill: 'table', of: [3, 5] }], //  4: √9 to √25
+	[{ skill: 'table', of: [4, 7] }], //  5: √16 to √49
+	[{ skill: 'table', of: [6, 9] }], //  6: √36 to √81
+	[{ skill: 'table', of: [7, 11] }], // 7: √49 to √121
+	[{ skill: 'table', of: [8, 12] }], // 8: √64 to √144
+	[{ skill: 'tens', of: [2, 7] }], //   9: √400 to √4900
 	[
 		{ skill: 'tens', of: [3, 7] }, //   10: √900 to √4900,
 		{ skill: 'fives', of: [1, 2] } //       √225 and √625

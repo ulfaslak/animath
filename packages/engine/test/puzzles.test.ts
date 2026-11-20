@@ -573,7 +573,7 @@ function rootFits({ skill, of }: RootForm, root: number): boolean {
 describe('skill ladders: times tables, sharing, missing numbers and square roots', () => {
 	const SAMPLES = 400;
 
-	it('every band starts at 2 or more above difficulty 1 (nothing is "× 1" or "+ 1"), and holds a number that is not a round ten', () => {
+	it('every number drawn is 2 or more above difficulty 1 (nothing is "× 1" or "+ 1"), and every band holds one that is not a round ten', () => {
 		const bands: [string, Band][] = [
 			...TIMES_LADDER.flatMap((forms, i) =>
 				forms.flatMap((f) => [
@@ -625,6 +625,38 @@ describe('skill ladders: times tables, sharing, missing numbers and square roots
 		expect(skillBandsFall(ROOT_LADDER, from, (f) => ({ of: f.of }))).toEqual([]);
 	});
 
+	it('no two neighbouring difficulties share a step: a harder level never asks the very sums of the one below (#32)', () => {
+		const same: string[] = [];
+		const check = (name: string, from: number, row: (d: number) => unknown) => {
+			for (let d = from + 1; d <= MAX_DIFFICULTY; d++)
+				if (JSON.stringify(row(d)) === JSON.stringify(row(d - 1)))
+					same.push(`${name} d${d - 1}–${d}`);
+		};
+		check('times', getGenerator('mul').minDifficulty, (d) => TIMES_LADDER[d - 1]);
+		check('backwards', getGenerator('div').minDifficulty, (d) => backwardsForms(d));
+		check('addend', getGenerator('missing').minDifficulty, (d) => ADDEND_LADDER[d - 1]);
+		check('roots', getGenerator('sqrt').minDifficulty, (d) => ROOT_LADDER[d - 1]);
+		expect(same).toEqual([]);
+	});
+
+	it('the missing addend crosses where it says: the ten at 2, a hundred at 5, the next hundred at 6, a thousand at 9 and 10', () => {
+		const passes = (part: number, sum: number, unit: number) =>
+			Math.floor(sum / unit) > Math.floor(part / unit) && sum % unit !== 0;
+		const unitAt: Record<number, number> = { 2: 10, 5: 100, 6: 100, 9: 1000, 10: 1000 };
+		const stays: string[] = [];
+		const g = getGenerator('missing');
+		for (const [d, unit] of Object.entries(unitAt).map(([d, u]) => [Number(d), u] as const)) {
+			const rng = new Rng(5900 + d);
+			for (let i = 0; i < SAMPLES; i++) {
+				const p = g.generate(rng, d);
+				if (!p.prompt.includes('+')) continue;
+				const [part, sum] = numbersIn(p.prompt) as [number, number];
+				if (!passes(part, sum, unit)) stays.push(`d${d}: ${p.prompt}`);
+			}
+		}
+		expect(stays).toEqual([]);
+	});
+
 	it('every puzzle comes from its step, and every form of a step comes up', () => {
 		const strays: string[] = [];
 		const unmet: string[] = [];
@@ -670,13 +702,13 @@ describe('skill ladders: times tables, sharing, missing numbers and square roots
 		expect(unmet).toEqual([]);
 	}, 30_000);
 
-	it('nothing needs paper: one factor of two digits or more but a teen by a teen, sharing by a digit, three digits only by 5 or less, a missing sum under 2000, and a root of the times table, a whole ten or 15 or 25', () => {
+	it('nothing needs paper: one factor of two digits or more but a teen by a teen, sharing by a digit, three digits only up to 199 and by 5 or less, a missing sum under 2000, and a root of the times table, a whole ten or 15 or 25', () => {
 		const paper: string[] = [];
 		const teen = (n: number) => n >= 11 && n <= 19;
-		/** `big × small` a strong kid of 11–12 does in their head: 18 × 15, 236 × 4 at most. */
+		/** `big × small` a strong kid of 11–12 does in their head: 19 × 15 or 199 × 5 at most. */
 		const inHead = (big: number, small: number) =>
 			(teen(big) && teen(small) && Math.min(big, small) <= 15) ||
-			(small <= 9 && (big <= 99 || (big <= 249 && small <= 5)));
+			(small <= 9 && (big <= 99 || (big <= 199 && small <= 5)));
 		for (const kind of ['mul', 'div', 'missing', 'sqrt'] as const) {
 			const g = getGenerator(kind);
 			for (let d = g.minDifficulty; d <= g.maxDifficulty; d++) {
