@@ -4,6 +4,7 @@
 	import ClockFace from './ClockFace.svelte';
 	import FloorFence from './FloorFence.svelte';
 	import FractionBar from './FractionBar.svelte';
+	import IceBlocks from './IceBlocks.svelte';
 	import Money from './Money.svelte';
 	import NumberLine from './NumberLine.svelte';
 	import Thermometer from './Thermometer.svelte';
@@ -33,4 +34,6 @@
 	<ClockFace numbers={face.numbers} />
 {:else if face.kind === 'numberline'}
 	<NumberLine numbers={face.numbers} />
+{:else if face.kind === 'blocks'}
+	<IceBlocks numbers={face.numbers} />
 {/if}

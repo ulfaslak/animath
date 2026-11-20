@@ -439,7 +439,8 @@ const LADDERS: readonly Partial<Record<PuzzleKind, string>>[] = [
 		clock: '32d98dae',
 		numberline: 'e047f570',
 		balance: 'e7d15a69',
-		units: '3baf28fe'
+		units: '3baf28fe',
+		blocks: '9a254a68'
 	}
 ];
 

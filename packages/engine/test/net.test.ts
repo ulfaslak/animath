@@ -546,11 +546,11 @@ describe('the wire protocol', () => {
 		// neither: 9; The Arctic's small land animals, #192's first wave: 10; its big ones: 11;
 		// its sea and fishing-hole animals: 12; the plane's `busy`, #191 step 7, which added
 		// neither: 13; doubling and halving, Nordland's `double`: 14; the Arctic's units: 15;
-		// Nordland's number line: 16.
+		// Nordland's number line: 16; the Arctic's ice blocks: 17.
 		expect(
 			{ version: PROTOCOL_VERSION, species: ANIMALS.length, kinds: ALL_PUZZLE_KINDS.length },
 			'a new species or puzzle kind bumps PROTOCOL_VERSION'
-		).toEqual({ version: 16, species: 100, kinds: 17 });
+		).toEqual({ version: 17, species: 100, kinds: 18 });
 	});
 
 	it('bounds worlds, coordinates, names and rosters', () => {

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+	BLOCKS,
 	MAX_BIG_UNITS,
+	MAX_BLOCKS,
 	MAX_DOUBLED,
 	MAX_LINE_TOP,
 	UNITS,
@@ -9,6 +11,8 @@ import {
 } from '../src/puzzles/face.js';
 import { BALANCE_LADDER } from '../src/puzzles/generators/balance.js';
 import { BARCHART, BARCHART_LADDER } from '../src/puzzles/generators/barchart.js';
+import { TIMES_LADDER } from '../src/puzzles/generators/arithmetic.js';
+import { BLOCKS_LADDER, type BlocksForm } from '../src/puzzles/generators/blocks.js';
 import { CLOCK, CLOCK_LADDER } from '../src/puzzles/generators/clock.js';
 import { DOUBLE, DOUBLE_LADDER } from '../src/puzzles/generators/double.js';
 import { FRACTION_LADDER } from '../src/puzzles/generators/fraction.js';
@@ -81,7 +85,8 @@ describe('the ladders climb', () => {
 			BARCHART_LADDER,
 			BALANCE_LADDER,
 			CLOCK_LADDER,
-			DOUBLE_LADDER
+			DOUBLE_LADDER,
+			BLOCKS_LADDER
 		])
 			expect(ladder).toHaveLength(10);
 	});
@@ -301,6 +306,38 @@ describe('the ladders climb', () => {
 			}
 		}
 		expect(bad).toEqual([]);
+	});
+
+	it('ice blocks: a row at 1, a flat layer at 2–4, a box at 5–8, how high at 9–10, each form climbing', () => {
+		// A form is what the stack is: a row, a flat layer, a box, or a box whose layers are asked.
+		const form = (f: BlocksForm) =>
+			f.how === 'high' ? 'high' : f.h[1] > 1 ? 'box' : f.w[1] > 1 ? 'flat' : 'row';
+		expect(BLOCKS_LADDER.map((forms) => forms.map(form).join(' '))).toEqual([
+			'row',
+			'flat',
+			'flat',
+			'flat',
+			'box',
+			'box',
+			'box',
+			'box',
+			'high',
+			'high'
+		]);
+		for (const name of ['row', 'flat', 'box', 'high']) {
+			const steps = BLOCKS_LADDER.flatMap((forms) => forms.filter((f) => form(f) === name));
+			for (const side of ['l', 'w', 'h'] as const)
+				expect(climbs(steps.map((f) => f[side])), `${name} ${side}`).toEqual([]);
+		}
+		// A harder step never asks only what the step below could: each form reaches past the one below.
+		const inside = (a: BlocksForm, b: BlocksForm) =>
+			(['l', 'w', 'h'] as const).every((s) => a[s][0] >= b[s][0] && a[s][1] <= b[s][1]);
+		const repeats: string[] = [];
+		for (let d = 2; d <= 10; d++)
+			for (const f of BLOCKS_LADDER[d - 1]!)
+				for (const below of BLOCKS_LADDER[d - 2]!)
+					if (form(f) === form(below) && inside(f, below)) repeats.push(`${d}: ${form(f)}`);
+		expect(repeats).toEqual([]);
 	});
 
 	it('clock: reading finer marks first, then time passing, longer and longer', () => {
@@ -589,6 +626,38 @@ describe('what each kind promises a kid', () => {
 				bad.push(`d${d}: only ${met.size} of ${forms.length} forms met`);
 		}
 		expect(bad).toEqual([]);
+	});
+
+	it('ice blocks: every stack as big as the picture draws and no bigger, a box at least 2 each way, every sum in the head', () => {
+		const bad: string[] = [];
+		const most = { long: 0, boxLong: 0, deep: 0, high: 0, layers: 0, fewest: Infinity };
+		for (const d of DS)
+			for (const [how, l, w, n, answer] of faces('blocks', d)) {
+				most.deep = Math.max(most.deep, w!);
+				if (how === BLOCKS.high) {
+					most.boxLong = Math.max(most.boxLong, l!);
+					most.layers = Math.max(most.layers, answer!);
+					most.fewest = Math.min(most.fewest, answer!);
+					if (answer! < 2 || l! < 2 || w! < 2) bad.push(`d${d}: ${l}×${w}, ${answer} high`);
+					continue;
+				}
+				const long = n === 1 ? 'long' : 'boxLong';
+				most[long] = Math.max(most[long], l!);
+				most.high = Math.max(most.high, n!);
+				// A box is a box, never a wall or a tower one block thick.
+				if (n! > 1 && (l! < 2 || w! < 2)) bad.push(`d${d}: ${l}×${w}×${n}`);
+				// A box's bottom layer is a times table a kid knows, and its blocks that layer again and again.
+				if (n! > 1 && (l! * w! > 30 || answer! > 270))
+					bad.push(`d${d}: ${l}×${w}×${n} = ${answer}`);
+			}
+		expect(bad).toEqual([]);
+		expect(most).toEqual(MAX_BLOCKS);
+		// A flat layer of more than one row is the times table `mul` asks at its step, as blocks.
+		for (const d of [2, 3, 4]) {
+			const [flat] = BLOCKS_LADDER[d - 1]!;
+			const [table] = TIMES_LADDER[d - 1]!;
+			expect([flat!.l, flat!.w], `d${d}`).toEqual([table!.big, table!.small]);
+		}
 	});
 
 	it('balance: a times asks both ends of its factor and box bands, as the step writes them', () => {

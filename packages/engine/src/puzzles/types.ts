@@ -26,7 +26,7 @@ export type PuzzleKind =
  * fare names its kinds one by one.
  */
 export type PictureKind =
-	'thermometer' | 'kroner' | 'fraction' | 'shape' | 'barchart' | 'clock' | 'numberline';
+	'thermometer' | 'kroner' | 'fraction' | 'shape' | 'barchart' | 'clock' | 'numberline' | 'blocks';
 
 export const PICTURE_KINDS: readonly PictureKind[] = [
 	'thermometer',
@@ -35,7 +35,8 @@ export const PICTURE_KINDS: readonly PictureKind[] = [
 	'shape',
 	'barchart',
 	'clock',
-	'numberline'
+	'numberline',
+	'blocks'
 ];
 
 export function isPictureKind(kind: PuzzleKind): kind is PictureKind {
@@ -102,6 +103,7 @@ export type PuzzleTopic =
 	| 'barchart'
 	| 'balance'
 	| 'clock'
+	| 'blocks'
 	| 'units';
 
 export const ALL_PUZZLE_TOPICS: readonly PuzzleTopic[] = [
@@ -123,6 +125,7 @@ export const ALL_PUZZLE_TOPICS: readonly PuzzleTopic[] = [
 	'barchart',
 	'balance',
 	'clock',
+	'blocks',
 	'units'
 ];
 

@@ -82,8 +82,10 @@ import { readFightEvents, readFightView, type FightEvent, type FightView } from 
  * cannot read the face, and shows its puzzle as a "?" alone.
  * Version 16: the number line, a new puzzle kind (`numberline`), whose
  * puzzles a version 15 page would drop from a `match` or a `fight`.
+ * Version 17: the Arctic's ice blocks, a puzzle kind a version 16 page
+ * would drop from a `match` or a `fight`.
  */
-export const PROTOCOL_VERSION = 16;
+export const PROTOCOL_VERSION = 17;
 
 /**
  * The most a message may take on the wire, in bytes (the server closes a

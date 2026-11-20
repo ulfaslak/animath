@@ -192,12 +192,14 @@
 	 * What the right-hand side holds, fitted to its card (`fit.ts`), a step at
 	 * a time and only while it is still too tall: its lines closer, its words
 	 * a size smaller (as on a phone), the hints gone, then the sum and the
-	 * question at their smallest, and last, with a puzzle's hint up, the story
-	 * over its sum (the hint says what to do with the sum). The doctor's line
-	 * over it, the story over a sum and three names of twelve W's all take its
-	 * room.
+	 * question at their smallest, then, with a puzzle's hint up, the story
+	 * over its sum (the hint says what to do with the sum), and last the
+	 * druid's tip's story, which his line over the card says already (a phone
+	 * has no room for it beside the pad with a picture and its Hint button).
+	 * The doctor's line over it, the story over a sum and three names of
+	 * twelve W's all take its room.
 	 */
-	const SIDE_STEPS = ['close', 'small', 'bare', 'least', 'hinted'] as const;
+	const SIDE_STEPS = ['close', 'small', 'bare', 'least', 'hinted', 'said'] as const;
 
 	function tabName(tab: DoctorTab): string {
 		switch (tab) {
@@ -553,6 +555,7 @@
 		class="card puzzle"
 		class:correct={doctor.judged?.correct === true}
 		class:done={rewarding}
+		class:tip={doctor.revealing}
 		{@attach fit(SIDE_STEPS)}
 	>
 		{#if doctor.puzzle && (doctor.screen === 'puzzle' || doctor.screen === 'busy')}
@@ -1491,6 +1494,10 @@
 	}
 	/* `hinted`: with the hint up, the story over the sum goes; the doctor's line still says what it is for. */
 	.puzzle:global([data-fit~='hinted']) :global(.puzzle-panel.hinted .story) {
+		display: none;
+	}
+	/* `said`: the tip's story goes, hint or none; the druid's line over the card says the same. */
+	.puzzle.tip:global([data-fit~='said']) :global(.story) {
 		display: none;
 	}
 	.soft {

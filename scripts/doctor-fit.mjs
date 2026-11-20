@@ -196,6 +196,10 @@ const STATES = {
 	// The widest number line: numbers to 10,000, the arrow halfway, so its hint is the longest too.
 	'heal-numberline': heal('numberline(0, 1000, 10, 5, 7, 1)', 7500, 'numberline', 3),
 	'heal-balance': heal('21 + □ = 23 + 20', 22, 'balance', 3),
+	// Ice blocks: a flat layer wider than any heal asks (heals ask 2, 3, 5, 6 and 8; 9 × 5 is a
+	// battle's at 4), and the biggest box with its longest question.
+	'heal-blocks': heal('blocks(0, 9, 5, 1)', 45, 'blocks', 4),
+	'heal-blocks-box': heal('blocks(0, 6, 5, 6)', 180, 'blocks', 8),
 	// The longest measuring sums a heal asks (a tier-5 animal heals at 8): "3 minutter og 55 sekunder = ? sekunder".
 	'heal-units': heal('units(1, 3, 3, 55)', 235, 'units', 8),
 	'heal-units-hours': heal('units(1, 2, 4, 59)', 299, 'units', 8),
@@ -205,6 +209,7 @@ const STATES = {
 	'heal-hint-kroner': hinted(heal('kroner(0, 0, 1, 1, 2, 1, 0, 0, 0, 0, 0)', 47, 'kroner', 3)),
 	'heal-hint-balance': hinted(heal('21 + □ = 23 + 20', 22, 'balance', 3)),
 	'heal-hint-numberline': hinted(heal('numberline(0, 1000, 10, 5, 7, 1)', 7500, 'numberline', 3)),
+	'heal-hint-blocks': hinted(heal('blocks(0, 9, 5, 1)', 45, 'blocks', 4)),
 	'heal-hint-correct': right(hinted(heal('1620 ÷ 18 = ?', 90))),
 	'heal-picture-miss': wrong(heal('barchart(2, 1, 0, 2, 4, 3, 10, 10, 10, 0)', 13, 'barchart', 3), {
 		say: 'notQuite'
@@ -317,6 +322,8 @@ const STATES = {
 	'ask-picture': ask('barchart(2, 1, 0, 2, 4, 3, 10, 10, 10, 0)', 13, 'barchart', 3),
 	// The druid's tip asks at 8, so its longest sum in words is a heal's, with the story over it.
 	'ask-units': ask('units(1, 3, 3, 55)', 235, 'units', 8),
+	// The tip for an uncaught polar bear: the biggest box and the longest ice-block question, the story over it.
+	'ask-blocks': ask('blocks(0, 6, 5, 6)', 180, 'blocks', 8),
 	'ask-correct': right(ask('1620 ÷ 18 = ?', 90)),
 	// Met two ways and big: a line for the sea, one for the ice, and the far line.
 	'ask-told-shark': told('greenland-shark', 'arctic'),

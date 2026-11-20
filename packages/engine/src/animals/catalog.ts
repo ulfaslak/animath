@@ -956,7 +956,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'open',
 		attacks: [
 			{ id: 'honk', kinds: ['add', 'sub'], power: 12 },
-			{ id: 'cliff-jump', kinds: ['fraction'], power: 19 },
+			{ id: 'cliff-jump', kinds: ['blocks'], power: 19 },
 			{ id: 'flock-flight', kinds: ['barchart'], power: 24 }
 		]
 	},
@@ -1050,7 +1050,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'rocks',
 		attacks: [
 			{ id: 'screech', kinds: ['add', 'sub'], power: 16 },
-			{ id: 'egg-snatch', kinds: ['kroner'], power: 22 },
+			{ id: 'egg-snatch', kinds: ['blocks'], power: 22 },
 			{ id: 'sky-bully', kinds: ['clock'], power: 27 }
 		]
 	},
@@ -1100,7 +1100,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		pulls: true,
 		attacks: [
 			{ id: 'snow-trot', kinds: ['add', 'sub'], power: 22 },
-			{ id: 'pack-hunt', kinds: ['barchart'], power: 30 },
+			{ id: 'pack-hunt', kinds: ['blocks'], power: 30 },
 			{ id: 'white-lunge', kinds: ['balance'], power: 38 }
 		]
 	},
@@ -1133,7 +1133,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		attacks: [
 			{ id: 'huddle', kinds: ['add', 'sub'], power: 21 },
 			{ id: 'toboggan', kinds: ['clock'], power: 29 },
-			{ id: 'egg-guard', kinds: ['units'], power: 36 }
+			{ id: 'egg-guard', kinds: ['blocks'], power: 36 }
 		]
 	},
 	{
@@ -1166,7 +1166,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 			{ id: 'ice-sniff', kinds: ['add', 'sub'], power: 24 },
 			{ id: 'seal-wait', kinds: ['balance'], power: 33 },
 			{ id: 'snow-swipe', kinds: ['fraction'], power: 44 },
-			{ id: 'ice-pounce', kinds: ['shape'], power: 53 }
+			{ id: 'ice-pounce', kinds: ['blocks'], power: 53 }
 		]
 	},
 	{
@@ -1202,7 +1202,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'water',
 		attacks: [
 			{ id: 'flutter', kinds: ['add'], power: 9 },
-			{ id: 'angel-wings', kinds: ['fraction'], power: 12 },
+			{ id: 'angel-wings', kinds: ['blocks'], power: 12 },
 			{ id: 'hook-grab', kinds: ['balance'], power: 16 }
 		]
 	},
@@ -1219,7 +1219,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		attacks: [
 			{ id: 'tail-flick', kinds: ['add', 'sub'], power: 9 },
 			{ id: 'ice-hide', kinds: ['thermometer'], power: 12 },
-			{ id: 'big-school', kinds: ['barchart'], power: 16 }
+			{ id: 'big-school', kinds: ['blocks'], power: 16 }
 		]
 	},
 	{
@@ -1282,7 +1282,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		attacks: [
 			{ id: 'breath-hole', kinds: ['add', 'sub'], power: 13 },
 			{ id: 'claw-scrape', kinds: ['shape'], power: 18 },
-			{ id: 'snow-den', kinds: ['thermometer'], power: 25 }
+			{ id: 'snow-den', kinds: ['blocks'], power: 25 }
 		]
 	},
 	{
@@ -1340,7 +1340,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		attacks: [
 			{ id: 'pinch', kinds: ['add', 'sub'], power: 17 },
 			{ id: 'long-legs', kinds: ['units'], power: 22 },
-			{ id: 'shell-shove', kinds: ['barchart'], power: 26 }
+			{ id: 'shell-shove', kinds: ['blocks'], power: 26 }
 		]
 	},
 	{
@@ -1537,7 +1537,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		attacks: [
 			{ id: 'spotty-sneak', kinds: ['add', 'sub'], power: 25 },
 			{ id: 'wide-jaws', kinds: ['kroner'], power: 35 },
-			{ id: 'ice-edge-lunge', kinds: ['balance'], power: 46 }
+			{ id: 'ice-edge-lunge', kinds: ['blocks'], power: 46 }
 		]
 	}
 ];

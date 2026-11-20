@@ -1295,6 +1295,10 @@ puzzle:
       more: Hvor mange flere fisk fangede {who} end {other}?
       both: Hvor mange fisk fangede {who} og {other} tilsammen?
       all: Hvor mange fisk fangede de i alt?
+    blocks:
+      count: Hvor mange isblokke er der?
+      box: Hvor mange isblokke er der i stablen, også dem du ikke kan se?
+      high: Stablen har {total} isblokke. Hvor mange lag høj er den?
     clock:
       read: Hvad er klokken?
       later: Hvad er klokken om {time}?
@@ -1500,6 +1504,7 @@ battle:
     barchart: søjlediagrammer
     balance: ligevægt
     clock: klokken
+    blocks: isblokke
     units: enheder
   level:
     easy: let

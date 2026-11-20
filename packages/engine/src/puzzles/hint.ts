@@ -1,4 +1,12 @@
-import { KRONER, NUMBERLINE, THERMOMETER, UNITS, UNIT_PAIRS, type PuzzleFace } from './face.js';
+import {
+	BLOCKS,
+	KRONER,
+	NUMBERLINE,
+	THERMOMETER,
+	UNITS,
+	UNIT_PAIRS,
+	type PuzzleFace
+} from './face.js';
 import { DOUBLE } from './generators/double.js';
 
 /**
@@ -70,6 +78,8 @@ export function puzzleHint(face: PuzzleFace): PuzzleHint | null {
 			return numberLineHint(at(0), at(1), at(3), at(4), at(5) === NUMBERLINE.half);
 		case 'units':
 			return unitsHint(at(0), at(1), at(2), at(3));
+		case 'blocks':
+			return blocksHint(at(0), at(1), at(2), at(3));
 		case 'barchart':
 		case 'clock':
 			return null;
@@ -440,4 +450,24 @@ function shapeHint(
 		default:
 			return null;
 	}
+}
+
+/**
+ * A stack of ice blocks as a sum: a flat layer's rows added up (or its
+ * columns, when there are fewer of them), as a floor in squares is; a box's
+ * bottom layer times its layers; and a box's layers as the number that times
+ * its bottom layer makes the blocks it holds. A row is counted, which no sum
+ * makes easier, so it has none.
+ */
+function blocksHint(how: number, l: number, w: number, n: number): PuzzleHint | null {
+	// The bottom layer: a pill of its two sides, or one number when it is a row.
+	const layer: HintToken[] = l > 1 && w > 1 ? ['(', l, '×', w, ')'] : [l * w];
+	if (how === BLOCKS.high) return equation([...layer, '×', '?', '=', n]);
+	if (how !== BLOCKS.count) return null;
+	if (n > 1) return l * w > 1 ? same([...layer, '×', n]) : null;
+	if (l < 2 || w < 2) return null;
+	const [count, each] = w <= l ? [w, l] : [l, w];
+	return same(
+		Array.from({ length: count }, () => each).flatMap((x, i) => (i > 0 ? ['+', x] : [x]))
+	);
 }
