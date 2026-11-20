@@ -19,10 +19,13 @@ import type { CookieOptions } from './sessions.js';
  * The browser holds a random key (256 bits) in an HttpOnly cookie of its own,
  * sent only to the account routes; the account keeps its SHA-256
  * (`users.home_hash`), as a session's token is kept. One key per browser, so
- * a tablet two kids share is home to both their accounts. The key never
- * changes once it is set, so an answer that sends it again can never undo
- * another tab's: unlike the session's cookie, it is sent again freely, to
- * keep it alive. Only a key the server made is ever bound to an account: a
+ * a tablet two kids share is home to both their accounts. Once an account
+ * has taken it the key never changes, so an answer that sends it again can
+ * never undo another tab's: unlike the session's cookie, it is sent again
+ * freely, to keep it alive. (Only a browser with no key yet, where two
+ * requests at once could each make one, has a moment where the last answer
+ * wins; two tabs of one browser play one account or one guest game, so they
+ * never both bind a key then.) Only a key the server made is ever bound to an account: a
  * key the browser shows that no account has is never taken, so a key planted
  * in a browser (by a page on plain HTTP, or by hand) homes nobody. Over
  * HTTPS the cookie's name carries the `__Secure-` prefix, which a browser
