@@ -411,3 +411,9 @@ To become `[learned]`: CLAUDE.md's "Duplicated rosters" item names `scripts/play
 - **A face checked for what it cannot be, never for how big it is.** `faceFits` refused a units face with no such pair or a small part too big, but took "99999 km = ? m", which no step asks and no layout was measured with; and a face this build cannot read fell back to its prompt, so a newer build's pair would show "units(0, 10, 3, 0)" to a kid. Found by a second cold review. Fixed: a face holds at most what the ladder asks, pinned to the ladder by a test, and a worded puzzle that cannot be read shows a "?".
 
 To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology that a ladder's test compares each step's easiest puzzles with the step below's, whatever they ask, not only each skill with itself; and a check in `scripts/doctor-fit.mjs` that no fitting step makes a font bigger than the step before it.
+
+### 2026-11-20 — the Arctic's ice blocks (feat/ice-blocks, PR #249) — a new picture's text sized on a laptop, under the floor on the smallest card `[not codified]`
+
+- **A picture's mark sized for the laptop alone.** The "?" beside a box whose layers are asked was set at 24 px in the SVG's own units; the picture is drawn at about half its size on the smallest phone, so the "?" came out about 12 px, under UI_SPEC's 16 px floor for a picture's text on the smallest card. `FloorFence` already had the phone rule that fixes it, which the new picture did not copy. Found by self-testing, in a screenshot at 844×390. Fixed: the same rule, 34 px on a short screen.
+
+To become `[learned]`: a check in a fit script that every text in `ui/pictures/` is 16 px or more as drawn at 667×375, for every picture kind.
