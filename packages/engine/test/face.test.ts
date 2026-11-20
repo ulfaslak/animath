@@ -3,6 +3,7 @@ import { tokenPuzzle } from '../src/doctor/tokens.js';
 import {
 	FACE_NUMBERS,
 	MAX_FACE_NUMBER,
+	UNIT_PAIRS,
 	facePrompt,
 	puzzleFace,
 	readPuzzleFace,
@@ -87,7 +88,11 @@ describe('a puzzle and its face', () => {
 				{ kind: 'barchart', numbers: [1, 2, 0, 2, 3, 8, 5, 3, 0, 0] },
 				'barchart(1, 2, 0, 2, 3, 8, 5, 3, 0, 0)'
 			],
-			[{ kind: 'clock', numbers: [1, 3, 15, 1, 20] }, 'clock(1, 3, 15, 1, 20)']
+			[{ kind: 'clock', numbers: [1, 3, 15, 1, 20] }, 'clock(1, 3, 15, 1, 20)'],
+			[{ kind: 'units', numbers: [0, 6, 3, 0] }, 'units(0, 6, 3, 0)'],
+			[{ kind: 'units', numbers: [1, 2, 1, 20] }, 'units(1, 2, 1, 20)'],
+			[{ kind: 'units', numbers: [2, 8, 3000, 0] }, 'units(2, 8, 3000, 0)'],
+			[{ kind: 'units', numbers: [3, 2, 130, 2] }, 'units(3, 2, 130, 2)']
 		];
 		for (const [face, prompt] of cases) {
 			expect(facePrompt(face)).toBe(prompt);
@@ -96,6 +101,24 @@ describe('a puzzle and its face', () => {
 		// The doctor's sums go through the same formatter.
 		expect(tokenPuzzle(23, 5).prompt).toBe('23 + 5 = ?');
 		expect(tokenPuzzle(23, -5).prompt).toBe('23 − 5 = ?');
+	});
+
+	it('names each pair of units by the place it has always had, so a saved measuring puzzle reads the same', () => {
+		// A battle saved mid-puzzle holds `units(how, pair, a, b)` and its answer: a pair
+		// moved to another place would ask a kid "2 minutes = ? seconds" and judge 48 right.
+		// Add a pair at the end, here and in `UNIT_PAIRS`; never move one.
+		expect(UNIT_PAIRS.map((p) => `${p.big}-${p.small} ${p.per}`)).toEqual([
+			'week-day 7',
+			'day-hour 24',
+			'hour-minute 60',
+			'minute-second 60',
+			'year-month 12',
+			'km-m 1000',
+			'm-cm 100',
+			'cm-mm 10',
+			'kg-g 1000',
+			'l-dl 10'
+		]);
 	});
 
 	it('reads no face from text the formatter did not write', () => {
@@ -173,6 +196,25 @@ describe('a puzzle and its face', () => {
 			['fraction', 'fraction(2, 4, 8)'],
 			['fraction', 'fraction(1, 7, 14)'],
 			['thermometer', 'thermometer(1, 99, 99)'],
+			// No such pair, no such ask; "2 m 100 cm", "250 cm = ? m", "130 minutes = 3 hours and ? minutes".
+			['units', 'units(0, 10, 3, 0)'],
+			['units', 'units(4, 6, 3, 0)'],
+			['units', 'units(0, 6, 0, 0)'],
+			['units', 'units(0, 6, 3, 5)'],
+			['units', 'units(1, 6, 2, 100)'],
+			['units', 'units(1, 6, 2, 0)'],
+			['units', 'units(2, 6, 250, 0)'],
+			['units', 'units(3, 2, 130, 3)'],
+			['units', 'units(3, 2, 120, 2)'],
+			['units', 'units(0, -6, 3, 0)'],
+			// More big units than any step asks: "13 m", "13 m 5 cm", "780 minutes = ? hours", "13 hours and 10".
+			['units', 'units(0, 6, 13, 0)'],
+			['units', 'units(1, 6, 13, 5)'],
+			['units', 'units(2, 2, 780, 0)'],
+			['units', 'units(3, 2, 790, 13)'],
+			// A number bigger than doubling's ladder shows.
+			['double', 'double(0, 1000)'],
+			['double', 'double(1, 1000)'],
 			['__proto__' as PuzzleFace['kind'], '1 + 1 = ?'],
 			['constructor' as PuzzleFace['kind'], '1 + 1 = ?']
 		];
@@ -224,7 +266,9 @@ describe('a puzzle and its face', () => {
 			{ kind: 'shape', numbers: [0, 40, 4, 0, 0, 0] },
 			{ kind: 'barchart', numbers: [0, 1, 0, 0, 3, 3, 5, 80, 0, 0] },
 			{ kind: 'clock', numbers: [0, 0, 15, 0, 0] },
-			{ kind: 'balance', numbers: [5, 1, 2, 3] }
+			{ kind: 'balance', numbers: [5, 1, 2, 3] },
+			{ kind: 'units', numbers: [1, 6, 2, 100] },
+			{ kind: 'units', numbers: [0, 6, 3] }
 		]) {
 			expect(readPuzzleFace(junk), JSON.stringify(junk)).toBeNull();
 		}

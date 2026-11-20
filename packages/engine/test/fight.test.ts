@@ -84,7 +84,9 @@ const TOKENS = new Set([
 	'clock',
 	// Nordland's number line, a picture kind too.
 	'numberline',
-	'balance'
+	'balance',
+	// A kind of words goes by its id too, its numbers beside it, never its words.
+	'units'
 ]);
 
 /** What must hold of every view and events a fight sends, whatever the battle. */

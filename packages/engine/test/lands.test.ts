@@ -94,6 +94,33 @@ describe('the land registry', () => {
 		expect(arctic.look).toBe('warm-hat');
 	});
 
+	it("The Arctic's animals ask a plain sum first and its own kinds after, each kind by two animals of every tier or more (units from tier 2)", () => {
+		const sums = new Set(['add', 'sub']);
+		const own = getLand('arctic').travelKinds;
+		const askers = new Map<string, Set<string>>();
+		const bad: string[] = [];
+		for (const id of getLand('arctic').species) {
+			const spec = getAnimal(id);
+			spec.attacks.forEach((attack, i) => {
+				const plain = attack.kinds.every((k) => sums.has(k));
+				if (i === 0 ? !plain : !attack.kinds.every((k) => own.includes(k)))
+					bad.push(`${id}/${attack.id}: ${attack.kinds}`);
+				for (const kind of attack.kinds) {
+					const key = `${kind} tier ${spec.tier}`;
+					askers.set(key, (askers.get(key) ?? new Set()).add(id));
+				}
+			});
+		}
+		for (const kind of own)
+			for (const tier of [1, 2, 3, 4, 5]) {
+				// Units start at difficulty 3, past what a small animal's attacks mostly ask.
+				if (kind === 'units' && tier === 1) continue;
+				const n = askers.get(`${kind} tier ${tier}`)?.size ?? 0;
+				if (n < 2) bad.push(`${kind} at tier ${tier}: ${n} animals`);
+			}
+		expect(bad).toEqual([]);
+	});
+
 	it("the animals that could pull The Arctic's dog sled are the reindeer and the Arctic wolf, both walking there (#192)", () => {
 		expect(ANIMALS.filter((a) => a.pulls).map((a) => a.id)).toEqual(['reindeer', 'arctic-wolf']);
 		for (const a of ANIMALS.filter((a) => a.pulls)) {

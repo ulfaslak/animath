@@ -76,9 +76,14 @@ import { readFightEvents, readFightView, type FightEvent, type FightView } from 
  * version 12 page drops from a `peer`.
  * Version 14: doubling and halving, a new puzzle kind (`double`), whose
  * puzzles a version 13 page would drop from a `match` or a `fight`.
- * Version 15: the number line, a new puzzle kind (`numberline`), as 14.
+ * Version 15: The Arctic's units, a puzzle kind a version 14 page would
+ * drop from a `match` or a `fight`. A new way a kind asks or a new pair of
+ * units (`UNITS`, `UNIT_PAIRS`) bumps it too: a page of the version before
+ * cannot read the face, and shows its puzzle as a "?" alone.
+ * Version 16: the number line, a new puzzle kind (`numberline`), whose
+ * puzzles a version 15 page would drop from a `match` or a `fight`.
  */
-export const PROTOCOL_VERSION = 15;
+export const PROTOCOL_VERSION = 16;
 
 /**
  * The most a message may take on the wire, in bytes (the server closes a

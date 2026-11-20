@@ -15,7 +15,8 @@ export type PuzzleKind =
 	| 'sqrt'
 	| 'double'
 	| PictureKind
-	| 'balance';
+	| 'balance'
+	| 'units';
 
 /**
  * The kinds the puzzle panel draws a picture for: the Arctic's (#191) and
@@ -42,15 +43,16 @@ export function isPictureKind(kind: PuzzleKind): kind is PictureKind {
 }
 
 /**
- * The kinds whose question has words: the picture kinds, and doubling and
- * halving ("Double 8 = ?", no picture). The client words their question
- * from the face's numbers in the language on screen, so their prompt is the
- * face written out (`facePrompt`), never shown as it is.
+ * The kinds whose question has words: the picture kinds, doubling and
+ * halving ("Double 8 = ?", no picture) and units ("2 hours = ? minutes", no
+ * picture). The client words their question from the face's numbers in the
+ * language on screen, so their prompt is the face written out (`facePrompt`),
+ * never shown as it is.
  */
-export type WordedKind = PictureKind | 'double';
+export type WordedKind = PictureKind | 'double' | 'units';
 
 export function isWordedKind(kind: PuzzleKind): kind is WordedKind {
-	return kind === 'double' || isPictureKind(kind);
+	return kind === 'double' || kind === 'units' || isPictureKind(kind);
 }
 
 export const ALL_PUZZLE_KINDS: readonly PuzzleKind[] = [
@@ -63,7 +65,8 @@ export const ALL_PUZZLE_KINDS: readonly PuzzleKind[] = [
 	'sqrt',
 	'double',
 	...PICTURE_KINDS,
-	'balance'
+	'balance',
+	'units'
 ];
 
 /**
@@ -98,7 +101,8 @@ export type PuzzleTopic =
 	| 'perimeter'
 	| 'barchart'
 	| 'balance'
-	| 'clock';
+	| 'clock'
+	| 'units';
 
 export const ALL_PUZZLE_TOPICS: readonly PuzzleTopic[] = [
 	'add',
@@ -118,7 +122,8 @@ export const ALL_PUZZLE_TOPICS: readonly PuzzleTopic[] = [
 	'perimeter',
 	'barchart',
 	'balance',
-	'clock'
+	'clock',
+	'units'
 ];
 
 /** Difficulty is an integer scalar. 1 is a first-grader's warm-up, 10 is hard. */

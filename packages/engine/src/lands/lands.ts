@@ -218,7 +218,16 @@ export const LANDS: readonly LandSpec[] = [
 		currency: 'ice-dollars',
 		// The Arctic's own kinds (#191 step 2): a taste of what waits there. Named one by one,
 		// since a picture kind or a kind of words may be another land's.
-		travelKinds: ['thermometer', 'kroner', 'fraction', 'shape', 'barchart', 'clock', 'balance'],
+		travelKinds: [
+			'thermometer',
+			'kroner',
+			'fraction',
+			'shape',
+			'barchart',
+			'clock',
+			'balance',
+			'units'
+		],
 		look: 'warm-hat'
 	}
 ];

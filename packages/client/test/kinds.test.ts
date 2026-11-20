@@ -1,6 +1,7 @@
 import {
 	ALL_PUZZLE_KINDS,
 	ALL_PUZZLE_TOPICS,
+	PICTURE_KINDS,
 	MAX_DIFFICULTY,
 	MIN_DIFFICULTY,
 	Rng,
@@ -8,7 +9,7 @@ import {
 	puzzleFace
 } from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
-import { kindGlyph, thoughtSum } from '../src/kinds';
+import { kindGlyph, thoughtSum, wholePanel } from '../src/kinds';
 
 /**
  * The thought bubble over a player in a battle ([[UI_SPEC]] § Explore mode,
@@ -33,10 +34,23 @@ describe('a thought bubble', () => {
 		expect([...bad]).toEqual([]);
 	});
 
-	it('shows doubling and halving by their signs, and a sum as it is', () => {
+	it('shows doubling, halving and units by their signs, and a sum as it is', () => {
 		expect(thoughtSum({ kind: 'double', numbers: [0, 8] })).toBe('×2 ?');
 		expect(thoughtSum({ kind: 'double', numbers: [1, 14] })).toBe('÷2 ?');
+		expect(thoughtSum({ kind: 'units', numbers: [0, 6, 3, 0] })).toBe('cm ?');
 		expect(thoughtSum({ kind: 'mul', numbers: [7, 8] })).toBe('7 × 8 = ?');
+	});
+});
+
+/**
+ * A battle's whole panel ([[UI_SPEC]] § Battle mode, "Puzzle pictures"): a
+ * picture, and a sum in words, too long for the card beside the party list.
+ * A short question in words ("Double 8 = ?") keeps that card, as a sum does.
+ */
+describe('the whole panel', () => {
+	it('goes to the picture kinds and units, and to nothing else', () => {
+		const whole = ALL_PUZZLE_KINDS.filter(wholePanel);
+		expect(whole).toEqual([...PICTURE_KINDS, 'units']);
 	});
 });
 

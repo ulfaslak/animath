@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { isPictureKind, puzzleTopics } from '@mathgame/engine';
+	import { puzzleTopics } from '@mathgame/engine';
 	import { press, unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
-	import { kindGlyph } from '../kinds';
+	import { kindGlyph, wholePanel } from '../kinds';
 	import PuzzlePanel from '../ui/PuzzlePanel.svelte';
 	import { preview } from './preview.svelte';
 
@@ -10,13 +10,13 @@
 	 * The puzzle preview's page (`preview.svelte.ts`): the puzzle in a card
 	 * of the battle panel's own size and place (`--battle-panel`, the
 	 * margins of `BattlePanel`'s `.panel`), on the sky, so what shows here is
-	 * what a battle shows. A picture puzzle has the whole panel, as in a
-	 * battle (`wide`); a sum has the battle's right-hand card. Over it, the
+	 * what a battle shows. A picture puzzle or one in words has the whole
+	 * panel, as in a battle (`wide`); a sum has the battle's right-hand card. Over it, the
 	 * kind's sign and the difficulty, each with its two arrows, which a
 	 * finger can press too.
 	 */
 	const topic = $derived(puzzleTopics([preview.kind], preview.difficulty)[0] ?? 'add');
-	const wide = $derived(isPictureKind(preview.kind));
+	const wide = $derived(wholePanel(preview.kind));
 
 	function key(name: string) {
 		return (e: PointerEvent) => {
