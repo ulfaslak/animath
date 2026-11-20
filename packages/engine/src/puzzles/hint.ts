@@ -1,4 +1,5 @@
 import { KRONER, THERMOMETER, type PuzzleFace } from './face.js';
+import { DOUBLE } from './generators/double.js';
 
 /**
  * One piece of a hint's sum: a number, a sign, the unknown (`?`, or `□` on
@@ -51,6 +52,8 @@ export function puzzleHint(face: PuzzleFace): PuzzleHint | null {
 		}
 		case 'sqrt':
 			return equation(['?', '×', '?', '=', at(0)]);
+		case 'double':
+			return at(0) === DOUBLE.half ? halfHint(at(1)) : doubleHint(at(1));
 		case 'balance':
 			return balanceHint(at(0), at(1), at(2), at(3));
 		case 'thermometer':
@@ -124,6 +127,49 @@ function addHint(a: number, b: number): PuzzleHint | null {
 	// Nothing to add up in a place of its own (40 + 30), or nothing sharing a place (30 + 4).
 	if (parts.length < 2 || parts.every((part) => part.length === 1)) return null;
 	return same(joined(parts, '+'));
+}
+
+/**
+ * Doubling is adding a number to itself, so it breaks down as that sum does
+ * (dots to 5 + 5, 7 + 7 through the ten, 37 + 37 place by place: (30 + 30) +
+ * (7 + 7)); a round number doubles its digit and puts the zeros back on
+ * (double 40 is (4 + 4) × 10), and 10 is 10 + 10.
+ */
+function doubleHint(n: number): PuzzleHint | null {
+	if (n < 1) return null;
+	const added = addHint(n, n);
+	if (added) return added;
+	const unit = unitOf(n);
+	const digit = n / unit;
+	if (!Number.isInteger(digit)) return null;
+	return digit === 1 ? same([n, '+', n]) : same(['(', digit, '+', digit, ')', '×', unit]);
+}
+
+/**
+ * Halving: to 10, the double the kid knows backwards (half of 8 is ? + ? = 8);
+ * bigger, place by place, each place halved on its own (half of 76 is
+ * (70 ÷ 2) + (6 ÷ 2)); a round number of an odd digit splits off one of its
+ * tens or hundreds first (half of 70 is (60 ÷ 2) + (10 ÷ 2)). Every place of
+ * an even number halves whole: its ones are even, and a ten or a hundred
+ * halves to 5 or 50.
+ */
+function halfHint(n: number): PuzzleHint | null {
+	if (n < 2 || n % 2 !== 0) return null;
+	const knownDouble = equation(['?', '+', '?', '=', n]);
+	if (n <= 10) return knownDouble;
+	const parts = places(n);
+	if (parts.length === 1) {
+		const unit = unitOf(n);
+		const digit = n / unit;
+		if (digit % 2 === 0 || digit === 1) return knownDouble;
+		parts.splice(0, 1, n - unit, unit);
+	}
+	return same(
+		joined(
+			parts.map((part): HintToken[] => [part, '÷', 2]),
+			'+'
+		)
+	);
 }
 
 /** The place a part sits in: 1, 10, 100, or the thousands (`places`). */
