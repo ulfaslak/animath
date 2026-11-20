@@ -1117,7 +1117,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'rocks',
 		attacks: [
 			{ id: 'sky-watch', kinds: ['add', 'sub'], power: 21 },
-			{ id: 'fast-dive', kinds: ['clock'], power: 31 },
+			{ id: 'fast-dive', kinds: ['units'], power: 31 },
 			{ id: 'talon-strike', kinds: ['fraction'], power: 40 }
 		]
 	},
@@ -1150,7 +1150,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		attacks: [
 			{ id: 'glide', kinds: ['add'], power: 22 },
 			{ id: 'sky-dance', kinds: ['barchart'], power: 31 },
-			{ id: 'wide-wings', kinds: ['units'], power: 39 }
+			{ id: 'wide-wings', kinds: ['fraction'], power: 39 }
 		]
 	},
 	{
@@ -1521,8 +1521,8 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'water',
 		attacks: [
 			{ id: 'krill-gulp', kinds: ['add', 'sub'], power: 25 },
-			{ id: 'deep-rumble', kinds: ['fraction'], power: 36 },
-			{ id: 'giant-spout', kinds: ['units'], power: 46 },
+			{ id: 'deep-rumble', kinds: ['units'], power: 36 },
+			{ id: 'giant-spout', kinds: ['barchart'], power: 46 },
 			{ id: 'big-blue', kinds: ['clock'], power: 53 }
 		]
 	},
