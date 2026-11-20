@@ -235,6 +235,13 @@ describe('a puzzle and its face', () => {
 			['blocks', 'blocks(1, 6, 5, 300)'],
 			['blocks', 'blocks(1, 1, 3, 9)'],
 			['blocks', 'blocks(0, 4, 3)'],
+			// One block, a tower, walls one block thick (nothing hidden), a box only 2 layers high.
+			['blocks', 'blocks(0, 1, 1, 1)'],
+			['blocks', 'blocks(0, 1, 1, 6)'],
+			['blocks', 'blocks(0, 1, 5, 6)'],
+			['blocks', 'blocks(0, 6, 1, 6)'],
+			['blocks', 'blocks(1, 2, 2, 8)'],
+			['blocks', 'blocks(1, 6, 5, 60)'],
 			// A number bigger than doubling's ladder shows.
 			['double', 'double(0, 1000)'],
 			['double', 'double(1, 1000)'],

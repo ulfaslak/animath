@@ -630,13 +630,14 @@ describe('what each kind promises a kid', () => {
 
 	it('ice blocks: every stack as big as the picture draws and no bigger, a box at least 2 each way, every sum in the head', () => {
 		const bad: string[] = [];
-		const most = { long: 0, boxLong: 0, deep: 0, high: 0, layers: 0 };
+		const most = { long: 0, boxLong: 0, deep: 0, high: 0, layers: 0, fewest: Infinity };
 		for (const d of DS)
 			for (const [how, l, w, n, answer] of faces('blocks', d)) {
 				most.deep = Math.max(most.deep, w!);
 				if (how === BLOCKS.high) {
 					most.boxLong = Math.max(most.boxLong, l!);
 					most.layers = Math.max(most.layers, answer!);
+					most.fewest = Math.min(most.fewest, answer!);
 					if (answer! < 2 || l! < 2 || w! < 2) bad.push(`d${d}: ${l}×${w}, ${answer} high`);
 					continue;
 				}

@@ -144,10 +144,17 @@ export const BLOCKS = { count: 0, high: 1 } as const;
  * The biggest stack of ice blocks a face holds, so every block's edge stays
  * countable on a phone: a row or a flat layer up to `long` blocks long, a box
  * up to `boxLong`, any stack up to `deep` deep and `high` layers, and a box
- * whose layers are asked up to `layers` of them. The most the ladder asks
+ * whose layers are asked `fewest` to `layers` of them. What the ladder asks
  * (`puzzle-kinds.test.ts` pins it).
  */
-export const MAX_BLOCKS = { long: 9, boxLong: 6, deep: 5, high: 6, layers: 9 } as const;
+export const MAX_BLOCKS = {
+	long: 9,
+	boxLong: 6,
+	deep: 5,
+	high: 6,
+	layers: 9,
+	fewest: 3
+} as const;
 
 /** The biggest number doubled or halved: the most any step of doubling's ladder shows (`puzzle-kinds.test.ts`). */
 export const MAX_DOUBLED = 999;
@@ -436,15 +443,17 @@ function faceFits(face: PuzzleFace): boolean {
 		}
 		case 'blocks': {
 			const [how, l, w, n] = [at(0), at(1), at(2), at(3)];
-			if (l < 1 || w < 1 || w > MAX_BLOCKS.deep) return false;
+			// Two blocks long at least, and as deep as the picture draws.
+			if (l < 2 || w < 1 || w > MAX_BLOCKS.deep) return false;
 			if (how === BLOCKS.count) {
-				if (n < 1 || n > MAX_BLOCKS.high) return false;
-				return l <= (n === 1 ? MAX_BLOCKS.long : MAX_BLOCKS.boxLong);
+				// A row or a flat layer; else a box, 2 each way, never a wall or a tower with nothing hidden.
+				if (n === 1) return l <= MAX_BLOCKS.long;
+				return w >= 2 && n >= 2 && n <= MAX_BLOCKS.high && l <= MAX_BLOCKS.boxLong;
 			}
-			if (how !== BLOCKS.high || l < 2 || w < 2 || l > MAX_BLOCKS.boxLong) return false;
-			// A whole number of layers, two or more: one layer is the bottom alone.
+			if (how !== BLOCKS.high || w < 2 || l > MAX_BLOCKS.boxLong) return false;
+			// A whole number of layers, as many as the ladder asks.
 			const layers = n / (l * w);
-			return Number.isInteger(layers) && layers >= 2 && layers <= MAX_BLOCKS.layers;
+			return Number.isInteger(layers) && layers >= MAX_BLOCKS.fewest && layers <= MAX_BLOCKS.layers;
 		}
 		case 'units': {
 			const [how, pair, a, b] = [at(0), at(1), at(2), at(3)];
