@@ -372,3 +372,9 @@ To become `[learned]`: a line in CLAUDE.md § Duplicated rosters that a per-puzz
 - **"Never says the answer" was checked one way only.** `hint.test.ts` rejected an unknown standing alone against a bare number, and passed hints that showed the answer beside a step worth nothing: 16 − 10 as (10 − 10) + 6, a thermometer from 0° as 0 + 5, a walk through 0° as −4 + 4 + 7, 2400 ÷ 24 as (24 ÷ 24) × 100. Its check of a pattern's jumps repeated the code's own expression, so it could not fail. Found by the cold review. The test now looks for a 0, a pill worth 0, a times 1, and the answer beside steps that cancel out, and it found two more on its own (8 × 6 as (8 × 5) + (8 × 1), an L corner as 1 × 2).
 
 To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology that a test named for a "never" lists the shapes the forbidden thing can take and checks each, and computes what it compares by another route than the code.
+
+### 2026-11-20 — puzzle hints (feat/puzzle-hints, PR #246) — grouping drawn as a colour alone, where the order changes the result `[not codified]`
+
+- **A pill after a minus read wrong.** A hint's part to work out first is a pale chip with no brackets, which reads fine after a plus or a times. After a minus it does not: "1 − 1 − (2 − 1)" drawn as chips reads, left to right, as 1 − 1 − 2 − 1 = −3. The balance's "□ = a − (b − c)" had it from the start; the walk through 0° made it common. Found by looking at the thermometer's frame. A chip after `−` or `÷` now shows its brackets too.
+
+To become `[learned]`: a line in [[DESIGN]] that a sum drawn for kids shows grouping with brackets wherever reading it left to right gives another number.

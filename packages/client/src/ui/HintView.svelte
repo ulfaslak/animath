@@ -23,18 +23,25 @@
 		return typeof t === 'number' && t < 0 ? `−${-t}` : String(t);
 	}
 
-	/** The equation in runs: a pill's pieces together, every other piece on its own. */
+	/**
+	 * The equation in runs: a pill's pieces together, every other piece on its
+	 * own. A pill after a minus or a share sign shows its brackets too
+	 * (`bracketed`): there the order is the sum, and 1 − 1 − (2 − 1) read left
+	 * to right without them would be −3.
+	 */
 	const runs = $derived.by(() => {
 		if (hint.form !== 'equation') return [];
-		const out: { pill: boolean; tokens: HintToken[] }[] = [];
+		const out: { pill: boolean; bracketed: boolean; tokens: HintToken[] }[] = [];
 		let pill: HintToken[] | null = null;
+		let before: HintToken | null = null;
 		for (const t of hint.tokens) {
 			if (t === '(') pill = [];
 			else if (t === ')') {
-				out.push({ pill: true, tokens: pill ?? [] });
+				out.push({ pill: true, bracketed: before === '−' || before === '÷', tokens: pill ?? [] });
 				pill = null;
 			} else if (pill) pill.push(t);
-			else out.push({ pill: false, tokens: [t] });
+			else out.push({ pill: false, bracketed: false, tokens: [t] });
+			if (!pill && t !== ')') before = t;
 		}
 		return out;
 	});
@@ -71,7 +78,9 @@
 				{#each runs as run, i (i)}
 					{#if run.pill}
 						<span class="pill"
-							>{#each run.tokens as t, k (k)}<span class="piece">{shown(t)}</span>{/each}</span
+							>{#if run.bracketed}<span class="bracket">(</span
+								>{/if}{#each run.tokens as t, k (k)}<span class="piece">{shown(t)}</span
+								>{/each}{#if run.bracketed}<span class="bracket">)</span>{/if}</span
 						>
 					{:else}
 						<span class="piece" class:unknown={run.tokens[0] === '?' || run.tokens[0] === '□'}
@@ -139,6 +148,10 @@
 		border-radius: 10px;
 		background: color-mix(in srgb, var(--blue) 14%, var(--panel-cream));
 		white-space: nowrap;
+	}
+	/* A pill's brackets, where the order matters: close to what they hold. */
+	.bracket {
+		margin-inline: -5px;
 	}
 	/* Dots to count, in rows of five. */
 	.dots {
