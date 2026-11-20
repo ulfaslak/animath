@@ -346,3 +346,10 @@ To become `[learned]`: a line in [[DEVELOPMENT]] (or CLAUDE.md § Regardless of 
 - **Prose claims written from the band ends.** "Across a hundred" and "across a thousand" held for 50–75% of puzzles, and "neither number is a multiple of ten" was false for the sum. Same category as 2026-10-28's second item: a claim is measured from the generator's output, or tested.
 
 To become `[learned]`: the 2026-10-28 line, plus a test or a check in [[DEVELOPMENT]] § Testing ideology that no two neighbouring difficulties of any kind's table give the same puzzles.
+
+### 2026-11-20 — the Arctic's ladders on the school-year scale (feat/arctic-ladders, PR #242) — two equal steps on a ladder, and a band end no puzzle can reach `[not codified]`
+
+- **A ladder that holds a skill for two years held it for two equal steps.** The approved scale put whole hours at 1–2 and a quarter past and to at 4–5, and the clock's table wrote both pairs as the same row. Every test of a ladder checked that its bands never fall; none checked that they rise. So an Arctic tern's Long Trip asked the same clocks on easy and on medium, and the fox's Snow Dive, the Adélie's Belly Slide and the gentoo's Fast Swim the same on medium and hard, the harder level hitting harder for nothing (#32's failure in a new place; the same day the Nordland ladders made the same mistake, the entry above). The mapping test compares difficulty numbers, not the puzzles they draw. Found by the adversarial review; `puzzles.test.ts` now draws every kind at neighbouring difficulties from the same seed and fails when they match.
+- **A band end written in the table but never asked.** The balance's box was 2–9 at 8, but `a × □ = b × c` needs a product another pair makes, and 2 × 2–5 never has one, so the box was always 3–9 and PRODUCT copied the table's 2–9. Found by the adversarial review. Prose taken from a table is a claim about what the generator does: sample the ends, not the table.
+
+To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology that a ladder test checks each step asks something the one below does not, and that a band's ends are sampled from the generator before prose quotes them.

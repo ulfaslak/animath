@@ -19,18 +19,23 @@ export interface ShapeStep {
 	missing: number;
 }
 
-/** Index = difficulty − 1. Both ends of `side` never fall. */
+/**
+ * Index = difficulty − 1. The floor of a rectangle in squares (1–3), the
+ * fence too (4), then the sides' lengths written on (5–6), an L (half the
+ * shapes at 7, every one at 8), and a side missing (9–10). Both ends of
+ * `side` never fall.
+ */
 export const SHAPE_LADDER: readonly ShapeStep[] = [
 	{ side: [2, 4], grid: true, fence: false, l: 0, missing: 0 },
-	{ side: [2, 5], grid: true, fence: true, l: 0, missing: 0 },
-	{ side: [3, 7], grid: true, fence: true, l: 0, missing: 0 },
+	{ side: [2, 5], grid: true, fence: false, l: 0, missing: 0 },
+	{ side: [3, 5], grid: true, fence: false, l: 0, missing: 0 },
+	{ side: [3, 6], grid: true, fence: true, l: 0, missing: 0 },
+	{ side: [3, 7], grid: false, fence: true, l: 0, missing: 0 },
 	{ side: [4, 9], grid: false, fence: true, l: 0, missing: 0 },
-	{ side: [4, 9], grid: true, fence: true, l: 1, missing: 0 },
-	{ side: [5, 12], grid: false, fence: true, l: 0, missing: 0.5 },
-	{ side: [5, 12], grid: false, fence: true, l: 0.5, missing: 0.5 },
-	{ side: [8, 15], grid: false, fence: true, l: 0.5, missing: 0.5 },
-	{ side: [10, 20], grid: false, fence: true, l: 0.5, missing: 0.5 },
-	{ side: [12, 25], grid: false, fence: true, l: 0.5, missing: 0.5 }
+	{ side: [4, 10], grid: false, fence: true, l: 0.5, missing: 0 },
+	{ side: [5, 10], grid: false, fence: true, l: 1, missing: 0 },
+	{ side: [6, 12], grid: false, fence: true, l: 0.5, missing: 0.5 },
+	{ side: [8, 12], grid: false, fence: true, l: 0.5, missing: 0.5 }
 ];
 
 /** What `shape` asks: the floor (how many squares) or the fence (how long all the way round), or a side missing from either. */
@@ -39,9 +44,10 @@ export const SHAPE = { floor: 0, fence: 1, floorSide: 2, fenceSide: 3 } as const
 /**
  * Area and perimeter ([[PRODUCT]] §4 "Puzzles"), always as a floor and a
  * fence, so a kid never mixes them up: the floor is the squares inside, the
- * fence goes all the way round. A rectangle in squares first, then with its
- * sides written on, then an L (a rectangle with a corner cut away), then a
- * side missing: the floor's squares or the fence's length and one side given.
+ * fence goes all the way round. A rectangle's floor in squares first, then
+ * its fence, then with its sides written on, then an L (a rectangle with a
+ * corner cut away), then a side missing: the floor's squares or the fence's
+ * length and one side given.
  */
 export const shape: PuzzleGenerator = {
 	kind: 'shape',
