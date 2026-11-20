@@ -1765,8 +1765,10 @@ pause:
   makeAccount: Lav en konto
   logIn: Log ind
   logOut: Log ud
+  newPassword: Ny kode
   logOutTitle: Log ud?
   logOutAsk: Kan du huske din hemmelige kode? Du skal bruge den for at logge ind igen som {name}.
+  logOutAskHome: 'Her kan du logge ind igen som {name} bare med dit navn.'
   logOutStay: Nej, bliv logget ind
   logOutYes: Ja, log ud
   language: Sprog
@@ -1866,6 +1868,20 @@ account:
     go: Log ind
     forgot: Har du glemt din kode? Spørg en voksen om hjælp.
     keys: Tab næste felt · Enter log ind · Esc tilbage
+    homeText: Det er din egen tablet eller computer, så du skal kun bruge dit navn.
+    home: Her skal du ikke bruge kode.
+    homeKeys: Enter log ind · Esc tilbage
+  gate:
+    title: Vælg en hemmelig kode
+    text: Dit spil skal have en hemmelig kode, før du kan spille videre. Dit navn er det, du logger ind med.
+    go: Lad os spille!
+    keys: Tab næste felt · Enter spil · Esc tilbage
+  newPassword:
+    title: Ny hemmelig kode
+    text: Vælg en ny hemmelig kode. Du skal bruge den for at logge ind på andre tablets og computere.
+    label: Ny hemmelig kode
+    go: Gem
+    keys: Enter gem · Esc tilbage
   problem:
     taken: Det navn er taget. Vælg et andet!
     passwordShort: 'Din kode skal have mindst {min} bogstaver eller tal.'
@@ -1875,6 +1891,7 @@ account:
       one: Mange forsøg! Hold en lille pause og prøv igen om et minut.
       other: 'Mange forsøg! Hold en lille pause og prøv igen om {count} minutter.'
     offline: Vi kan ikke nå spillets hjem lige nu. Prøv igen om lidt!
+    notHome: Du kan kun vælge en ny kode på din egen tablet eller computer.
     storage: 'Denne browser kan ikke huske dig. Dit spil er gemt på din konto: log ind på en anden tablet eller computer.'
   prompt:
     title: Pas godt på dine dyr!
@@ -1886,6 +1903,7 @@ account:
     saved: 'Dit spil er gemt! Log ind som {name} på en hvilken som helst tablet eller computer.'
     welcome: 'Velkommen tilbage, {name}!'
     movedAhead: Du har spillet videre et andet sted. Her er dit nyeste spil!
+    newPassword: Din nye kode er gemt!
   welcome:
     checking: Velkommen tilbage!
     title: 'Velkommen tilbage, {name}!'
@@ -2286,8 +2304,8 @@ puzzles:
   solved:
     one: '{count} løst i alt'
     other: '{count} løst i alt'
-  help: Hver opgave, du svarer på, bliver talt her, slags for slags.
-  row: '{right} rigtige af {tried}'
-  never: Ikke prøvet endnu
-  caption: Hver bjælke er de opgaver, du har prøvet. Den grønne del er dem, du fik rigtige.
+  help: Hver opgave, du løser, bliver talt her, slags for slags.
+  row: '{right} løst'
+  never: Ikke løst endnu
+  caption: Jo længere bjælken er, jo flere af den slags har du løst.
   keys: ↑ ↓ flyt · Esc tilbage

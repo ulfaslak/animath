@@ -59,6 +59,7 @@ export const MENU_ITEMS = [
 	'sound',
 	'makeAccount',
 	'logIn',
+	'newPassword',
 	'logOut',
 	'resume',
 	'quit',
@@ -71,17 +72,22 @@ export type MenuItem = (typeof MENU_ITEMS)[number];
  * The rows the menu shows now. The account rows ([[UI_SPEC]] § Accounts)
  * follow who is playing: a guest has "Make an account" and "Log in"; a
  * player logged in has "Log out", and "Log in" again once the server has
- * said the session is over. "Make an account" and "Log in" show only while
+ * said the session is over; on the account's own browser ([[DECISIONS]]
+ * § Accounts) "New password" beside "Log out", while the session is live. "Make an account" and "Log in" show only while
  * the server says it can keep an account (`account.ready`); "Log out" works
  * without it. A throwaway game (`?new` and the like) has none: it saves
  * nothing, so it has no game to keep safe.
  */
 export function menuItems(): MenuItem[] {
 	return MENU_ITEMS.filter((item) => {
-		if (item !== 'makeAccount' && item !== 'logIn' && item !== 'logOut') return true;
+		if (item !== 'makeAccount' && item !== 'logIn' && item !== 'logOut' && item !== 'newPassword')
+			return true;
 		if (flags.throwaway) return false;
 		if (item === 'logOut') return account.name !== null;
 		if (!account.ready) return false;
+		if (item === 'newPassword') {
+			return account.name !== null && account.home && account.session === 'live';
+		}
 		return account.name === null || (item === 'logIn' && account.session === 'ended');
 	});
 }
@@ -98,7 +104,7 @@ export function menuItems(): MenuItem[] {
 export const MENU_LINES: readonly (readonly MenuItem[])[] = [
 	['worlds', 'players'],
 	['language', 'sound'],
-	['makeAccount', 'logIn', 'logOut'],
+	['makeAccount', 'logIn', 'newPassword', 'logOut'],
 	['resume', 'quit'],
 	['puzzles', 'book']
 ];

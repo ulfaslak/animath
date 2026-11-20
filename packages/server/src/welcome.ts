@@ -108,6 +108,8 @@ export type WelcomeResult =
 			sessionToken: string;
 			/** The account's save as stored, or null with none. */
 			save: unknown;
+			/** This browser is the account's home now (it had none: always, unless the admin set one). */
+			home: boolean;
 	  }
 	| { kind: 'used' }
 	| { kind: 'expired' }
@@ -117,14 +119,19 @@ export type WelcomeResult =
 class HasPasswordNow extends Error {}
 
 /**
- * Uses the link up: its account gets `passwordHash` and a first session, all
- * or nothing, and its save comes back for the page to play. The link is
+ * Uses the link up: its account gets `passwordHash`, this browser as its
+ * home (when it has none) and a first session, all or nothing, and its save comes back for the page to play. The link is
  * marked used in the same transaction, on the condition that it is not
  * already, so of uses racing each other exactly one lands and the rest find
  * it used; one that finds the account with a password (the admin set one
  * meanwhile) changes nothing, and finds it used too.
  */
-export async function acceptWelcome(token: string, passwordHash: string): Promise<WelcomeResult> {
+export async function acceptWelcome(
+	token: string,
+	passwordHash: string,
+	/** The SHA-256 of this browser's home key: the account's home, unless it has one. */
+	homeHash: string
+): Promise<WelcomeResult> {
 	if (!TOKEN.test(token)) return { kind: 'unknown' };
 	try {
 		return await db.transaction(async (tx): Promise<WelcomeResult> => {
@@ -145,16 +152,22 @@ export async function acceptWelcome(token: string, passwordHash: string): Promis
 			}
 			const [user] = await tx
 				.update(users)
-				.set({ passwordHash })
+				.set({ passwordHash, homeHash: sql`coalesce(${users.homeHash}, ${homeHash})` })
 				.where(and(eq(users.id, link.userId), eq(users.passwordHash, NO_PASSWORD)))
-				.returning({ name: users.name });
+				.returning({ name: users.name, homeHash: users.homeHash });
 			if (!user) throw new HasPasswordNow();
 			const sessionToken = await createSession(tx, link.userId);
 			const [saved] = await tx
 				.select({ data: accountSaves.data })
 				.from(accountSaves)
 				.where(eq(accountSaves.userId, link.userId));
-			return { kind: 'welcomed', name: user.name, sessionToken, save: saved?.data ?? null };
+			return {
+				kind: 'welcomed',
+				name: user.name,
+				sessionToken,
+				save: saved?.data ?? null,
+				home: user.homeHash === homeHash
+			};
 		});
 	} catch (error) {
 		if (error instanceof HasPasswordNow) return { kind: 'used' };

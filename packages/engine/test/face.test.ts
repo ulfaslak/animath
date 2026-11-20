@@ -52,7 +52,8 @@ describe('a puzzle and its face', () => {
 		expect(bad.slice(0, 20)).toEqual([]);
 		// Every number any puzzle shows fits a face: the bound is never what drops one.
 		expect(biggest).toBeLessThanOrEqual(MAX_FACE_NUMBER);
-		expect(biggest).toBeGreaterThan(MAX_FACE_NUMBER / 5);
+		// And the sample reached five digits (a difficulty-10 take-away's), so the bound was tried.
+		expect(biggest).toBeGreaterThanOrEqual(10_000);
 	});
 
 	it('writes the prompts the game has always written', () => {

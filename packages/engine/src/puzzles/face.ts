@@ -72,9 +72,9 @@ export const FACE_NUMBERS: Readonly<Record<PuzzleKind, number>> = {
 };
 
 /**
- * The biggest number a face holds. The biggest any attack's puzzle shows is
- * 25,000 (a difficulty-10 division, 500 × 50 ÷ 50) and a sum's 20,000, so a
- * face never needs more than five digits: a thought bubble stays short.
+ * The biggest number a face holds. The biggest any puzzle shows is a
+ * difficulty-10 take-away's 20,000 (10,000 + 10,000 − 10,000), so a face
+ * never needs more than five digits: a thought bubble stays short.
  * `face.test.ts` pins it over every kind and difficulty.
  */
 export const MAX_FACE_NUMBER = 99_999;
