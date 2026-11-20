@@ -1952,10 +1952,14 @@ pause:
   makeAccount: Make an account
   logIn: Log in
   logOut: Log out
+  # The row on the account's own tablet or computer that picks a new password.
+  newPassword: New password
   # On the right after Log out is picked, before it logs out: without the password the
   # account's game can't come back. {name}: the account's name. Stay is lit first.
   logOutTitle: Log out?
   logOutAsk: Do you remember your secret password? You need it to log in again as {name}.
+  # The same on the account's own tablet or computer, where its name alone logs in again.
+  logOutAskHome: 'You can log in again here as {name} with just your name.'
   logOutStay: No, stay logged in
   logOutYes: Yes, log out
   # The row that switches every word to another language; each language is
@@ -2085,6 +2089,27 @@ account:
     # Under the boxes when logging in: a grown-up can set a new password.
     forgot: Forgot your password? Ask a grown-up to help.
     keys: Tab other box · Enter log in · Esc back
+    # The same card for an account whose own tablet or computer this is: its name alone logs
+    # in, and there is no password box. The line under the heading, the note under the name
+    # box, and the key reminder.
+    homeText: This is your own tablet or computer, so your name is all you need.
+    home: No password needed here.
+    homeKeys: Enter log in · Esc back
+  # The card on Continue, for a game played without an account: it goes on only once the
+  # game has a secret password. The name box holds the game's name.
+  gate:
+    title: Pick a secret password
+    text: Your game needs a secret password to go on. Your name is what you log in with.
+    go: "Let's play!"
+    keys: Tab other box · Enter play · Esc back
+  # The pause menu's card on the account's own tablet or computer: a new password. Every other
+  # tablet or computer logged in to the account is logged out.
+  newPassword:
+    title: New secret password
+    text: Pick a new secret password. You need it to log in on other tablets and computers.
+    label: New secret password
+    go: Save
+    keys: Enter save · Esc back
   # Why the card did not go on, in place of the line under the boxes.
   problem:
     taken: That name is taken. Pick another one!
@@ -2096,6 +2121,8 @@ account:
       one: Lots of tries! Take a little break and try again in a minute.
       other: 'Lots of tries! Take a little break and try again in {count} minutes.'
     offline: We can't reach the game's home right now. Try again soon!
+    # A new password asked for where it can't be picked (not the account's own tablet or computer).
+    notHome: You can only pick a new password on your own tablet or computer.
     # The account was made with the game, but this browser can't store anything, so it can't log in here.
     storage: "This browser can't remember you. Your game is saved in your account: log in on another tablet or computer."
   # The card after every 1,000 steps of a guest's game.
@@ -2110,6 +2137,8 @@ account:
     saved: 'Your game is saved! Log in as {name} on any tablet or computer.'
     welcome: 'Welcome back, {name}!'
     movedAhead: You played on somewhere else. Here's your newest game!
+    # A new password was saved.
+    newPassword: Your new password is saved!
   # The card a welcome link opens over the title: a grown-up brought the kid's game over from
   # another computer into an account, and the kid picks its password here.
   welcome:
@@ -2632,9 +2661,9 @@ about:
   blue-whale: 'It is blue-grey with pale spots. It is the biggest animal that has ever lived!'
   leopard-seal: 'It has spots like a leopard and a big wide mouth. It sings long songs under water.'
 puzzles:
-  # "My puzzles": every kind of puzzle the kid has answered, with how many they
-  # tried and got right. The pause menu's row (on the menu's title line, beside
-  # the animal book) and the page's own title.
+  # "My puzzles": every kind of puzzle, with how many of it the kid has
+  # solved. Never how many they tried or missed. The pause menu's row (on the
+  # menu's title line, beside the animal book) and the page's own title.
   title: My puzzles
   # Beside the page's title, and in the panel while its row is lit: every
   # puzzle solved, the count the HUD shows.
@@ -2642,12 +2671,12 @@ puzzles:
     one: '{count} solved in all'
     other: '{count} solved in all'
   # The panel beside the row while it is lit.
-  help: Every puzzle you answer is counted here, kind by kind.
-  # A kind's row: how many of it were answered right, of how many tried.
-  row: '{right} right of {tried}'
-  # A kind's row when none of it has been answered yet.
-  never: Not tried yet
+  help: Every puzzle you solve is counted here, kind by kind.
+  # A kind's row: how many of it were solved.
+  row: '{right} solved'
+  # A kind's row when none of it has been solved yet, tried or not.
+  never: Not solved yet
   # Under the rows: what the bars mean. Never what a kind is worth in a battle.
-  caption: Each bar is the puzzles you tried. The green part is the ones you got right.
+  caption: The longer the bar, the more of that kind you have solved.
   # The key reminder under the page.
   keys: ↑ ↓ choose · Esc back

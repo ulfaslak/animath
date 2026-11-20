@@ -40,6 +40,8 @@ export interface PauseHooks {
 	makeAccount?: () => void;
 	/** "Log in": the account card, to log in. */
 	logIn?: () => void;
+	/** "New password", on the account's own browser: the account card, for a new one. */
+	newPassword?: () => void;
 	/** "Log out": saved, and the page starts again as a guest. */
 	logOut?: () => void;
 }
@@ -287,6 +289,10 @@ export class PauseController {
 			case 'logIn':
 				this.options.logIn?.();
 				break;
+			case 'newPassword':
+				// The menu stays open under the card, as for "Make an account".
+				this.options.newPassword?.();
+				break;
 			case 'logOut':
 				// Not at once: a kid who has forgotten their password can't come back.
 				sfx.play('confirm');
@@ -325,6 +331,7 @@ export class PauseController {
 				return true;
 			case 'makeAccount':
 			case 'logIn':
+			case 'newPassword':
 			case 'logOut':
 			case 'worlds':
 			case 'players':

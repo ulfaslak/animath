@@ -1,4 +1,4 @@
-import type { NameRejection, PasswordRefusal } from '@mathgame/engine';
+import { nameKey, type NameRejection, type PasswordRefusal } from '@mathgame/engine';
 
 /**
  * What the account screens show ([[UI_SPEC]] § Accounts): who this page
@@ -11,10 +11,11 @@ import type { NameRejection, PasswordRefusal } from '@mathgame/engine';
  */
 
 /**
- * The card: make an account with the guest game, log in to one, or pick the
- * password of the account a welcome link opens.
+ * The card: make an account with the guest game, log in to one, pick the
+ * password of the account a welcome link opens, or pick a new password on
+ * the account's own browser.
  */
-export type AccountCard = 'register' | 'login' | 'welcome';
+export type AccountCard = 'register' | 'login' | 'welcome' | 'password';
 
 /** Why a welcome link opens no account: used up, too old, or no link the server knows. */
 export type WelcomeGone = 'used' | 'expired' | 'unknown';
@@ -34,8 +35,11 @@ export type WelcomeView =
 /** The card's two boxes. */
 export type AccountField = 'name' | 'password';
 
-/** Where the card was opened: where Back returns. */
-export type AccountFrom = 'title' | 'pause' | 'prompt';
+/**
+ * Where the card was opened: where Back returns. `gate`: Continue on the
+ * title, for a guest's game, which goes on only once it is an account's.
+ */
+export type AccountFrom = 'title' | 'pause' | 'prompt' | 'gate';
 
 /** Why the card did not go on, said kindly under its boxes until the player types again. */
 export type AccountProblem =
@@ -45,6 +49,11 @@ export type AccountProblem =
 	| { kind: 'wrong' }
 	| { kind: 'too-many'; minutes: number }
 	| { kind: 'offline' }
+	/**
+	 * A new password asked for where it can't be picked: this browser is not
+	 * the account's own (any more), or the page is logged out.
+	 */
+	| { kind: 'not-home' }
 	/**
 	 * This browser keeps nothing: the account was made with the game but cannot
 	 * be logged in here, or (on the welcome card) nothing is sent, since the
@@ -68,6 +77,16 @@ class AccountView {
 	/** The account this page plays, by its name; null for a guest. Set once, as the page starts. */
 	name = $state<string | null>(null);
 	session = $state<SessionState>('unknown');
+	/**
+	 * This browser is the logged-in account's own (the server said so at
+	 * start): there the pause menu offers a new password.
+	 */
+	home = $state(false);
+	/**
+	 * The accounts whose own browser this is, by name, as the server last
+	 * said: logging in to one of them takes the name alone.
+	 */
+	homeNames = $state.raw<readonly string[]>([]);
 	/**
 	 * The server said, lately, that it can make and keep an account
 	 * (`account/ready.ts`). Only then does the game offer one: the save
@@ -104,3 +123,14 @@ class AccountView {
 }
 
 export const account = new AccountView();
+
+/**
+ * The login card's name is one of this browser's own accounts
+ * (`account.homeNames`): the name alone logs in, and the card asks for no
+ * password.
+ */
+export function loginByNameAlone(): boolean {
+	if (account.card !== 'login') return false;
+	const typed = nameKey(account.nameDraft);
+	return typed !== '' && account.homeNames.some((name) => nameKey(name) === typed);
+}

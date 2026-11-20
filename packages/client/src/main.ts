@@ -125,9 +125,11 @@ let sessionEndedUnsaid = false;
  * the player logs in again, and the page says so once: on the title, or on the
  * message line mid-game.
  */
-function heardSession(answer: SessionAnswer): void {
+function heardSession(answer: SessionAnswer, home = false): void {
 	if (answer === 'offline' || account.session === answer) return;
 	account.session = answer;
+	// The pause menu offers a new password only on the account's own browser.
+	account.home = answer === 'live' && home;
 	if (answer !== 'ended') return;
 	// A land's starters are the game under way: the message line says it, as mid-game.
 	if (title.open && title.land === null) title.notice = 'save.sessionEnded';
@@ -196,14 +198,28 @@ const accountController = new AccountController({
 		reloading = true;
 		restartWith(note, name);
 	},
-	forgetWelcome: () => forgetWelcome(tabStore)
+	forgetWelcome: () => forgetWelcome(tabStore),
+	// The menu under the card goes too: the message line it would cover says it at once.
+	passwordChanged: () => {
+		pauseController.close();
+		hud.accountNotice('newPassword');
+	},
+	gateStepsAside: () => {
+		const passing = gated;
+		gated = null;
+		if (passing && title.open) continueGame(passing.saved, passing.name);
+	}
 });
+// A page that plays no account asks which accounts this browser is the own of, so the
+// login card for one of them asks no password (only `/ready` reads no cookie either).
+if (!flags.throwaway && account.name === null) void accountController.learnHome();
 
 const pauseController = new PauseController(authority, {
 	travel: (world) => travelController.go(world),
 	goTo: (pid) => presenceController.goTo(pid),
 	makeAccount: () => accountController.openRegister('pause'),
 	logIn: () => accountController.openLogin('pause'),
+	newPassword: () => accountController.openPassword(),
 	logOut: () => void accountController.logOut()
 });
 
@@ -216,6 +232,7 @@ function heardReady(ready: boolean): void {
 	// The first answer counts even when it is a no: the title stops keeping the offers' places.
 	if (account.ready === ready && account.readyHeard) return;
 	keepingCursors(() => accountController.heardReady(ready));
+	settleGate();
 }
 // A throwaway game offers no account, so it never asks.
 const readyWatch = flags.throwaway ? null : new ReadyWatch(heardReady);
@@ -251,8 +268,56 @@ function continueGame(saved: SavedGame, name?: string): void {
 	if (name !== undefined) authority.dispatch({ type: 'choose-name', name });
 }
 
+/**
+ * The password gate ([[DECISIONS]] § Accounts): Continue on a guest's game
+ * goes on only once the game is an account's, so the account card asks for
+ * a password first. Only where the server can keep an account and this
+ * browser keeps the game: a kid with no connection, or a browser that keeps
+ * nothing, plays on as a guest. A throwaway game never comes this way.
+ */
+function gateShuts(): boolean {
+	return account.name === null && !flags.throwaway && autosave.keeps && account.ready;
+}
+
+/** Continue picked before the server said whether it can keep an account: waiting for its word. */
+let gateWait: { saved: SavedGame; name?: string; timer: ReturnType<typeof setTimeout> } | null =
+	null;
+/** How long Continue waits for the server's first word on accounts before it plays on as a guest. */
+const GATE_WAIT_MS = 2500;
+
+function continueOrGate(saved: SavedGame, name?: string): void {
+	if (gateWait) clearTimeout(gateWait.timer);
+	gateWait = null;
+	if (account.name === null && !flags.throwaway && autosave.keeps && !account.readyHeard) {
+		gateWait = { saved, name, timer: setTimeout(settleGate, GATE_WAIT_MS) };
+		return;
+	}
+	if (gateShuts()) shutGate(saved, name);
+	else continueGame(saved, name);
+}
+
+/** The game the gate stands before, for the gate to let through when the server cannot make the account. */
+let gated: { saved: SavedGame; name?: string } | null = null;
+
+function shutGate(saved: SavedGame, name?: string): void {
+	gated = { saved, name };
+	accountController.openGate(name ?? saved.name ?? '');
+}
+
+/** The server's first word came, or the wait ran out: Continue goes on, or the gate shuts. */
+function settleGate(): void {
+	const waiting = gateWait;
+	if (!waiting) return;
+	clearTimeout(waiting.timer);
+	gateWait = null;
+	// The kid has moved on meanwhile (another screen, a card): nothing to carry on.
+	if (!title.open || title.screen !== 'menu' || account.card !== null) return;
+	if (gateShuts()) shutGate(waiting.saved, waiting.name);
+	else continueGame(waiting.saved, waiting.name);
+}
+
 const titleController = new TitleController(authority, new TitleScenery(renderer), {
-	continueGame,
+	continueGame: continueOrGate,
 	logIn: () => accountController.openLogin('title'),
 	// A first arrival's starters: Escape talks to the druid the kid came down beside.
 	toDoctor: () => {

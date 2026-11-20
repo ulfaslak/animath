@@ -29,6 +29,7 @@ import {
 	writeExport,
 	type SaveCandidate
 } from './save-export.js';
+import { clearHome } from './home.js';
 import { createWelcomeAccount } from './welcome.js';
 
 /**
@@ -109,6 +110,22 @@ export async function deleteAccount(typedName: string, confirmed: boolean): Prom
 	return [`Deleted ${about}.`];
 }
 
+/**
+ * The account's own browser (`home.ts`) is forgotten, and every browser
+ * logged in to it is logged out: the next browser it logs in on, alone,
+ * becomes its own, where its name alone logs in. For a kid with a new
+ * tablet, or one whose old browser was cleared.
+ */
+export async function clearAccountHome(typedName: string): Promise<string[]> {
+	const user = await findUser(keyOf(typedName));
+	if (!user) throw new AdminError(`No account is called "${typedName}".`);
+	await clearHome(user.id);
+	return [
+		`${user.name} has no own browser now, and every browser logged in to it is logged out.`,
+		'The next browser it logs in on, alone, becomes its own.'
+	];
+}
+
 /** Every account, oldest first. */
 export async function listAll(): Promise<string[]> {
 	const accounts = await listAccounts();
@@ -118,6 +135,7 @@ export async function listAll(): Promise<string[]> {
 			`${a.name}\tmade ${a.createdAt.toISOString()}\t` +
 			(a.seq === null ? 'no save' : `seq ${a.seq} at ${a.savedAt?.toISOString()}`) +
 			`\t${a.sessions} logged in` +
+			(a.hasHome ? '' : '\tno own browser yet') +
 			(a.hasPassword ? '' : '\tno password yet: its welcome link is waiting')
 	);
 }

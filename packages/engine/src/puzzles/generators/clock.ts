@@ -22,28 +22,36 @@ export interface ClockStep {
 	asks: readonly Ask[];
 	passing: Band;
 	step: number;
-	/** The time passing takes the minute hand past 12: from 4:45, 25 minutes later. */
-	cross?: true;
+	/**
+	 * Where the minutes passing take the minute hand: never past 12
+	 * (`within`: from 3:10, 1 hour and 20 minutes later is 4:30), or always
+	 * past it (`across`: from 4:45, 25 minutes later is 5:10). Unset, either.
+	 */
+	hour?: 'within' | 'across';
 }
 
 const { read, later, earlier } = CLOCK;
 
 /**
- * Index = difficulty − 1. Reading the face first (whole hours to any
- * minute), then time passing: a quarter, a half or three quarters of an hour, minutes across the
- * hour, hours and minutes, then back in time too.
+ * Index = difficulty − 1. Reading the face first (whole hours, half past,
+ * a quarter past and to, five minutes, any minute), and time passing beside
+ * it: whole hours later on the second step of a mark (2, 5, 6–7), so no step
+ * asks what the one below it asks; then hours and minutes later, the minute
+ * hand staying before 12 (8), then taking it past 12 (9), then back in time
+ * too (10). Two skills of time passing, whole hours and hours and minutes:
+ * within each, both ends of `passing` never fall.
  */
 export const CLOCK_LADDER: readonly ClockStep[] = [
 	{ minutes: 60, asks: [read], passing: [0, 0], step: 1 },
+	{ minutes: 60, asks: [read, later], passing: [60, 120], step: 60 },
 	{ minutes: 30, asks: [read], passing: [0, 0], step: 1 },
 	{ minutes: 15, asks: [read], passing: [0, 0], step: 1 },
-	{ minutes: 5, asks: [read], passing: [0, 0], step: 1 },
-	{ minutes: 1, asks: [read], passing: [0, 0], step: 1 },
-	{ minutes: 5, asks: [later], passing: [15, 45], step: 15 },
-	{ minutes: 5, asks: [later], passing: [20, 55], step: 5, cross: true },
-	{ minutes: 5, asks: [later], passing: [65, 175], step: 5 },
-	{ minutes: 1, asks: [later, earlier], passing: [65, 235], step: 5 },
-	{ minutes: 1, asks: [later, earlier], passing: [65, 299], step: 1 }
+	{ minutes: 15, asks: [read, later], passing: [60, 180], step: 60 },
+	{ minutes: 5, asks: [read, later], passing: [60, 180], step: 60 },
+	{ minutes: 5, asks: [read, later], passing: [60, 240], step: 60 },
+	{ minutes: 1, asks: [read, later], passing: [20, 175], step: 5, hour: 'within' },
+	{ minutes: 1, asks: [later], passing: [20, 235], step: 5, hour: 'across' },
+	{ minutes: 1, asks: [later, earlier], passing: [20, 295], step: 5 }
 ];
 
 /**
@@ -51,9 +59,9 @@ export const CLOCK_LADDER: readonly ClockStep[] = [
  * of day, typed as hours and minutes ("3:15"), and kept as minutes past 12
  * o'clock (0 to 719): a clock face cannot say morning or afternoon, so
  * `checkAnswer` takes either reading of it, 3:15 or 15:15.
- * Every puzzle that reads the face alone at difficulty 2 and 3 shows the
- * new mark (half past, a quarter past or to) at least half the time, so a
- * harder clock is not mostly whole hours.
+ * Every puzzle that reads half or quarter hours shows the new mark (half
+ * past, a quarter past or to) at least half the time, so a harder clock is
+ * not mostly whole hours.
  */
 export const clock: PuzzleGenerator = {
 	kind: 'clock',
@@ -65,15 +73,11 @@ export const clock: PuzzleGenerator = {
 		const step = CLOCK_LADDER[difficulty - 1]!;
 		const h = rng.int(1, 12);
 		const ask = rng.pick(step.asks);
-		const passing =
-			ask === read
-				? 0
-				: step.step *
-					rng.int(Math.ceil(step.passing[0] / step.step), Math.floor(step.passing[1] / step.step));
-		// Across the hour: the hand starts late enough in the hour that the time passing goes past 12.
-		const m = step.cross
-			? step.minutes * rng.int(Math.ceil((60 - passing) / step.minutes), 60 / step.minutes - 1)
-			: shownMinutes(rng, step.minutes);
+		const passing = ask === read ? 0 : rng.pick(passings(step));
+		const m =
+			ask === read || step.hour === undefined
+				? shownMinutes(rng, step.minutes)
+				: rng.pick(marksFor(step, ask, passing % 60));
 		const shown = (h % 12) * 60 + m;
 		const answer =
 			(((ask === earlier ? shown - passing : shown + passing) % CLOCK_MINUTES) + CLOCK_MINUTES) %
@@ -89,6 +93,33 @@ export const clock: PuzzleGenerator = {
 		};
 	}
 };
+
+/**
+ * How long may pass at a step: every multiple of its `step` in its band, and
+ * across the hour never whole hours, which leave the minute hand where it is.
+ */
+function passings(step: ClockStep): number[] {
+	const out: number[] = [];
+	for (
+		let p = Math.ceil(step.passing[0] / step.step) * step.step;
+		p <= step.passing[1];
+		p += step.step
+	)
+		if (step.hour !== 'across' || p % 60 !== 0) out.push(p);
+	return out;
+}
+
+/**
+ * The marks the minute hand may start on, so that `minutes` passing (later,
+ * or back for `earlier`) keeps it before 12 or takes it past 12, as the step
+ * says: from 4:45, 25 minutes later goes past; from 4:45, 10 minutes later
+ * does not.
+ */
+function marksFor(step: ClockStep, ask: Ask, minutes: number): number[] {
+	const marks = Array.from({ length: 60 / step.minutes }, (_, k) => k * step.minutes);
+	const across = (m: number) => (ask === earlier ? m - minutes < 0 : m + minutes >= 60);
+	return marks.filter((m) => across(m) === (step.hour === 'across'));
+}
 
 /** The minute hand's place: a multiple of `every`, and when that is 30 or 15, on the new mark half the time. */
 function shownMinutes(rng: Rng, every: number): number {

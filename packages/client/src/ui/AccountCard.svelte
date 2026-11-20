@@ -6,6 +6,7 @@
 	import { nameRefusal } from '../names';
 	import {
 		account,
+		loginByNameAlone,
 		type AccountField,
 		type AccountProblem,
 		type WelcomeGone
@@ -33,12 +34,20 @@
 	const MAX_TYPED_PASSWORD = 2 * PASSWORD_MAX_LENGTH;
 
 	const registering = $derived(account.card === 'register');
+	/** A new password on the account's own browser: its name shown, never typed. */
+	const renewing = $derived(account.card === 'password');
 	/** The welcome card's content, or null on another card. */
 	const welcome = $derived(account.card === 'welcome' ? account.welcome : null);
 	/** The boxes are up: every card but a welcome card with no account to open. */
 	const boxes = $derived(welcome === null || welcome.phase === 'ready');
-	/** A new password is picked (a new account, or a welcome), not an old one typed. */
-	const choosing = $derived(registering || welcome !== null);
+	/** A new password is picked (a new account, a welcome, a new one at home), not an old one typed. */
+	const choosing = $derived(registering || renewing || welcome !== null);
+	/** The name is the account's own, shown and never typed. */
+	const fixedName = $derived(
+		welcome?.phase === 'ready' ? welcome.name : renewing ? (account.name ?? '') : null
+	);
+	/** Logging in on this browser's own account: the name alone, no password box. */
+	const nameAlone = $derived(loginByNameAlone());
 
 	interface Words {
 		heading: string;
@@ -63,6 +72,24 @@
 	/** The card's heading, its line, its two buttons and its key reminder. */
 	const words = $derived.by((): Words => {
 		if (welcome === null) {
+			if (renewing) {
+				return {
+					heading: t('account.newPassword.title'),
+					text: t('account.newPassword.text'),
+					back: t('account.back'),
+					go: t('account.newPassword.go'),
+					keys: t('account.newPassword.keys')
+				};
+			}
+			if (registering && account.from === 'gate') {
+				return {
+					heading: t('account.gate.title'),
+					text: t('account.gate.text'),
+					back: t('account.back'),
+					go: t('account.gate.go'),
+					keys: t('account.gate.keys')
+				};
+			}
 			return registering
 				? {
 						heading: t('account.register.title'),
@@ -73,10 +100,10 @@
 					}
 				: {
 						heading: t('account.login.title'),
-						text: t('account.login.text'),
+						text: nameAlone ? t('account.login.homeText') : t('account.login.text'),
 						back: t('account.back'),
 						go: t('account.login.go'),
-						keys: t('account.login.keys')
+						keys: nameAlone ? t('account.login.homeKeys') : t('account.login.keys')
 					};
 		}
 		switch (welcome.phase) {
@@ -133,6 +160,8 @@
 				return t('account.problem.tooMany', { count: problem.minutes });
 			case 'offline':
 				return t('account.problem.offline');
+			case 'not-home':
+				return t('account.problem.notHome');
 			case 'storage':
 				return welcome ? t('account.welcome.storage') : t('account.problem.storage');
 		}
@@ -173,12 +202,12 @@
 		{#if boxes}
 			<label class="field">
 				<span class="label">{t('account.name')}</span>
-				{#if welcome?.phase === 'ready'}
+				{#if fixedName !== null}
 					<!-- The account's own name: shown, never typed, and there for a password manager. -->
 					<input
 						class="box fixed"
 						type="text"
-						value={welcome.name}
+						value={fixedName}
 						autocomplete="username"
 						readonly
 						tabindex="-1"
@@ -200,40 +229,46 @@
 					/>
 				{/if}
 			</label>
-			<label class="field">
-				<span class="label">{t('account.password')}</span>
-				<span class="secret">
-					<input
-						class="box"
-						class:active={account.field === 'password'}
-						type={account.reveal ? 'text' : 'password'}
-						bind:value={account.passwordDraft}
-						maxlength={MAX_TYPED_PASSWORD}
-						autocomplete={choosing ? 'new-password' : 'current-password'}
-						autocapitalize="off"
-						autocorrect="off"
-						spellcheck="false"
-						enterkeyhint={choosing ? 'done' : 'go'}
-						readonly={account.busy}
-						{@attach box('password')}
-					/>
-					<button
-						type="button"
-						class="reveal"
-						aria-pressed={account.reveal}
-						data-press={REVEAL_KEY}
-						{@attach unfocusable}
+			{#if !nameAlone}
+				<label class="field">
+					<span class="label"
+						>{renewing ? t('account.newPassword.label') : t('account.password')}</span
 					>
-						{account.reveal ? t('account.hide') : t('account.show')}
-					</button>
-				</span>
-			</label>
+					<span class="secret">
+						<input
+							class="box"
+							class:active={account.field === 'password'}
+							type={account.reveal ? 'text' : 'password'}
+							bind:value={account.passwordDraft}
+							maxlength={MAX_TYPED_PASSWORD}
+							autocomplete={choosing ? 'new-password' : 'current-password'}
+							autocapitalize="off"
+							autocorrect="off"
+							spellcheck="false"
+							enterkeyhint={choosing ? 'done' : 'go'}
+							readonly={account.busy}
+							{@attach box('password')}
+						/>
+						<button
+							type="button"
+							class="reveal"
+							aria-pressed={account.reveal}
+							data-press={REVEAL_KEY}
+							{@attach unfocusable}
+						>
+							{account.reveal ? t('account.hide') : t('account.show')}
+						</button>
+					</span>
+				</label>
+			{/if}
 			{#if account.problem}
 				<div class="note refused" role="alert">{problemWords(account.problem)}</div>
 			{:else if account.busy}
 				<div class="note">{t('account.busy')}</div>
 			{:else if choosing}
 				<div class="note">{t('account.passwordRule', { min: PASSWORD_MIN_LENGTH })}</div>
+			{:else if nameAlone}
+				<div class="note">{t('account.login.home')}</div>
 			{:else}
 				<div class="note">{t('account.login.forgot')}</div>
 			{/if}
