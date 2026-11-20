@@ -103,7 +103,7 @@ export type Said =
 	 * is saved in the new account, the player logged in, or another device's
 	 * newer save came in. Worded with the account's name when the line shows.
 	 */
-	| { account: 'saved' | 'welcome' | 'movedAhead' }
+	| { account: 'saved' | 'welcome' | 'movedAhead' | 'newPassword' }
 	/** How going to another player went, and whom to (`presence/controller.ts`). */
 	| { presence: PresenceLine; name: string }
 	| { match: MatchLine; name: string };
@@ -151,7 +151,7 @@ export function saidWords(said: Said): string {
 	return t('explore.notAtTent');
 }
 
-function accountWords(note: 'saved' | 'welcome' | 'movedAhead'): string {
+function accountWords(note: 'saved' | 'welcome' | 'movedAhead' | 'newPassword'): string {
 	const name = account.name ?? '';
 	switch (note) {
 		case 'saved':
@@ -160,6 +160,8 @@ function accountWords(note: 'saved' | 'welcome' | 'movedAhead'): string {
 			return t('account.notice.welcome', { name });
 		case 'movedAhead':
 			return t('account.notice.movedAhead');
+		case 'newPassword':
+			return t('account.notice.newPassword');
 	}
 }
 
@@ -496,8 +498,11 @@ class HudView {
 		this.say({ save: key });
 	}
 
-	/** What the page says after starting again for the account (`account/restart.ts`). */
-	accountNotice(note: 'saved' | 'welcome' | 'movedAhead'): void {
+	/**
+	 * What the page says after starting again for the account
+	 * (`account/restart.ts`), and after a new password is saved.
+	 */
+	accountNotice(note: 'saved' | 'welcome' | 'movedAhead' | 'newPassword'): void {
 		this.say({ account: note });
 	}
 
