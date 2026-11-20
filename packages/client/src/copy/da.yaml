@@ -30,6 +30,7 @@ keys:
   esc: Esc
   enter: Enter
   challenge: C
+  hint: H
 
 species:
   squirrel:
@@ -1269,6 +1270,7 @@ puzzle:
   keysTime: Skriv først timer, så minutter. Tryk så på Enter
   keysTimeTouch: Tast først timer, så minutter. Tryk så på OK
   colon: Kolon
+  hint: Hjælp
   ask:
     thermometer:
       colder: Det er {start}°. Det bliver {change}° koldere. Hvad viser termometeret nu?

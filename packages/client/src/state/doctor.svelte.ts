@@ -116,6 +116,8 @@ class DoctorView {
 	input = $state('');
 	/** How the last answer was judged. Never the right answer: the kid may meet it again. */
 	judged = $state<{ correct: boolean } | null>(null);
+	/** The open puzzle shows its hint: the kid asked for it (H, or the Hint button). */
+	hinted = $state(false);
 	screen = $state<DoctorScreen>('busy');
 	/**
 	 * The heal being cheered, from its beat until the list takes keys again:
@@ -156,6 +158,7 @@ class DoctorView {
 		this.puzzle = null;
 		this.input = '';
 		this.judged = null;
+		this.hinted = false;
 		this.screen = 'busy';
 		this.healed = null;
 		this.leaving = null;

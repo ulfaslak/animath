@@ -18,6 +18,9 @@ import type { AnswerForm } from '@mathgame/engine';
  * and Enter submits only a whole time, hours and two digits of minutes, with
  * or without its colon ("3:15", "315"), so "3:5" is never spent as an answer.
  * `shownAnswer` shows "315" as "3:15".
+ *
+ * Either way, H asks for the puzzle's hint (`hint`) and types nothing: the
+ * screen shows it, when its puzzle has one (`hint.ts`).
  */
 export const MAX_ANSWER_LENGTH = 7;
 
@@ -28,12 +31,18 @@ export interface AnswerKey {
 	submit: boolean;
 	/** False for keys that mean nothing while typing an answer. */
 	handled: boolean;
+	/** True when the key asks for the puzzle's hint (H, or the card's Hint button). */
+	hint?: true;
 }
+
+/** The key that shows a puzzle's hint, and the name the card's Hint button presses. */
+export const HINT_KEY = 'h';
 
 /** A whole time as `answerKey` lets one go: one or two digits of hours, a colon or not, two of minutes. */
 const WHOLE_TIME = /^\d{1,2}:?\d{2}$/;
 
 export function answerKey(input: string, key: string, form: AnswerForm = 'number'): AnswerKey {
+	if (key === HINT_KEY) return { input, submit: false, handled: true, hint: true };
 	if (form === 'time') return timeKey(input, key);
 	if (/^[0-9]$/.test(key)) {
 		return {

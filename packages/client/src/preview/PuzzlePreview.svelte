@@ -35,7 +35,8 @@
 		<span class="dial">{preview.puzzle?.difficulty ?? preview.difficulty}</span>
 		<button type="button" onpointerdown={key('ArrowRight')} {@attach unfocusable}>▶</button>
 	</div>
-	<div class="panel" class:wide>
+	<!-- `solo`: with the number pad, a short screen gives the puzzle the whole panel, as a battle does. -->
+	<div class="panel" class:wide class:solo={touch.on}>
 		{#if !wide}<div class="card blank"></div>{/if}
 		<div class="card puzzle" class:correct={preview.judged?.correct === true}>
 			{#if preview.puzzle}
@@ -44,6 +45,7 @@
 					input={preview.input}
 					judged={preview.judged}
 					typing={preview.judged === null}
+					hinted={preview.hinted}
 				/>
 			{/if}
 		</div>
@@ -114,6 +116,12 @@
 		.puzzle {
 			padding: 5px 12px;
 			gap: 6px;
+		}
+		.panel.solo {
+			grid-template-columns: 1fr;
+		}
+		.panel.solo .blank {
+			display: none;
 		}
 	}
 	.card {

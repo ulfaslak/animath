@@ -33,6 +33,7 @@ import {
 } from '../src/battle/controller';
 import { actionAt, attackRows, rowOf, WILD_MOVES } from '../src/battle/menu';
 import { parseParty } from '../src/flags';
+import { hintOf } from '../src/hint';
 import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
 import { levelKey, rowKey } from '../src/input/press';
 import { everyMash } from './mash';
@@ -423,6 +424,29 @@ describe('battle screen', () => {
 		expect(battle.input).toBe('');
 		t.press('0', '0', '7', 'Enter');
 		expect(t.sent.at(-1)).toEqual({ type: 'battle', intent: { type: 'answer', input: '007' } });
+	});
+
+	it('H brings the puzzle’s hint up once, types nothing and sends nothing; the next puzzle starts without it', () => {
+		const t = setup();
+		t.walkIntoBattle();
+		t.toMenu();
+		t.press('1');
+		const puzzle = battle.puzzle as Puzzle;
+		expect(hintOf(puzzle), puzzle.prompt).not.toBeNull();
+		const before = t.sent.length;
+		t.press('4', 'h', 'H', 'h');
+		expect(battle.hinted).toBe(true);
+		expect(battle.input).toBe('4');
+		expect(t.sent.length).toBe(before);
+		expect(t.cues.filter((c) => c === 'hint')).toEqual(['hint']);
+		// A wrong answer, the wild animal's turn, and the next puzzle comes without the hint.
+		t.press('Backspace', ...String(puzzle.answer + 1), 'Enter');
+		t.run(10);
+		expect(battle.screen).toBe('actions');
+		expect(battle.hinted).toBe(false);
+		t.press('1');
+		expect(battle.screen).toBe('puzzle');
+		expect(battle.hinted).toBe(false);
 	});
 
 	it('says "Not quite!" after a wrong answer and never shows the right one', () => {

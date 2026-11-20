@@ -354,6 +354,31 @@ To become `[learned]`: the 2026-10-28 line, plus a test or a check in [[DEVELOPM
 
 To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology that a ladder test checks each step asks something the one below does not, and that a band's ends are sampled from the generator before prose quotes them.
 
+### 2026-11-20 — puzzle hints (feat/puzzle-hints) — a new piece in a fitted card, not taught to the card's fit steps or to its measuring script `[not codified]`
+
+- **The hint overflowed the druid's card.** `PuzzlePanel` gained a hint line, and the battle panel and a phone held sideways had room for it, but the druid's card is fitted by `fit` (`SIDE_STEPS`), whose steps shrink only the pieces they name. The biggest token sum's hint (12640 + 29970, five places each) left the card at 18 sizes: Back was cut and the answer box fell off the bottom. Found only once `scripts/doctor-fit.mjs` was taught a hinted state (`hinted()`) and the Hint button (`.hint-button`), which it did not measure either. Fixed with `--hint-size` in the `small` and `least` steps, a last `hinted` step that drops the story, the thousands kept together in a hint, and the button's key cap in `bare`.
+- **The Hint button pushed two crowded states over the edge** (667×375, Danish, keys: Back and Hint missed sharing a row by a few pixels). The full `doctor-fit.mjs` run found it; the hinted cases alone did not, since the button is gone once the hint is up.
+
+To become `[learned]`: a line in [[DEVELOPMENT]] that a new piece in `PuzzlePanel` or `DoctorCard` adds its states and its selector to `scripts/doctor-fit.mjs` and runs it whole, not only the new cases.
+
+### 2026-11-20 — puzzle hints (feat/puzzle-hints) — screen state cleared on every settle, where the same puzzle comes back `[not codified]`
+
+- **A token sum asked again lost its hint.** The druid's `settle()` clears what a puzzle showed after every beat, and the hint went with the typed answer. But a wrong token sum asks the very same sum again ("Try again"), so the kid who used the hint and still missed lost it just then. Now the hint stays while the kind and prompt on screen stay the same.
+
+To become `[learned]`: a line in CLAUDE.md § Duplicated rosters that a per-puzzle flag is checked against each way a puzzle comes back (a new puzzle after a miss, the same one after a miss, a swap, Escape and back).
+
+### 2026-11-20 — puzzle hints (feat/puzzle-hints, PR #246) — a test named for a "never" that checked one way it could happen `[not codified]`
+
+- **"Never says the answer" was checked one way only.** `hint.test.ts` rejected an unknown standing alone against a bare number, and passed hints that showed the answer beside a step worth nothing: 16 − 10 as (10 − 10) + 6, a thermometer from 0° as 0 + 5, a walk through 0° as −4 + 4 + 7, 2400 ÷ 24 as (24 ÷ 24) × 100. Its check of a pattern's jumps repeated the code's own expression, so it could not fail. Found by the cold review. The test now looks for a 0, a pill worth 0, a times 1, and the answer beside steps that cancel out, and it found two more on its own (8 × 6 as (8 × 5) + (8 × 1), an L corner as 1 × 2).
+
+To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology that a test named for a "never" lists the shapes the forbidden thing can take and checks each, and computes what it compares by another route than the code.
+
+### 2026-11-20 — puzzle hints (feat/puzzle-hints, PR #246) — grouping drawn as a colour alone, where the order changes the result `[not codified]`
+
+- **A pill after a minus read wrong.** A hint's part to work out first is a pale chip with no brackets, which reads fine after a plus or a times. After a minus it does not: "1 − 1 − (2 − 1)" drawn as chips reads, left to right, as 1 − 1 − 2 − 1 = −3. The balance's "□ = a − (b − c)" had it from the start; the walk through 0° made it common. Found by looking at the thermometer's frame. A chip after `−` or `÷` now shows its brackets too.
+
+To become `[learned]`: a line in [[DESIGN]] that a sum drawn for kids shows grouping with brackets wherever reading it left to right gives another number.
+
 ### 2026-11-20 — the Arctic's units (feat/units-puzzle, PR #PRNUM) — a ladder checked skill by skill, never step against step, and a size rule that lost the cascade `[not codified]`
 
 - **A harder step asked easier puzzles.** At 9 and 10 the metric pairs were turned back or split ("500 cm = ? m", "7585 g = 7 kg ? g"), which is only reading digits, while 8 asked "4 days and 23 hours = ? hours"; and 7 began every pair again at one big unit ("1 l 1 dl = ? dl", 11) after 6 asked "8 weeks = ? days" (56). The ladder test compared each skill's bands with the same skill's a step before, so a step could get easier by changing what it asks. Found by the adversarial review. Fixed: metric pairs go back only at 6, time alone at 9 and 10, litres never mixed, and `puzzle-kinds.test.ts` checks over the generated puzzles that a pair's fewest big units never fall from one step to the next. Same family as the Nordland ladders' entry above: a step designed on its own, not against the steps a kid meets next to it.

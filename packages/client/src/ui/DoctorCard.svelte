@@ -191,11 +191,13 @@
 	/**
 	 * What the right-hand side holds, fitted to its card (`fit.ts`), a step at
 	 * a time and only while it is still too tall: its lines closer, its words
-	 * a size smaller (as on a phone), the hints gone, and last the sum and the
-	 * question at their smallest. The doctor's line over it, the story over a
-	 * sum and three names of twelve W's all take its room.
+	 * a size smaller (as on a phone), the hints gone, then the sum and the
+	 * question at their smallest, and last, with a puzzle's hint up, the story
+	 * over its sum (the hint says what to do with the sum). The doctor's line
+	 * over it, the story over a sum and three names of twelve W's all take its
+	 * room.
 	 */
-	const SIDE_STEPS = ['close', 'small', 'bare', 'least'] as const;
+	const SIDE_STEPS = ['close', 'small', 'bare', 'least', 'hinted'] as const;
 
 	function tabName(tab: DoctorTab): string {
 		switch (tab) {
@@ -560,6 +562,7 @@
 					input={doctor.input}
 					judged={doctor.judged}
 					typing={doctor.screen === 'puzzle'}
+					hinted={doctor.hinted}
 					story={t('doctor.home.story', {
 						count: doctor.balance,
 						amount: doctor.trade.reward,
@@ -573,6 +576,7 @@
 					input={doctor.input}
 					judged={doctor.judged}
 					typing={doctor.screen === 'puzzle'}
+					hinted={doctor.hinted}
 					story={t('doctor.shop.story', {
 						count: doctor.balance,
 						item: itemWords(doctor.trade.itemId),
@@ -588,6 +592,7 @@
 					input={doctor.input}
 					judged={doctor.judged}
 					typing={doctor.screen === 'puzzle'}
+					hinted={doctor.hinted}
 					story={t('doctor.fly.story', { land: t(`lands.${doctor.fare}.inLine`) })}
 					back={t('doctor.back')}
 				/>
@@ -598,6 +603,7 @@
 					input={doctor.input}
 					judged={doctor.judged}
 					typing={doctor.screen === 'puzzle'}
+					hinted={doctor.hinted}
 					story={t('doctor.ask.story')}
 					back={t('doctor.back')}
 				/>
@@ -609,6 +615,7 @@
 					input={doctor.input}
 					judged={doctor.judged}
 					typing={doctor.screen === 'puzzle'}
+					hinted={doctor.hinted}
 					note={otherHurtSpecies > 0
 						? touch.on
 							? t('doctor.puzzleTouch')
@@ -1431,7 +1438,10 @@
 	.puzzle:global([data-fit~='close']) :global(.with-pad .question) {
 		gap: 4px;
 	}
-	/* `small`: the words a size smaller, as on a phone. */
+	/* `small`: the words a size smaller, as on a phone, and the hint too (`HintView`). */
+	.puzzle:global([data-fit~='small']) {
+		--hint-size: 20px;
+	}
 	.puzzle:global([data-fit~='small']) :global(.story),
 	.puzzle:global([data-fit~='small']) .detail {
 		font-size: 16px;
@@ -1448,13 +1458,17 @@
 	.puzzle:global([data-fit~='small']) .ware-name {
 		font-size: 22px;
 	}
-	/* `bare`: the hints go (the keys, the tap hints, the note, which animal to put first), and what they hint at stays. */
+	/* `bare`: the hints go (the keys, the Hint button's key cap, the tap hints, the note, which animal to put first), and what they hint at stays. */
 	.puzzle:global([data-fit~='bare']) .lead,
 	.puzzle:global([data-fit~='bare']) .keys,
-	.puzzle:global([data-fit~='bare']) :global(.keys) {
+	.puzzle:global([data-fit~='bare']) :global(.keys),
+	.puzzle:global([data-fit~='bare']) :global(.hint-button kbd) {
 		display: none;
 	}
-	/* `least`: the sum, the answer and the confirm's question at their smallest. */
+	/* `least`: the sum, its hint, the answer and the confirm's question at their smallest. */
+	.puzzle:global([data-fit~='least']) {
+		--hint-size: 17px;
+	}
 	.puzzle:global([data-fit~='least'])
 		:global(.puzzle-panel:not(.with-pad) .puzzle-prompt:not(.worded)) {
 		font-size: 40px;
@@ -1469,6 +1483,10 @@
 	}
 	.puzzle:global([data-fit~='least']) .question {
 		font-size: 17px;
+	}
+	/* `hinted`: with the hint up, the story over the sum goes; the doctor's line still says what it is for. */
+	.puzzle:global([data-fit~='hinted']) :global(.puzzle-panel.hinted .story) {
+		display: none;
 	}
 	.soft {
 		font-weight: 800;

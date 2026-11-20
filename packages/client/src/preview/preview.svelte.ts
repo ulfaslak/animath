@@ -12,6 +12,7 @@ import {
 	type Puzzle,
 	type PuzzleKind
 } from '@mathgame/engine';
+import { bringsHint } from '../hint';
 import { answerKey } from '../input/answer';
 
 /**
@@ -41,6 +42,7 @@ class PreviewView {
 	puzzle = $state.raw<Puzzle | null>(null);
 	input = $state('');
 	judged = $state<{ correct: boolean } | null>(null);
+	hinted = $state(false);
 	/** How many puzzles have been drawn: each from its own seed. */
 	private drawn = 0;
 	private readonly seed = Math.floor(Math.random() * 2 ** 31);
@@ -51,6 +53,7 @@ class PreviewView {
 		this.puzzle = generatePuzzle(rng, this.difficulty, [this.kind]);
 		this.input = '';
 		this.judged = null;
+		this.hinted = false;
 	}
 
 	/** What a key does on the preview; false for a key it does not use. */
@@ -84,6 +87,7 @@ class PreviewView {
 		}
 		const typed = answerKey(this.input, key, answerForm(puzzle.kind));
 		this.input = typed.input;
+		if (bringsHint(typed, puzzle, this.hinted)) this.hinted = true;
 		if (typed.submit) this.judged = { correct: checkAnswer(puzzle, typed.input) };
 		return typed.handled;
 	}

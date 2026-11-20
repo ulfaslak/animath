@@ -535,6 +535,7 @@
 				input={battle.input}
 				judged={battle.judged}
 				typing={battle.screen === 'puzzle'}
+				hinted={battle.hinted}
 				story={battle.escaping ? t('battle.run.story') : undefined}
 				reward={battle.escaping ? undefined : reward}
 			/>

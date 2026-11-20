@@ -1,6 +1,6 @@
 import { checkAnswer, type Puzzle } from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
-import { answerKey, shownAnswer } from '../src/input/answer';
+import { answerKey, HINT_KEY, shownAnswer } from '../src/input/answer';
 
 /** Keys typed one after another into an empty answer, as a kid types them. */
 function typed(keys: string[], form: 'number' | 'time' = 'number') {
@@ -62,5 +62,19 @@ describe('typing a time (a clock’s answer)', () => {
 	it('leaves a number typed as it was', () => {
 		expect(typed(['-', '2', 'Enter'])).toEqual({ input: '-2', submitted: '-2', shown: '-2' });
 		expect(answerKey('3', ':').handled).toBe(false);
+	});
+});
+
+describe('asking for the hint', () => {
+	it('H asks for it in a number and in a time, and types nothing', () => {
+		for (const form of ['number', 'time'] as const) {
+			expect(answerKey('3:1', HINT_KEY, form)).toEqual({
+				input: '3:1',
+				submit: false,
+				handled: true,
+				hint: true
+			});
+			expect(typed(['1', HINT_KEY, '2', 'Enter'], form).input).toBe('12');
+		}
 	});
 });

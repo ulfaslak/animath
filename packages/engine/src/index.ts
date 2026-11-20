@@ -58,6 +58,8 @@ export {
 	readPuzzleFace
 } from './puzzles/face.js';
 export type { PuzzleFace, UnitId, UnitPair } from './puzzles/face.js';
+export { puzzleHint } from './puzzles/hint.js';
+export type { HintToken, PuzzleHint } from './puzzles/hint.js';
 export { BARCHART } from './puzzles/generators/barchart.js';
 export { CLOCK } from './puzzles/generators/clock.js';
 export { SHAPE } from './puzzles/generators/shape.js';

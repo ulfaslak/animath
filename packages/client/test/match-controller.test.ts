@@ -21,6 +21,7 @@ import {
 } from '@mathgame/engine';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { LocalAuthority } from '../src/authority/local';
+import { hintOf } from '../src/hint';
 import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
 import { optionKey } from '../src/input/press';
 import { words } from '../src/lines';
@@ -437,6 +438,11 @@ describe('a match', () => {
 					t.pick('3');
 				} else {
 					expect(battle.screen).toBe('puzzle');
+					// H brings the hint up on this page alone: nothing goes to the server.
+					const count = t.sent.length;
+					t.press('h');
+					expect(t.sent.length).toBe(count);
+					expect(battle.hinted).toBe(hintOf(battle.puzzle!) !== null);
 					const right = mine++ % 3 !== 2;
 					const answer = right ? ref.answer() : `${ref.answer()}1`;
 					t.press(...answer, 'Enter');
@@ -451,8 +457,9 @@ describe('a match', () => {
 					expect(Object.keys(battle.puzzle!).sort()).toEqual(['difficulty', 'kind', 'prompt']);
 					// Keys wait while the other thinks: nothing is sent.
 					const count = t.sent.length;
-					t.press('1', 'Enter');
+					t.press('1', 'h', 'Enter');
 					expect(t.sent.length).toBe(count);
+					expect(battle.hinted).toBe(false);
 				}
 				const intent: MatchIntent =
 					phase.kind === 'choose-animal'

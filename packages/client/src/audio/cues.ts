@@ -38,7 +38,8 @@ export type CueName =
 	| 'whoosh'
 	| 'land'
 	| 'squawk'
-	| 'plane';
+	| 'plane'
+	| 'hint';
 
 export type Wave = 'sine' | 'triangle' | 'noise';
 
@@ -270,6 +271,15 @@ export const CUES: Record<CueName, Cue> = {
 			pluck(0.07, G6, 0.09, 0.2, 'sine'),
 			pluck(0.14, C7, 0.09, 0.18, 'sine'),
 			pluck(0.21, E7, 0.28, 0.12, 'sine')
+		]
+	},
+	/** A puzzle's hint comes up: the wand's sparkle, little bells tumbling down and one more up top. */
+	hint: {
+		voices: [
+			pluck(0, E7, 0.12, 0.09, 'sine'),
+			pluck(0.05, C7, 0.12, 0.09, 'sine'),
+			pluck(0.1, G6, 0.16, 0.09, 'sine'),
+			pluck(0.17, E7, 0.28, 0.05, 'sine')
 		]
 	},
 	/** A new animal goes first: ding-ding! */
