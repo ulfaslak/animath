@@ -121,7 +121,7 @@ function draw(rng: Rng, [lo, hi]: Band): number {
 
 /**
  * A number from `[lo, hi]` that is not a multiple of ten, each as likely.
- * Every band it is given holds one (`puzzles.test.ts` § difficulty ladder).
+ * Every band it is given holds one (`puzzles.test.ts` § skill ladders).
  */
 export function drawUnround(rng: Rng, [lo, hi]: Band): number {
 	const unround: number[] = [];
