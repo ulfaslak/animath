@@ -379,6 +379,18 @@ To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology that a test
 
 To become `[learned]`: a line in [[DESIGN]] that a sum drawn for kids shows grouping with brackets wherever reading it left to right gives another number.
 
+### 2026-11-20 — the puzzle record by difficulty (feat/record-difficulty, PR #244) — a field read for a meaning one writer never gave it, a count keyed by the label instead of the source, and save compatibility checked in one direction `[not codified]`
+
+- **A field trusted for a meaning it never had.** The counts by difficulty took every judged puzzle's `difficulty`, but the druid's token sums carry one only so that a saved visit's puzzle is valid: their numbers are the kid's own tokens, so "60 − 5" was counted at the `sub` ladder's step 5, which asks "105 − 51". Before reading a field for a new purpose, find every place that sets it and check that each means what the new reader assumes.
+- **Keyed by the topic, when the thing measured is a kind's ladder.** Two kinds ask a times table (`mul`, and `missing` from step 4), so counting by topic mixed two ladders in one step, while the PR's own docs said no step mixes two puzzles. A count meant to judge a generator is keyed by what produced the item, not by the label a kid sees.
+- **Save compatibility checked against the build before, not against this build once it is the old one.** The PR proved main keeps the new field through a rollback, but put the field in `SAVE_KEYS`, so this build would have dropped a later build's counts at its first save. It also refused a whole save over counts that did not fit, so data the game never reads could make a kid's game unreadable. For a new saved field, run both directions: the build before reading this one's, and this one reading a later one's (a later version number, a name it lacks). Data the game never reads is dropped when wrong, never a reason to refuse a save.
+
+- **A version counted per item, where one change moves many.** The ladder pin test kept a list of prints per kind and asked for `LADDER_VERSION` to be one more than the changes it listed, so the two ladder PRs, one change to ten kinds, would have demanded version 11. Found when they merged into the branch. A version stamp counts changes to the whole, so its pins are one entry per version, not one list per part.
+
+The first three found by the adversarial review.
+
+To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology that a new saved field is tested against a later build's value of it as well as an earlier build's reading of it, and that a field read for a new purpose is traced to every writer first.
+
 ### 2026-11-20 — doubling and halving (feat/double-and-half, PR #245) — a new member of a roster checked against what it does, not against its siblings `[not codified]`
 
 - **Halving took ½, the sign fractions already had.** `kindGlyph` is a roster of signs, and a kid who cannot read tells the topics apart by them; My puzzles and the thought bubble showed two identical chips. Found by the adversarial review. Halving is now ÷2, and `packages/client/test/kinds.test.ts` fails when two topics share a sign.

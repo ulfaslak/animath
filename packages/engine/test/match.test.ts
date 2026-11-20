@@ -384,11 +384,25 @@ describe('an attack', () => {
 							const left = Math.max(0, hp - damage);
 							const want: MatchEvent[] = right
 								? [
-										{ type: 'answer-judged', side: me, correct: true, topic: puzzleTopic(puzzle) },
+										{
+											type: 'answer-judged',
+											side: me,
+											correct: true,
+											topic: puzzleTopic(puzzle),
+											kind: puzzle.kind,
+											difficulty: puzzle.difficulty
+										},
 										{ type: 'hit', attacker: me, attackIndex: n, level, damage, targetHp: left }
 									]
 								: [
-										{ type: 'answer-judged', side: me, correct: false, topic: puzzleTopic(puzzle) },
+										{
+											type: 'answer-judged',
+											side: me,
+											correct: false,
+											topic: puzzleTopic(puzzle),
+											kind: puzzle.kind,
+											difficulty: puzzle.difficulty
+										},
 										{ type: 'missed', attacker: me, attackIndex: n, level }
 									];
 							if (right && left === 0) {

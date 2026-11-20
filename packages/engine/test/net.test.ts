@@ -714,6 +714,46 @@ describe('friendly matches on the wire', () => {
 		});
 	});
 
+	it("leaves out an answer's kind or difficulty no puzzle has, and keeps the step", () => {
+		const rng = new Rng(31);
+		let message: Record<string, unknown> & { events: Record<string, unknown>[] };
+		do {
+			message = JSON.parse(JSON.stringify(randomMatchMessage(rng)));
+		} while (!message.events.some((e) => e.type === 'answer-judged'));
+		const judged = message.events.findIndex((e) => e.type === 'answer-judged');
+		const { difficulty: known, kind: itsKind, ...without } = message.events[judged]!;
+		expect(known).toBeTypeOf('number');
+		expect(ALL_PUZZLE_KINDS).toContain(itsKind);
+		const read = (event: Record<string, unknown>) => {
+			message.events[judged] = event;
+			const out = parseServerMessage(message) as { events: unknown[] } | null;
+			expect(out, JSON.stringify(event)).not.toBeNull();
+			return out!.events[judged];
+		};
+		// A server from before them sends none; anything else is none either, and the other is kept.
+		for (const difficulty of [undefined, 0, 11, 2.5, -1, '3', null, [3], { d: 3 }]) {
+			expect(read({ ...without, kind: itsKind, difficulty })).toStrictEqual({
+				...without,
+				kind: itsKind
+			});
+		}
+		for (const kind of [undefined, 'calculus', 'Add', 3, null, ['add'], 'constructor']) {
+			expect(read({ ...without, kind, difficulty: known })).toStrictEqual({
+				...without,
+				difficulty: known
+			});
+		}
+		for (const difficulty of [1, 10, known]) {
+			for (const kind of ALL_PUZZLE_KINDS) {
+				expect(read({ ...without, kind, difficulty })).toStrictEqual({
+					...without,
+					kind,
+					difficulty
+				});
+			}
+		}
+	});
+
 	it('refuses a match message with anything inside it swapped for junk, or missing', () => {
 		const rng = new Rng(13);
 		const through: string[] = [];
@@ -732,9 +772,12 @@ describe('friendly matches on the wire', () => {
 				const original = parent[key];
 				// A nickname may be missing, as may the match a rematch follows and its call-off
 				// (a server from before them); an empty list of events is a whole message too (a
-				// start, a resume). An answer's topic is never a reason to drop a step: one this
-				// build lacks is left out (below).
-				if (key === 'topic') continue;
+				// start, a resume). An answer's topic, kind or difficulty is never a reason to drop
+				// a step: one this build lacks is left out (below). A puzzle's are.
+				const answer = (message.events as { type?: unknown }[] | undefined)?.[Number(path[1])];
+				const judged =
+					path[0] === 'events' && path.length === 3 && answer?.type === 'answer-judged';
+				if (key === 'topic' || (judged && (key === 'kind' || key === 'difficulty'))) continue;
 				const optional = key === 'nickname' || where === 'rematchOf' || where === 'calledOff';
 				for (const junk of [...JUNK, DELETE]) {
 					if ((junk === undefined || junk === DELETE) && optional) continue;
