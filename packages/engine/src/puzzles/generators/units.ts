@@ -136,10 +136,10 @@ export const UNITS_LADDER: readonly UnitsStep[] = [
 		],
 		back: [
 			{ pair: 'week-day', big: [3, 9] },
-			{ pair: 'hour-minute', big: [2, 6] },
-			{ pair: 'day-hour', big: [2, 5] },
-			{ pair: 'year-month', big: [2, 6] },
-			{ pair: 'minute-second', big: [2, 6] }
+			{ pair: 'hour-minute', big: [3, 6] },
+			{ pair: 'day-hour', big: [3, 5] },
+			{ pair: 'year-month', big: [3, 6] },
+			{ pair: 'minute-second', big: [3, 6] }
 		]
 	},
 	// 10
@@ -155,7 +155,7 @@ export const UNITS_LADDER: readonly UnitsStep[] = [
 			{ pair: 'week-day', big: [3, 8], small: [1, 6] },
 			{ pair: 'hour-minute', big: [2, 4], small: [5, 59] },
 			{ pair: 'day-hour', big: [2, 3], small: [1, 23] },
-			{ pair: 'year-month', big: [2, 5], small: [1, 11] },
+			{ pair: 'year-month', big: [3, 6], small: [1, 11] },
 			{ pair: 'minute-second', big: [2, 4], small: [5, 59] }
 		]
 	}
