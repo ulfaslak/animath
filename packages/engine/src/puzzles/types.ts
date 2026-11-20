@@ -6,7 +6,16 @@ import type { Rng } from '../rng.js';
  * [[ARCHITECTURE]]'s `registry.ts` row.
  */
 export type PuzzleKind =
-	'add' | 'sub' | 'mul' | 'div' | 'missing' | 'sequence' | 'sqrt' | PictureKind | 'balance';
+	| 'add'
+	| 'sub'
+	| 'mul'
+	| 'div'
+	| 'missing'
+	| 'sequence'
+	| 'sqrt'
+	| 'double'
+	| PictureKind
+	| 'balance';
 
 /**
  * The kinds the puzzle panel draws a picture for (#191): the client words
@@ -28,6 +37,18 @@ export function isPictureKind(kind: PuzzleKind): kind is PictureKind {
 	return (PICTURE_KINDS as readonly PuzzleKind[]).includes(kind);
 }
 
+/**
+ * The kinds whose question has words: the picture kinds, and doubling and
+ * halving ("Double 8 = ?", no picture). The client words their question
+ * from the face's numbers in the language on screen, so their prompt is the
+ * face written out (`facePrompt`), never shown as it is.
+ */
+export type WordedKind = PictureKind | 'double';
+
+export function isWordedKind(kind: PuzzleKind): kind is WordedKind {
+	return kind === 'double' || isPictureKind(kind);
+}
+
 export const ALL_PUZZLE_KINDS: readonly PuzzleKind[] = [
 	'add',
 	'sub',
@@ -36,6 +57,7 @@ export const ALL_PUZZLE_KINDS: readonly PuzzleKind[] = [
 	'missing',
 	'sequence',
 	'sqrt',
+	'double',
 	...PICTURE_KINDS,
 	'balance'
 ];
@@ -51,7 +73,8 @@ export type AnswerForm = 'number' | 'time';
  * What a puzzle looks like to the kid, for the words that describe an attack:
  * mostly its kind, except that a missing number in a times table
  * ("7 × ? = 56") is `mul` — times tables to the kid — while one in a sum
- * ("7 + ? = 12") stays `missing`.
+ * ("7 + ? = 12") stays `missing`, and a `double` puzzle is `double` or
+ * `half` as it doubles or halves.
  */
 export type PuzzleTopic =
 	| 'add'
@@ -61,6 +84,8 @@ export type PuzzleTopic =
 	| 'missing'
 	| 'sequence'
 	| 'sqrt'
+	| 'double'
+	| 'half'
 	| 'thermometer'
 	| 'kroner'
 	| 'fraction'
@@ -78,6 +103,8 @@ export const ALL_PUZZLE_TOPICS: readonly PuzzleTopic[] = [
 	'missing',
 	'sequence',
 	'sqrt',
+	'double',
+	'half',
 	'thermometer',
 	'kroner',
 	'fraction',
@@ -101,7 +128,8 @@ export interface Puzzle {
 	 * reads back: a puzzle shown to a player near a battle travels as those
 	 * numbers, never as text. The UI shows a sum's verbatim ("8 + □ = 5 + 6"
 	 * too); a picture kind's is its face written out, `clock(1, 3, 15, 1, 20)`,
-	 * which the UI words and draws from the face and never shows.
+	 * which the UI words and draws from the face and never shows, and so is a
+	 * worded kind's (`double(0, 8)`), which the UI words ("Double 8 = ?").
 	 */
 	prompt: string;
 	/**

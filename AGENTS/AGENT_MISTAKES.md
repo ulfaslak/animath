@@ -390,3 +390,13 @@ To become `[learned]`: a line in [[DESIGN]] that a sum drawn for kids shows grou
 The first three found by the adversarial review.
 
 To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology that a new saved field is tested against a later build's value of it as well as an earlier build's reading of it, and that a field read for a new purpose is traced to every writer first.
+
+### 2026-11-20 — doubling and halving (feat/double-and-half, PR #245) — a new member of a roster checked against what it does, not against its siblings `[not codified]`
+
+- **Halving took ½, the sign fractions already had.** `kindGlyph` is a roster of signs, and a kid who cannot read tells the topics apart by them; My puzzles and the thought bubble showed two identical chips. Found by the adversarial review. Halving is now ÷2, and `packages/client/test/kinds.test.ts` fails when two topics share a sign.
+- **The players script could not answer the new kind.** `scripts/players.mts`'s `solve` reads prompts as text: one more list a new puzzle kind must join, and not on CLAUDE.md's list of duplicated rosters. Found when `solve:right` failed in a battle.
+- **Words in a box styled for sums.** The prompt's `overflow-wrap: anywhere` suits "15 × □ − 97 = 143" and broke "dobbelte" in two in a narrow card. Found on a phone-sized screenshot. A worded prompt now breaks between words only.
+- **Prose that named only picture kinds.** Four comments said only a picture kind's prompt is its face written out, after `double` became a second such kind. Found by the review. Same category as "Prose is a claim": grep for prose naming the sibling roster the new member joins.
+- **A hint that contradicted itself.** Halving's hint split "half of 30" into (20 ÷ 2) + (10 ÷ 2), because halving an odd ten is the hard part, and then gave "half of 34" the step (30 ÷ 2). Two rules in one function, each checked alone; the test checked only that the arithmetic holds. Found by the second adversarial review. An odd place now passes one ten or hundred down, and `hint.test.ts` checks every halving step is a double the kid knows.
+
+To become `[learned]`: CLAUDE.md's "Duplicated rosters" item names `scripts/players.mts`'s `solve` among the lists a new puzzle kind joins, and says that a new member's sign, word or colour is checked against every sibling's, not only against its own meaning.

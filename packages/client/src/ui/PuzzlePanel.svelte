@@ -11,7 +11,7 @@
 	import { HINT_KEY, shownAnswer } from '../input/answer';
 	import HintView from './HintView.svelte';
 	import WandIcon from './WandIcon.svelte';
-	import { questionParts, questionText } from '../puzzle-words';
+	import { questionParts, questionText, wordedPrompt } from '../puzzle-words';
 	import PuzzlePicture from './pictures/PuzzlePicture.svelte';
 	import { unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
@@ -43,7 +43,8 @@
 	 * A puzzle with a picture (the Arctic's kinds, #191) is drawn from its
 	 * face: the picture on the left, filling the card's height, and its
 	 * question in words beside it, picked here in the language on screen
-	 * (`puzzle-words.ts`), over the answer. A clock's answer is a time: the
+	 * (`puzzle-words.ts`), over the answer. A puzzle with words and no
+	 * picture ("Double 8 = ?") is worded the same way and shown as a sum is. A clock's answer is a time: the
 	 * box shows "--:--" until a digit is typed, and the pad has a colon.
 	 *
 	 * A puzzle with a hint (the engine's `puzzleHint` of its face) has a
@@ -87,6 +88,9 @@
 	const face = $derived(puzzleFace(puzzle));
 	const pictured = $derived(face !== null && isPictureKind(face.kind));
 	const parts = $derived(face && pictured ? questionParts(face) : null);
+	/** The prompt in very large type: a sum's as the engine writes it, a worded one's in words. */
+	const worded = $derived(face ? wordedPrompt(face) : null);
+	const prompt = $derived(worded ?? puzzle.prompt);
 	const form = $derived(answerForm(puzzle.kind));
 	/** The puzzle's hint, for the kid answering it; none for a puzzle only watched. */
 	const hint = $derived(face && !watch ? puzzleHint(face) : null);
@@ -131,7 +135,9 @@
 				<HintView hint={shownHint} numbers={face.numbers} />
 			</div>
 		{:else}
-			<div class="puzzle-prompt" class:long={puzzle.prompt.length > 11}>{puzzle.prompt}</div>
+			<div class="puzzle-prompt" class:long={prompt.length > 11} class:worded={worded !== null}>
+				{prompt}
+			</div>
 		{/if}
 		{#if shownHint && shownHint.form !== 'gaps'}
 			<HintView hint={shownHint} />
@@ -393,6 +399,14 @@
 		font-size: clamp(40px, 7vh, 64px);
 		line-height: 1.1;
 		overflow-wrap: anywhere;
+	}
+	/*
+	 * A worded prompt breaks between words, never inside one ("Det dobbelte
+	 * af", not "dobbe-lte"), and one that needs two lines splits them evenly.
+	 */
+	.puzzle-prompt.worded {
+		overflow-wrap: break-word;
+		text-wrap: balance;
 	}
 	/* Beside the pad the prompt has half the card: smaller, and a long one smaller still. */
 	.with-pad .puzzle-prompt {

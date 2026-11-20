@@ -50,8 +50,8 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'water',
 		attacks: [
 			{ id: 'croak', kinds: ['sequence'], power: 4 },
-			{ id: 'tongue-flick', kinds: ['mul'], power: 5 },
-			{ id: 'big-splash', kinds: ['mul', 'sequence'], power: 7 }
+			{ id: 'tongue-flick', kinds: ['double', 'mul'], power: 5 },
+			{ id: 'big-splash', kinds: ['double', 'mul', 'sequence'], power: 7 }
 		]
 	},
 	{
@@ -64,7 +64,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'trees',
 		attacks: [
 			{ id: 'nip', kinds: ['sub', 'missing'], power: 6 },
-			{ id: 'pounce', kinds: ['mul'], power: 9 },
+			{ id: 'pounce', kinds: ['double', 'mul'], power: 9 },
 			{ id: 'trick', kinds: ['sequence'], power: 12 }
 		]
 	},
@@ -78,7 +78,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'water',
 		attacks: [
 			{ id: 'splash', kinds: ['add', 'sub'], power: 5 },
-			{ id: 'tail-whip', kinds: ['mul', 'missing'], power: 9 }
+			{ id: 'tail-whip', kinds: ['double', 'mul', 'missing'], power: 9 }
 		]
 	},
 	{
@@ -199,7 +199,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'open',
 		attacks: [
 			{ id: 'dig', kinds: ['add', 'sub'], power: 4 },
-			{ id: 'molehill', kinds: ['missing', 'mul'], power: 8 }
+			{ id: 'molehill', kinds: ['missing', 'double', 'mul'], power: 8 }
 		]
 	},
 	{
@@ -226,8 +226,8 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'water',
 		attacks: [
 			{ id: 'puff-up', kinds: ['sequence'], power: 4 },
-			{ id: 'sticky-tongue', kinds: ['add', 'mul'], power: 5 },
-			{ id: 'big-hop', kinds: ['mul', 'sequence'], power: 7 }
+			{ id: 'sticky-tongue', kinds: ['add', 'double', 'mul'], power: 5 },
+			{ id: 'big-hop', kinds: ['double', 'mul', 'sequence'], power: 7 }
 		]
 	},
 	{
@@ -267,7 +267,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'trees',
 		attacks: [
 			{ id: 'bark', kinds: ['add', 'sub'], power: 6 },
-			{ id: 'spring', kinds: ['mul'], power: 9 },
+			{ id: 'spring', kinds: ['double', 'mul'], power: 9 },
 			{ id: 'white-flash', kinds: ['sequence', 'missing'], power: 11 }
 		]
 	},
@@ -281,7 +281,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'trees',
 		attacks: [
 			{ id: 'snuffle', kinds: ['add', 'sub'], power: 6 },
-			{ id: 'dig-in', kinds: ['mul'], power: 9 },
+			{ id: 'dig-in', kinds: ['double', 'mul'], power: 9 },
 			{ id: 'badger-charge', kinds: ['missing', 'sequence'], power: 11 }
 		]
 	},
@@ -295,7 +295,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'trees',
 		attacks: [
 			{ id: 'tree-leap', kinds: ['add', 'sub'], power: 6 },
-			{ id: 'quick-paws', kinds: ['mul'], power: 9 },
+			{ id: 'quick-paws', kinds: ['double', 'mul'], power: 9 },
 			{ id: 'marten-bite', kinds: ['sequence'], power: 12 }
 		]
 	},
@@ -309,7 +309,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'rocks',
 		attacks: [
 			{ id: 'stoat-dance', kinds: ['sequence'], power: 7 },
-			{ id: 'quick-bite', kinds: ['mul', 'missing'], power: 10 }
+			{ id: 'quick-bite', kinds: ['double', 'mul', 'missing'], power: 10 }
 		]
 	},
 	{
@@ -323,7 +323,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		attacks: [
 			{ id: 'hiss', kinds: ['sub', 'missing'], power: 6 },
 			{ id: 'zigzag', kinds: ['sequence'], power: 8 },
-			{ id: 'strike', kinds: ['mul'], power: 11 }
+			{ id: 'strike', kinds: ['double', 'mul'], power: 11 }
 		]
 	},
 	{
@@ -336,7 +336,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'water',
 		attacks: [
 			{ id: 'wade', kinds: ['add', 'sub'], power: 6 },
-			{ id: 'spear-beak', kinds: ['mul', 'missing'], power: 10 }
+			{ id: 'spear-beak', kinds: ['double', 'mul', 'missing'], power: 10 }
 		]
 	},
 	{
@@ -351,8 +351,8 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'trees',
 		attacks: [
 			{ id: 'hoot', kinds: ['sequence'], power: 5 },
-			{ id: 'silent-swoop', kinds: ['mul'], power: 8 },
-			{ id: 'talon-grab', kinds: ['mul', 'missing'], power: 11 }
+			{ id: 'silent-swoop', kinds: ['double', 'mul'], power: 8 },
+			{ id: 'talon-grab', kinds: ['double', 'mul', 'missing'], power: 11 }
 		]
 	},
 	{
@@ -365,7 +365,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'water',
 		attacks: [
 			{ id: 'wash-up', kinds: ['add', 'sub'], power: 5 },
-			{ id: 'clever-paws', kinds: ['missing', 'mul'], power: 8 },
+			{ id: 'clever-paws', kinds: ['missing', 'double', 'mul'], power: 8 },
 			{ id: 'bandit-mask', kinds: ['sequence'], power: 11 }
 		]
 	},
@@ -379,7 +379,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'water',
 		attacks: [
 			{ id: 'tail-slap', kinds: ['add', 'sub'], power: 5 },
-			{ id: 'tree-gnaw', kinds: ['mul', 'missing'], power: 9 }
+			{ id: 'tree-gnaw', kinds: ['double', 'mul', 'missing'], power: 9 }
 		]
 	},
 	{
@@ -396,7 +396,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		attacks: [
 			{ id: 'mew', kinds: ['add', 'sub'], power: 6 },
 			{ id: 'sky-circles', kinds: ['sequence'], power: 9 },
-			{ id: 'talon-drop', kinds: ['mul', 'missing'], power: 11 }
+			{ id: 'talon-drop', kinds: ['double', 'mul', 'missing'], power: 11 }
 		]
 	},
 	// The big animals of the Nordic countryside (#89 wave 2), by tier and then as
@@ -674,7 +674,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		attacks: [
 			{ id: 'long-strands', kinds: ['sub', 'missing'], power: 6 },
 			{ id: 'sting', kinds: ['sequence'], power: 8 },
-			{ id: 'fire-mane', kinds: ['mul'], power: 11 }
+			{ id: 'fire-mane', kinds: ['double', 'mul'], power: 11 }
 		]
 	},
 	{
@@ -687,7 +687,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'water',
 		attacks: [
 			{ id: 'feeler-tap', kinds: ['add', 'sub'], power: 6 },
-			{ id: 'crusher-claw', kinds: ['mul'], power: 9 },
+			{ id: 'crusher-claw', kinds: ['double', 'mul'], power: 9 },
 			{ id: 'tail-flip', kinds: ['missing', 'sequence'], power: 11 }
 		]
 	},

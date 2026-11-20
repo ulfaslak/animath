@@ -6,7 +6,8 @@ export type {
 	Puzzle,
 	PuzzleGenerator,
 	PuzzleKind,
-	PuzzleTopic
+	PuzzleTopic,
+	WordedKind
 } from './puzzles/types.js';
 export {
 	ALL_PUZZLE_KINDS,
@@ -14,7 +15,8 @@ export {
 	MAX_DIFFICULTY,
 	MIN_DIFFICULTY,
 	PICTURE_KINDS,
-	isPictureKind
+	isPictureKind,
+	isWordedKind
 } from './puzzles/types.js';
 export {
 	answerForm,
@@ -60,6 +62,7 @@ export { puzzleHint } from './puzzles/hint.js';
 export type { HintToken, PuzzleHint } from './puzzles/hint.js';
 export { BARCHART } from './puzzles/generators/barchart.js';
 export { CLOCK } from './puzzles/generators/clock.js';
+export { DOUBLE } from './puzzles/generators/double.js';
 export { SHAPE } from './puzzles/generators/shape.js';
 
 export type {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Rng } from '../src/rng.js';
 import { facePrompt, puzzleFace, type PuzzleFace } from '../src/puzzles/face.js';
+import { DOUBLE, DOUBLE_LADDER, numbersOf } from '../src/puzzles/generators/double.js';
 import { puzzleHint, type HintToken, type PuzzleHint } from '../src/puzzles/hint.js';
 import { generatePuzzle, getGenerator } from '../src/puzzles/registry.js';
 import { ALL_PUZZLE_KINDS, type PuzzleKind } from '../src/puzzles/types.js';
@@ -254,6 +255,55 @@ describe('puzzleHint', () => {
 			check('add', a, b, a + b);
 			check('sub', Math.max(a, b), Math.min(a, b), Math.max(a, b) - Math.min(a, b));
 		}
+		expect(bad.slice(0, 20)).toEqual([]);
+	});
+
+	it('holds for every number doubling and halving can show, and each has a hint', () => {
+		const bad: string[] = [];
+		for (const forms of DOUBLE_LADDER)
+			for (const form of forms)
+				for (const n of numbersOf(form)) {
+					const face: PuzzleFace = { kind: 'double', numbers: [DOUBLE[form.how], n] };
+					const answer = form.how === 'double' ? n + n : n / 2;
+					const hint = puzzleHint(face);
+					const why = hint ? wrong(face, answer, hint) : 'no hint';
+					if (why) bad.push(`${facePrompt(face)}: ${why}`);
+				}
+		expect(bad.slice(0, 20)).toEqual([]);
+	});
+
+	it('doubles as adding a number to itself, and halves place by place', () => {
+		const text = (how: keyof typeof DOUBLE, n: number) => {
+			const hint = puzzleHint({ kind: 'double', numbers: [DOUBLE[how], n] });
+			if (hint?.form === 'dots') return `dots ${hint.a} + ${hint.b}`;
+			return hint?.form === 'equation' ? hint.tokens.join(' ') : String(hint);
+		};
+		expect(text('double', 4)).toBe('dots 4 + 4');
+		expect(text('double', 7)).toBe('? = 7 + 3 + 4');
+		expect(text('double', 37)).toBe('? = ( 30 + 30 ) + ( 7 + 7 )');
+		expect(text('double', 40)).toBe('? = ( 4 + 4 ) × 10');
+		expect(text('half', 8)).toBe('? + ? = 8');
+		expect(text('half', 14)).toBe('? + ? = 14');
+		expect(text('half', 76)).toBe('? = ( 60 ÷ 2 ) + ( 16 ÷ 2 )');
+		expect(text('half', 70)).toBe('? = ( 60 ÷ 2 ) + ( 10 ÷ 2 )');
+	});
+
+	it('halves only what is a double the kid knows: an even count of ones, tens or hundreds, to 18', () => {
+		// Half of 30 is split as (20 ÷ 2) + (10 ÷ 2), so no other hint may hand over 30 ÷ 2 as a step.
+		const bad: string[] = [];
+		for (const forms of DOUBLE_LADDER)
+			for (const form of forms) {
+				if (form.how !== 'half') continue;
+				for (const n of numbersOf(form)) {
+					const hint = puzzleHint({ kind: 'double', numbers: [DOUBLE.half, n] });
+					if (hint?.form !== 'equation') continue;
+					for (const pill of pills(hint.tokens)) {
+						let count = pill[0] as number;
+						while (count % 10 === 0) count /= 10;
+						if (count !== 1 && (count % 2 !== 0 || count > 18)) bad.push(`${n}: ${pill.join(' ')}`);
+					}
+				}
+			}
 		expect(bad.slice(0, 20)).toEqual([]);
 	});
 
