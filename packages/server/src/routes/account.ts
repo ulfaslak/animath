@@ -8,9 +8,20 @@ import {
 import { eq } from 'drizzle-orm';
 import { Hono, type Context, type MiddlewareHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
-import { createAccount, findUser } from '../accounts.js';
+import { changePasswordHash, createAccount, findUser } from '../accounts.js';
 import { db } from '../db/index.js';
 import { accountSaves } from '../db/schema.js';
+import {
+	claimHome,
+	homeHashFor,
+	homeHashOf,
+	homeKey,
+	homeKeyOrNew,
+	homeNames,
+	isHome,
+	keepHomeKey,
+	sendHomeKey
+} from '../home.js';
 import { hashPassword, verifyDecoy, verifyPassword } from '../passwords.js';
 import { RateLimiter, type AccountLimits, type Verdict } from '../rate-limit.js';
 import { clientIp, rateKey, readJson, sameOriginJson } from '../request.js';
@@ -34,14 +45,17 @@ import {
 import { acceptWelcome, welcomeState } from '../welcome.js';
 
 /**
- * Optional accounts: a name (the character's) and a password, a session
+ * Accounts: a name (the character's) and a password, a session
  * cookie, and the account's save.
  *
  *   POST /api/account/register  { name, password, save? } → 201 { user: { name } } + cookie
  *   POST /api/account/login     { name, password }        → 200 { user: { name } } + cookie
+ *   POST /api/account/login     { name, home: true }      → 200 { user: { name } } + cookie | 401 not home
  *   POST /api/account/logout                              → 200 { ok: true }: the session ended
  *   GET  /api/account/ready                               → 200 { ready: boolean }
- *   GET  /api/account/me                                  → 200 { user: { name } | null }
+ *   GET  /api/account/me                                  → 200 { user: { name, home } | null }
+ *   GET  /api/account/home                                → 200 { names }: the accounts whose home this browser is
+ *   POST /api/account/password  { password }              → 200 { ok: true } | 403 not home
  *   GET  /api/account/save                                → 200 SaveV6 | 404 no save yet
  *   PUT  /api/account/save      SaveV6                    → 200 { ok: true } | 409 { error, save }
  *   GET  /api/account/welcome   (x-animath-welcome: token) → 200 { name } | 410 used or expired | 404
@@ -61,6 +75,12 @@ import { acceptWelcome, welcomeState } from '../welcome.js';
  * and nothing about a spent one but that it is spent. Its token travels in a
  * header or a body, never in a path: nginx's error log keeps a request's
  * line whole and cannot be cleaned (`nginx/http.conf`).
+ *
+ * An account's home (`home.ts`) is the browser it was made in, or for an
+ * account made before homes the first one it is logged in on (claimed at
+ * `/me` or at a login). There the name alone logs in (`home: true`), and the
+ * password can be changed (`/password`, which names its account as the save
+ * routes do, and logs every other browser out).
  */
 
 /** The header a welcome link's lookup carries its token in. */
@@ -94,6 +114,16 @@ function tooBig(maxSize: number) {
 		maxSize,
 		onError: (c) => c.json({ error: `body is bigger than ${maxSize} bytes` }, 413)
 	});
+}
+
+/** A login body: a name with its password, or a name alone at its home. Null for anything else. */
+function loginCredentials(
+	body: unknown
+): { name: string; password: string } | { name: string; home: true } | null {
+	if (isRecord(body) && typeof body.name === 'string' && body.home === true) {
+		return { name: body.name, home: true };
+	}
+	return credentials(body);
 }
 
 /** The name and password of a register or login body, or null when the body has no such fields. */
@@ -168,6 +198,30 @@ export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 	}
 
 	/**
+	 * After a login, and at `/me`: an account with no home yet (one made before
+	 * homes, or after `clear-home`) takes this browser when its session
+	 * (`token`) is the account's only live one (`claimHome`); the browser's
+	 * home key goes with the answer again, to keep it alive. True when this
+	 * browser is the account's home.
+	 */
+	async function settleHome(
+		c: Context,
+		userId: string,
+		stored: string | null,
+		token: string
+	): Promise<boolean> {
+		if (stored !== null) {
+			keepHomeKey(c, cookie);
+			return isHome(stored, homeKey(c, cookie));
+		}
+		const key = await homeKeyOrNew(c, cookie);
+		const home = await claimHome(db, userId, key, token);
+		if (home) sendHomeKey(c, key, cookie);
+		else keepHomeKey(c, cookie);
+		return home;
+	}
+
+	/**
 	 * The save routes only read the session: they never send the cookie,
 	 * neither to slide it nor to clear it. An autosave still on its way with
 	 * the old cookie when the browser logs in to another account would
@@ -233,14 +287,18 @@ export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 			// Spare the slow hash for a name that is plainly taken; the unique
 			// key still decides a race between two registrations.
 			if (await findUser(key)) return c.json({ error: 'name taken' }, 409);
+			// The browser it is made in is its home.
+			const home = await homeKeyOrNew(c, cookie);
 			const created = await createAccount({
 				name: named.name,
 				nameKey: key,
 				passwordHash: await hashPassword(password.password),
-				save
+				save,
+				homeHash: homeHashOf(home)
 			});
 			if (!created) return c.json({ error: 'name taken' }, 409);
 			await logIn(c, created.token);
+			sendHomeKey(c, home, cookie);
 			return c.json({ user: { name: named.name } }, 201);
 		})
 		.post('/login', tooBig(LOGIN_MAX_BYTES), async (c) => {
@@ -249,10 +307,15 @@ export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 			if (!byIp.ok) return tooMany(c, byIp);
 			const body = await readJson(c);
 			if (body === undefined) return c.json({ error: 'body is not valid JSON' }, 400);
-			const given = credentials(body);
+			const given = loginCredentials(body);
 			if (!given) return c.json({ error: 'send a name and a password' }, 400);
+			const atHome = 'home' in given;
 			const key = loginKey(given.name);
-			if (key === null) return c.json({ error: 'wrong name or password' }, 401);
+			if (key === null) {
+				return atHome
+					? c.json({ error: 'not home' }, 401)
+					: c.json({ error: 'wrong name or password' }, 401);
+			}
 			// Counted as a failure until the password proves right, so tries
 			// racing each other cannot all slip under the limits.
 			const pair = `${key}\u0000${address}`;
@@ -263,16 +326,26 @@ export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 				limit.loginFailuresPerNameFromIp.refund(pair);
 				return tooMany(c, fromAnywhere);
 			}
-			const password = checkPassword(given.password);
 			const user = await findUser(key);
-			const right =
-				user && password.ok
-					? await verifyPassword(password.password, user.passwordHash)
-					: await verifyDecoy(password.ok ? password.password : 'wrong length');
-			if (!user || !right) return c.json({ error: 'wrong name or password' }, 401);
+			if (atHome) {
+				// The name alone, only in the account's own browser: its key is 256 bits, so
+				// there is nothing to guess and no password's hash to spend time on.
+				if (!user || !isHome(user.homeHash, homeKey(c, cookie))) {
+					return c.json({ error: 'not home' }, 401);
+				}
+			} else {
+				const password = checkPassword(given.password);
+				const right =
+					user && password.ok
+						? await verifyPassword(password.password, user.passwordHash)
+						: await verifyDecoy(password.ok ? password.password : 'wrong length');
+				if (!user || !right) return c.json({ error: 'wrong name or password' }, 401);
+			}
 			limit.loginFailuresPerNameFromIp.refund(pair);
 			limit.loginFailuresPerName.refund(key);
-			await logIn(c, await createSession(db, user.id));
+			const token = await createSession(db, user.id);
+			await logIn(c, token);
+			await settleHome(c, user.id, user.homeHash, token);
 			return c.json({ user: { name: user.name } });
 		})
 		.post('/logout', tooBig(LOGIN_MAX_BYTES), async (c) => {
@@ -300,7 +373,40 @@ export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 		})
 		.get('/me', async (c) => {
 			const user = await currentUser(c, cookie);
-			return c.json({ user: user ? { name: user.name } : null });
+			if (!user) return c.json({ user: null });
+			const token = sessionToken(c);
+			const home =
+				token !== undefined && (await settleHome(c, user.id, await homeHashFor(user.id), token));
+			return c.json({ user: { name: user.name, home } });
+		})
+		.get('/home', async (c) => {
+			// The answer names accounts for a secret: no cache keeps it.
+			c.header('Cache-Control', 'no-store');
+			return c.json({ names: await homeNames(homeKey(c, cookie)) });
+		})
+		.post('/password', requireSession, tooBig(LOGIN_MAX_BYTES), async (c) => {
+			const byIp = limit.loginPerIp.hit(rateKey(clientIp(c)));
+			if (!byIp.ok) return tooMany(c, byIp);
+			const user = c.get('user');
+			if (!isHome(await homeHashFor(user.id), homeKey(c, cookie))) {
+				return c.json({ error: 'not home' }, 403);
+			}
+			const body = await readJson(c);
+			if (body === undefined) return c.json({ error: 'body is not valid JSON' }, 400);
+			if (!isRecord(body) || typeof body.password !== 'string') {
+				return c.json({ error: 'send a password' }, 400);
+			}
+			const password = checkPassword(body.password);
+			if (!password.ok) return c.json({ error: 'bad password', reason: password.reason }, 400);
+			const token = sessionToken(c);
+			if (token === undefined) return c.json({ error: 'not logged in' }, 401);
+			const changed = await changePasswordHash(
+				user.id,
+				await hashPassword(password.password),
+				token
+			);
+			if (!changed) return c.json({ error: 'not logged in' }, 401);
+			return c.json({ ok: true });
 		})
 		.get('/save', requireSession, async (c) => {
 			const [row] = await db
@@ -357,9 +463,15 @@ export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 			// Only a live link costs a slow hash.
 			const state = await welcomeState(body.token);
 			if (state.kind !== 'live') return welcomeGone(c, state.kind);
-			const result = await acceptWelcome(body.token, await hashPassword(password.password));
+			const home = await homeKeyOrNew(c, cookie);
+			const result = await acceptWelcome(
+				body.token,
+				await hashPassword(password.password),
+				homeHashOf(home)
+			);
 			if (result.kind !== 'welcomed') return welcomeGone(c, result.kind);
 			await logIn(c, result.sessionToken);
+			if (result.home) sendHomeKey(c, home, cookie);
 			return c.json({ user: { name: result.name }, save: result.save });
 		});
 }

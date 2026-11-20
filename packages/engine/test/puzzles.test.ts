@@ -5,6 +5,15 @@ import { attackDamage } from '../src/battle/damage.js';
 import { Rng } from '../src/rng.js';
 import { healingDifficulty, puzzleDifficulty } from '../src/puzzles/difficulty.js';
 import {
+	ADDEND_LADDER,
+	TIMES_LADDER,
+	TIMES_SKILLS,
+	backwardsForms,
+	type Band,
+	type TimesForm
+} from '../src/puzzles/generators/arithmetic.js';
+import { ROOT_LADDER, ROOT_SKILLS, type RootForm } from '../src/puzzles/generators/sqrt.js';
+import {
 	answerText,
 	checkAnswer,
 	generatePuzzle,
@@ -221,8 +230,12 @@ describe('puzzle generators', () => {
 	});
 });
 
-/** The kinds whose numbers climb with difficulty band by band (#7). */
-const ARITHMETIC: readonly PuzzleKind[] = ['add', 'sub', 'mul', 'div', 'missing', 'sqrt'];
+/**
+ * Adding and taking away: their numbers climb with difficulty band by band
+ * (#7). Times tables, sharing, missing numbers and square roots climb by
+ * skill instead (§ the skill ladders below).
+ */
+const SUMS: readonly PuzzleKind[] = ['add', 'sub'];
 
 /** Every number a kid reads in a prompt; the answer hides behind the "?". */
 function numbersIn(prompt: string): number[] {
@@ -231,18 +244,18 @@ function numbersIn(prompt: string): number[] {
 
 /**
  * The ladder climbs (#7): a difficulty-3 attack once asked "4 + 1" because
- * operands had a ceiling but no floor. Every band's ends must be
- * non-decreasing in difficulty, and two steps up must be out of reach.
+ * operands had a ceiling but no floor. For adding and taking away every
+ * band's ends must be non-decreasing in difficulty, and two steps up must be
+ * out of reach.
  */
 describe('difficulty ladder', () => {
 	const SAMPLES = 300;
 
-	// The sums' kinds. The picture kinds and the balance climb by their own ladders (`puzzle-kinds.test.ts`).
-	for (const kind of ALL_PUZZLE_KINDS.filter((k) => ARITHMETIC.includes(k))) {
+	// Adding and taking away. The other sums climb by skill (below); the picture
+	// kinds and the balance by their own ladders (`puzzle-kinds.test.ts`).
+	for (const kind of ALL_PUZZLE_KINDS.filter((k) => SUMS.includes(k))) {
 		const g = getGenerator(kind);
 		it(`${kind}: the smallest and the largest number shown both climb with difficulty`, () => {
-			// Per operation, because `missing` mixes "+ ?" and "× ?" from difficulty 4
-			// and a missing factor is harder than a missing addend of the same size.
 			const floor = new Map<string, Map<number, number>>();
 			const ceiling = new Map<string, Map<number, number>>();
 			const highest: number[] = []; // largest number shown at d, any operation
@@ -294,10 +307,10 @@ describe('difficulty ladder', () => {
 		});
 	}
 
-	it('ten is never a factor: "10 × 7" is a freebie at any difficulty', () => {
+	it('no factor is a multiple of ten: "10 × 7" is a freebie, "40 × 7" the times table with a nought on', () => {
 		// Collected and asserted once: an `expect` per sample cost more than the rule
 		// (1 s alone, 2 s with two browsers drawing beside it).
-		const tens: string[] = [];
+		const round: string[] = [];
 		for (const kind of ['mul', 'div', 'missing'] as const) {
 			const g = getGenerator(kind);
 			for (let d = g.minDifficulty; d <= g.maxDifficulty; d++) {
@@ -305,19 +318,20 @@ describe('difficulty ladder', () => {
 				for (let i = 0; i < SAMPLES; i++) {
 					const p = g.generate(rng, d);
 					const [a, b] = numbersIn(p.prompt) as [number, number];
-					// mul shows both factors; div and the missing factor hide one in the answer.
+					// mul shows both factors; div and the missing factor hide one in the answer;
+					// a missing addend's two numbers are its parts ("20 + ? = 37" asks nothing).
 					const factors = p.prompt.includes('÷')
 						? [b, p.answer]
 						: p.prompt.includes('× ?')
 							? [a, p.answer]
 							: p.prompt.includes('×')
 								? [a, b]
-								: [];
-					if (factors.includes(10)) tens.push(`${kind} d=${d}: ${p.prompt}`);
+								: [a, p.answer];
+					if (factors.some((f) => f % 10 === 0)) round.push(`${kind} d=${d}: ${p.prompt}`);
 				}
 			}
 		}
-		expect(tens).toEqual([]);
+		expect(round).toEqual([]);
 	}, 30_000);
 
 	it('sequence: counting steps climb with difficulty; only difficulty 1 counts by ones', () => {
@@ -484,6 +498,248 @@ function readings(t: number[]): Map<string, number> {
 		out.set(name, next);
 	}
 	return out;
+}
+
+type Skilled = { skill: string };
+
+/**
+ * For each skill, the steps that ask it in difficulty order: neither end of
+ * any of its bands (`bands` names them) ever falls, and none is empty.
+ */
+function skillBandsFall<F extends Skilled>(
+	rows: readonly (readonly F[])[],
+	from: number,
+	bands: (form: F) => Record<string, Band>
+): string[] {
+	const last = new Map<string, Record<string, Band>>();
+	const bad: string[] = [];
+	for (let d = from; d <= rows.length; d++) {
+		for (const form of rows[d - 1]!) {
+			const now = bands(form);
+			const before = last.get(form.skill);
+			for (const [name, [lo, hi]] of Object.entries(now)) {
+				const prev = before?.[name];
+				if (lo > hi) bad.push(`d${d} ${form.skill} ${name}: [${lo}, ${hi}] is empty`);
+				if (prev && (lo < prev[0] || hi < prev[1]))
+					bad.push(`d${d} ${form.skill} ${name}: [${lo}, ${hi}] after [${prev[0]}, ${prev[1]}]`);
+			}
+			last.set(form.skill, now);
+		}
+	}
+	return bad;
+}
+
+/** Steps whose easiest or hardest skill comes before the step below's, in `order`. */
+function skillsBackOff<F extends Skilled>(
+	rows: readonly (readonly F[])[],
+	from: number,
+	order: readonly string[]
+): string[] {
+	const bad: string[] = [];
+	const ranks = (d: number) => rows[d - 1]!.map((f) => order.indexOf(f.skill));
+	for (let d = from + 1; d <= rows.length; d++) {
+		const [now, prev] = [ranks(d), ranks(d - 1)];
+		if (now.includes(-1)) bad.push(`d${d}: a skill not in the order`);
+		if (Math.min(...now) < Math.min(...prev) || Math.max(...now) < Math.max(...prev))
+			bad.push(
+				`d${d}: ${rows[d - 1]!.map((f) => f.skill)} after ${rows[d - 2]!.map((f) => f.skill)}`
+			);
+	}
+	return bad;
+}
+
+const inBand = (n: number, [lo, hi]: Band) => n >= lo && n <= hi;
+
+/** Whether a band holds a number that is not a multiple of ten (`drawUnround` draws from those). */
+const hasUnround = ([lo, hi]: Band) => {
+	for (let n = lo; n <= hi; n++) if (n % 10 !== 0) return true;
+	return false;
+};
+
+/** The roots a square-root form asks, worked out here from its skill and band. */
+function rootFits({ skill, of }: RootForm, root: number): boolean {
+	if (skill === 'table') return root !== 10 && inBand(root, of);
+	if (skill === 'tens') return root % 10 === 0 && inBand(root / 10, of);
+	return root % 10 === 5 && inBand((root - 5) / 10, of);
+}
+
+/**
+ * Times tables, sharing, missing numbers and square roots climb by skill on
+ * the school-year scale ([[DECISIONS]] § Gameplay): a harder step never asks
+ * an easier skill, within a skill no band falls, every number is drawn from
+ * its step's bands, and nothing at any difficulty needs paper. The tables
+ * are read here; the puzzles are checked against them.
+ */
+describe('skill ladders: times tables, sharing, missing numbers and square roots', () => {
+	const SAMPLES = 400;
+
+	it('every number drawn is 2 or more above difficulty 1 (nothing is "× 1" or "+ 1"), and every band holds one that is not a round ten', () => {
+		const bands: [string, Band][] = [
+			...TIMES_LADDER.flatMap((forms, i) =>
+				forms.flatMap((f) => [
+					[`times d${i + 1} big`, f.big] as [string, Band],
+					[`times d${i + 1} small`, f.small] as [string, Band]
+				])
+			),
+			...ADDEND_LADDER.flatMap((s, i) => [
+				[`addend d${i + 1} part`, s.part] as [string, Band],
+				[`addend d${i + 1} answer`, s.answer] as [string, Band]
+			])
+		];
+		for (const [name, b] of bands) {
+			expect(hasUnround(b), name).toBe(true);
+			if (!name.includes('d1 ')) expect(b[0], name).toBeGreaterThanOrEqual(2);
+		}
+		for (const [i, forms] of ROOT_LADDER.entries())
+			for (const f of forms) expect(rootOfLowest(f), `roots d${i + 1}`).toBeGreaterThanOrEqual(2);
+	});
+
+	it('times tables: a step per difficulty, never an easier skill than the step below, and within a skill no band falls', () => {
+		expect(TIMES_LADDER).toHaveLength(10);
+		const from = getGenerator('mul').minDifficulty;
+		expect(skillsBackOff(TIMES_LADDER, from, TIMES_SKILLS)).toEqual([]);
+		expect(skillBandsFall(TIMES_LADDER, from, (f) => ({ big: f.big, small: f.small }))).toEqual([]);
+	});
+
+	it('sharing and the missing factor are the times tables backwards, never by more than 9', () => {
+		for (let d = getGenerator('div').minDifficulty; d <= MAX_DIFFICULTY; d++) {
+			const forms = backwardsForms(d);
+			expect(forms.length, `d${d}`).toBeGreaterThan(0);
+			for (const f of forms) {
+				expect(TIMES_LADDER[d - 1], `d${d}`).toContain(f);
+				expect(f.small[1], `d${d}`).toBeLessThanOrEqual(9);
+			}
+		}
+	});
+
+	it('missing addend: a step per difficulty, and neither band ever falls', () => {
+		expect(ADDEND_LADDER).toHaveLength(10);
+		const rows = ADDEND_LADDER.map((s) => [{ skill: 'take away', ...s }]);
+		expect(skillBandsFall(rows, 1, (s) => ({ part: s.part, answer: s.answer }))).toEqual([]);
+	});
+
+	it('square roots: a step per difficulty, never an easier skill than the step below, and within a skill no band falls', () => {
+		expect(ROOT_LADDER).toHaveLength(10);
+		const from = getGenerator('sqrt').minDifficulty;
+		expect(skillsBackOff(ROOT_LADDER, from, ROOT_SKILLS)).toEqual([]);
+		expect(skillBandsFall(ROOT_LADDER, from, (f) => ({ of: f.of }))).toEqual([]);
+	});
+
+	it('no two neighbouring difficulties share a step: a harder level never asks the very sums of the one below (#32)', () => {
+		const same: string[] = [];
+		const check = (name: string, from: number, row: (d: number) => unknown) => {
+			for (let d = from + 1; d <= MAX_DIFFICULTY; d++)
+				if (JSON.stringify(row(d)) === JSON.stringify(row(d - 1)))
+					same.push(`${name} d${d - 1}–${d}`);
+		};
+		check('times', getGenerator('mul').minDifficulty, (d) => TIMES_LADDER[d - 1]);
+		check('backwards', getGenerator('div').minDifficulty, (d) => backwardsForms(d));
+		check('addend', getGenerator('missing').minDifficulty, (d) => ADDEND_LADDER[d - 1]);
+		check('roots', getGenerator('sqrt').minDifficulty, (d) => ROOT_LADDER[d - 1]);
+		expect(same).toEqual([]);
+	});
+
+	it('the missing addend crosses where it says: the ten at 2, a hundred at 5, the next hundred at 6, a thousand at 9 and 10', () => {
+		const passes = (part: number, sum: number, unit: number) =>
+			Math.floor(sum / unit) > Math.floor(part / unit) && sum % unit !== 0;
+		const unitAt: Record<number, number> = { 2: 10, 5: 100, 6: 100, 9: 1000, 10: 1000 };
+		const stays: string[] = [];
+		const g = getGenerator('missing');
+		for (const [d, unit] of Object.entries(unitAt).map(([d, u]) => [Number(d), u] as const)) {
+			const rng = new Rng(5900 + d);
+			for (let i = 0; i < SAMPLES; i++) {
+				const p = g.generate(rng, d);
+				if (!p.prompt.includes('+')) continue;
+				const [part, sum] = numbersIn(p.prompt) as [number, number];
+				if (!passes(part, sum, unit)) stays.push(`d${d}: ${p.prompt}`);
+			}
+		}
+		expect(stays).toEqual([]);
+	});
+
+	it('every puzzle comes from its step, and every form of a step comes up', () => {
+		const strays: string[] = [];
+		const unmet: string[] = [];
+		for (const kind of ['mul', 'div', 'missing', 'sqrt'] as const) {
+			const g = getGenerator(kind);
+			for (let d = g.minDifficulty; d <= g.maxDifficulty; d++) {
+				const times = TIMES_LADDER[d - 1]!;
+				const backwards = times.filter((f) => f.small[1] <= 9);
+				const addend = ADDEND_LADDER[d - 1]!;
+				const roots = ROOT_LADDER[d - 1]!;
+				const met = new Set<unknown>();
+				const fits = (forms: readonly TimesForm[], big: number, small: number) =>
+					forms.find((f) => inBand(big, f.big) && inBand(small, f.small));
+				const rng = new Rng(5100 + 37 * d);
+				for (let i = 0; i < SAMPLES; i++) {
+					const p = g.generate(rng, d);
+					const [a, b] = numbersIn(p.prompt) as [number, number];
+					let form: unknown;
+					if (kind === 'mul') form = fits(times, a, b);
+					else if (kind === 'div') form = fits(backwards, p.answer, b);
+					else if (p.prompt.includes('× ?')) form = fits(backwards, p.answer, a);
+					else if (kind === 'missing')
+						form = inBand(a, addend.part) && inBand(p.answer, addend.answer) ? addend : undefined;
+					else form = roots.find((f) => rootFits(f, p.answer));
+					if (form === undefined) strays.push(`${kind} d=${d}: ${p.prompt}`);
+					met.add(form);
+				}
+				const expected: unknown[] =
+					kind === 'mul'
+						? [...times]
+						: kind === 'div'
+							? backwards
+							: kind === 'sqrt'
+								? [...roots]
+								: d >= 4
+									? [addend, ...backwards]
+									: [addend];
+				for (const form of expected)
+					if (!met.has(form)) unmet.push(`${kind} d=${d}: ${JSON.stringify(form)}`);
+			}
+		}
+		expect(strays).toEqual([]);
+		expect(unmet).toEqual([]);
+	}, 30_000);
+
+	it('nothing needs paper: one factor of two digits or more but a teen by a teen, sharing by a digit, three digits only up to 199 and by 5 or less, a missing sum under 2000, and a root of the times table, a whole ten or 15 or 25', () => {
+		const paper: string[] = [];
+		const teen = (n: number) => n >= 11 && n <= 19;
+		/** `big × small` a strong kid of 11–12 does in their head: 19 × 15 or 199 × 5 at most. */
+		const inHead = (big: number, small: number) =>
+			(teen(big) && teen(small) && Math.min(big, small) <= 15) ||
+			(small <= 9 && (big <= 99 || (big <= 199 && small <= 5)));
+		for (const kind of ['mul', 'div', 'missing', 'sqrt'] as const) {
+			const g = getGenerator(kind);
+			for (let d = g.minDifficulty; d <= g.maxDifficulty; d++) {
+				const rng = new Rng(6100 + d);
+				for (let i = 0; i < SAMPLES; i++) {
+					const p = g.generate(rng, d);
+					const [a, b] = numbersIn(p.prompt) as [number, number];
+					const ok =
+						kind === 'mul'
+							? inHead(Math.max(a, b), Math.min(a, b))
+							: kind === 'div'
+								? b <= 9 && inHead(p.answer, b)
+								: p.prompt.includes('× ?')
+									? a <= 9 && inHead(p.answer, a)
+									: kind === 'missing'
+										? b < 2000
+										: p.answer <= 12 ||
+											(p.answer % 10 === 0 && p.answer <= 70) ||
+											p.answer === 15 ||
+											p.answer === 25;
+					if (!ok) paper.push(`${kind} d=${d}: ${p.prompt}`);
+				}
+			}
+		}
+		expect(paper).toEqual([]);
+	}, 30_000);
+});
+
+/** The smallest root a square-root form can ask. */
+function rootOfLowest({ skill, of: [lo] }: RootForm): number {
+	return skill === 'table' ? lo : skill === 'tens' ? 10 * lo : 10 * lo + 5;
 }
 
 describe('checkAnswer', () => {

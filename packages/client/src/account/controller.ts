@@ -1,4 +1,10 @@
-import { checkName, checkPassword, type GameEvent, type SaveWrite } from '@mathgame/engine';
+import {
+	checkName,
+	checkPassword,
+	nameKey,
+	type GameEvent,
+	type SaveWrite
+} from '@mathgame/engine';
 import { sfx } from '../audio/sfx.svelte';
 import { isShortcut, keyName } from '../input/keyboard';
 import { isMashKey, PickGuard } from '../input/pick-guard';
@@ -7,11 +13,23 @@ import type { KeyValueStore } from '../save/storage';
 import {
 	PROMPT_CHOICES,
 	account,
+	loginByNameAlone,
+	type AccountCard,
 	type AccountFrom,
 	type AccountProblem,
 	type WelcomeView
 } from '../state/account.svelte';
-import { acceptWelcome, getAccountSave, login, logout, lookAtWelcome, register } from './api';
+import {
+	acceptWelcome,
+	changePassword,
+	getAccountSave,
+	homeAccounts,
+	login,
+	loginAtHome,
+	logout,
+	lookAtWelcome,
+	register
+} from './api';
 import type { AccountNote } from './restart';
 import {
 	forgetLogout,
@@ -73,6 +91,14 @@ export interface AccountHooks {
 	 * keeps its token for its own next starts (`welcome.ts`), forgets it.
 	 */
 	forgetWelcome?(): void;
+	/** A new password was picked: the card is gone, and the game says so. */
+	passwordChanged?(): void;
+	/**
+	 * The gate could not make the account because the server is busy or away
+	 * (too many tries from one school's network, no connection): the card is
+	 * gone, and the game goes on as a guest. The gate asks again next time.
+	 */
+	gateStepsAside?(): void;
 }
 
 /** Keys that change what a box holds without typing a letter. */
@@ -118,9 +144,46 @@ export class AccountController {
 		this.open('register', from, this.hooks.playerName() ?? '');
 	}
 
-	/** Log in to an account: the card, the name box holding the player's name, if any. */
+	/**
+	 * Continue on the title, for a guest's game: it goes on only as an
+	 * account's, so the card asks for a password first, the game's name
+	 * (`name`) in its box. Back is the title again. When the game's name is an
+	 * account this browser is the own of, the kid has that account already:
+	 * the card logs in to it by the name alone instead of calling it taken.
+	 */
+	openGate(name: string): void {
+		const own = name !== '' && account.homeNames.some((n) => nameKey(n) === nameKey(name));
+		this.open(own ? 'login' : 'register', 'gate', name);
+	}
+
+	/**
+	 * Log in to an account: the card, the name box holding the player's name,
+	 * if any. On a browser that is some account's own, the server is asked
+	 * which, so that one logs in by its name alone.
+	 */
 	openLogin(from: AccountFrom): void {
 		this.open('login', from, this.hooks.playerName() ?? '');
+		void this.learnHome();
+	}
+
+	/** A new password, on the account's own browser (the pause menu). */
+	openPassword(): void {
+		if (account.name === null || !account.home) return;
+		this.open('password', 'pause', account.name);
+	}
+
+	/**
+	 * Asks the server which accounts this browser is the own of, and keeps the
+	 * answer (no answer keeps the last one). The login card waits for nothing:
+	 * it asks for a password until the answer says it need not.
+	 */
+	async learnHome(): Promise<void> {
+		const names = await homeAccounts();
+		if (names === null) return;
+		const before = loginByNameAlone();
+		account.homeNames = names;
+		// The password box went: the name box takes the typing, and Enter logs in.
+		if (!before && loginByNameAlone() && account.passwordDraft === '') account.field = 'name';
 	}
 
 	/**
@@ -158,7 +221,7 @@ export class AccountController {
 		}
 	}
 
-	private open(card: 'register' | 'login' | 'welcome', from: AccountFrom, name: string): void {
+	private open(card: AccountCard, from: AccountFrom, name: string): void {
 		this.welcomeToken = null;
 		account.card = card;
 		account.from = from;
@@ -167,8 +230,12 @@ export class AccountController {
 		account.reveal = false;
 		account.problem = null;
 		account.busy = false;
-		// Straight to the password when the name is there already, or is the account's own.
-		account.field = name === '' && card !== 'welcome' ? 'name' : 'password';
+		// Straight to the password when the name is there already, or is the account's own;
+		// a name that logs in alone keeps the typing in the name box, the only box.
+		account.field =
+			(name === '' && card !== 'welcome' && card !== 'password') || loginByNameAlone()
+				? 'name'
+				: 'password';
 		this.guard.show();
 		sfx.play('confirm');
 	}
@@ -242,17 +309,18 @@ export class AccountController {
 				if (!e.repeat) this.close();
 				return;
 			case 'Tab':
-				// The other box; the focus never leaves the card. The welcome card's name is the
-				// account's, not typed: the password keeps the typing.
+				// The other box; the focus never leaves the card. The welcome card's name and the
+				// new password card's are the account's, not typed: the password keeps the typing.
+				// A name that logs in alone has no password box to go to.
 				e.preventDefault();
-				if (account.card !== 'welcome')
+				if (account.card !== 'welcome' && account.card !== 'password' && !loginByNameAlone())
 					account.field = account.field === 'name' ? 'password' : 'name';
 				return;
 			case 'Enter':
 				e.preventDefault();
 				if (e.repeat || !this.guard.press()) return;
-				// From the name box, Enter goes on to the password first.
-				if (account.field === 'name' && account.passwordDraft === '') {
+				// From the name box, Enter goes on to the password first, unless the name is enough.
+				if (account.field === 'name' && account.passwordDraft === '' && !loginByNameAlone()) {
 					account.field = 'password';
 					return;
 				}
@@ -307,6 +375,40 @@ export class AccountController {
 		if (account.card === 'register') await this.register();
 		else if (account.card === 'login') await this.logIn();
 		else if (account.card === 'welcome') await this.welcome();
+		else if (account.card === 'password') await this.newPassword();
+	}
+
+	/**
+	 * A new password, on the account's own browser: the server keeps it and
+	 * logs every other browser out; this one plays on, the card goes, and the
+	 * game says so.
+	 */
+	private async newPassword(): Promise<void> {
+		const name = account.name;
+		if (name === null) return;
+		const password = checkPassword(account.passwordDraft);
+		if (!password.ok) return this.refuse({ kind: 'password', reason: password.reason });
+		account.busy = true;
+		account.problem = null;
+		const result = await changePassword(name, account.passwordDraft);
+		switch (result.kind) {
+			case 'changed':
+				sfx.play('confirm');
+				this.close();
+				this.hooks.passwordChanged?.();
+				return;
+			case 'bad-password':
+				return this.refuse({ kind: 'password', reason: result.reason });
+			case 'not-home':
+			case 'logged-out':
+				account.home = false;
+				return this.refuse({ kind: 'not-home' });
+			case 'too-many':
+				return this.refuse({ kind: 'too-many', minutes: minutes(result.retryAfter) });
+			case 'refused':
+			case 'offline':
+				return this.refuse({ kind: 'offline' });
+		}
 	}
 
 	/**
@@ -393,23 +495,37 @@ export class AccountController {
 			case 'bad-password':
 				return this.refuse({ kind: 'password', reason: result.reason });
 			case 'too-many':
+				if (this.stepAside()) return;
 				return this.refuse({ kind: 'too-many', minutes: minutes(result.retryAfter) });
 			case 'refused':
 			case 'offline':
+				if (this.stepAside()) return;
 				return this.refuse({ kind: 'offline' });
 		}
+	}
+
+	/** At the gate, a server that cannot make the account now lets the game go on as a guest's. */
+	private stepAside(): boolean {
+		if (account.from !== 'gate' || !this.hooks.gateStepsAside) return false;
+		this.close();
+		this.hooks.gateStepsAside();
+		return true;
 	}
 
 	private async logIn(): Promise<void> {
 		const store = this.hooks.store;
 		if (account.nameDraft.trim() === '') return this.refuse({ kind: 'name', reason: 'empty' });
+		// On the account's own browser the name alone logs in.
+		const alone = loginByNameAlone();
 		// No account has a password this short, so this one is simply wrong: said as the server would.
-		if (!checkPassword(account.passwordDraft).ok) return this.refuse({ kind: 'wrong' });
+		if (!alone && !checkPassword(account.passwordDraft).ok) return this.refuse({ kind: 'wrong' });
 		if (!store) return this.refuse({ kind: 'offline' });
 		account.busy = true;
 		account.problem = null;
 		const waiting = holdLogout(store);
-		const result = await login(account.nameDraft, account.passwordDraft);
+		const result = alone
+			? await loginAtHome(account.nameDraft)
+			: await login(account.nameDraft, account.passwordDraft);
 		if (result.kind !== 'logged-in') releaseLogout(store, waiting);
 		switch (result.kind) {
 			case 'logged-in': {
@@ -426,6 +542,17 @@ export class AccountController {
 			}
 			case 'wrong':
 				return this.refuse({ kind: 'wrong' });
+			case 'not-home':
+				// This browser is that account's own no more (the grown-up moved it): the
+				// password box comes back, to type it in.
+				account.homeNames = account.homeNames.filter(
+					(n) => nameKey(n) !== nameKey(account.nameDraft)
+				);
+				account.busy = false;
+				sfx.play('wrong');
+				void this.learnHome();
+				if (!loginByNameAlone()) account.field = 'password';
+				return;
 			case 'too-many':
 				return this.refuse({ kind: 'too-many', minutes: minutes(result.retryAfter) });
 			case 'refused':

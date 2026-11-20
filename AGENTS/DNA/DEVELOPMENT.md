@@ -372,11 +372,12 @@ Hand-written SQL, applied by `pnpm db:migrate` (`drizzle-orm`'s migrator, journa
 An account is a row in `users` with its `sessions`, its `account_saves` row and its `account_save_backups` ([[ARCHITECTURE]] § Data model). There is no email, so a forgotten password is reset, and an account deleted, by the human with the admin CLI:
 
 ```bash
-pnpm admin list                                    # every account: its save's seq and when, how many browsers are logged in, and "no password yet" while its welcome link waits
+pnpm admin list                                    # every account: its save's seq and when, how many browsers are logged in, "no own browser yet" until one is its own, and "no password yet" while its welcome link waits
 pnpm admin reset-password <name> [<new password>]  # a made-up six-character password when none is given; logs every browser out (and uses a waiting welcome link up)
 printf '%s' "$PW" | pnpm admin reset-password <name> --stdin  # the password from stdin, never in a command line (the process list, `docker events`) nor said back
 pnpm admin delete-account <name>                   # only says what it would delete
 pnpm admin delete-account <name> --yes             # deletes the account, its sessions, its save, its set-aside saves and its welcome link
+pnpm admin clear-home <name>                       # forgets the account's own browser and logs it out everywhere; the next browser it logs in on, while logged in nowhere else, becomes its own
 pnpm admin export-local-save <player id> [--from anonymous|account|account:<name>] [--out <folder>]  # a kid's newest save, read-only, into ~/animath-exports/ (this Mac's old database only)
 pnpm admin import-save [--name <name>] [--origin <address>] < save.json             # an account for it, with no password, and a welcome link
 pnpm admin errors [--since 7d] [--new] [--json]    # the error reports the game's pages sent, by message and build (§ Errors and health)
