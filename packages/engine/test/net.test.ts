@@ -714,6 +714,31 @@ describe('friendly matches on the wire', () => {
 		});
 	});
 
+	it("leaves out an answer's difficulty no puzzle has, and keeps the step", () => {
+		const rng = new Rng(31);
+		let message: Record<string, unknown> & { events: Record<string, unknown>[] };
+		do {
+			message = JSON.parse(JSON.stringify(randomMatchMessage(rng)));
+		} while (!message.events.some((e) => e.type === 'answer-judged'));
+		const judged = message.events.findIndex((e) => e.type === 'answer-judged');
+		const { difficulty: known, ...without } = message.events[judged]!;
+		expect(known).toBeTypeOf('number');
+		// A server from before difficulties sends none; anything else is no difficulty either.
+		for (const difficulty of [undefined, 0, 11, 2.5, -1, '3', null, [3], { d: 3 }]) {
+			message.events[judged] = { ...without, difficulty };
+			const read = parseServerMessage(message) as { events: unknown[] } | null;
+			expect(read, String(difficulty)).not.toBeNull();
+			expect(read!.events[judged]).toStrictEqual(without);
+		}
+		for (const difficulty of [1, 10, known]) {
+			message.events[judged] = { ...without, difficulty };
+			expect((parseServerMessage(message) as { events: unknown[] }).events[judged]).toEqual({
+				...without,
+				difficulty
+			});
+		}
+	});
+
 	it('refuses a match message with anything inside it swapped for junk, or missing', () => {
 		const rng = new Rng(13);
 		const through: string[] = [];
@@ -732,9 +757,9 @@ describe('friendly matches on the wire', () => {
 				const original = parent[key];
 				// A nickname may be missing, as may the match a rematch follows and its call-off
 				// (a server from before them); an empty list of events is a whole message too (a
-				// start, a resume). An answer's topic is never a reason to drop a step: one this
-				// build lacks is left out (below).
-				if (key === 'topic') continue;
+				// start, a resume). An answer's topic or difficulty is never a reason to drop a
+				// step: one this build lacks is left out (below). A puzzle's difficulty is.
+				if (key === 'topic' || /^events\.\d+\.difficulty$/.test(where)) continue;
 				const optional = key === 'nickname' || where === 'rematchOf' || where === 'calledOff';
 				for (const junk of [...JUNK, DELETE]) {
 					if ((junk === undefined || junk === DELETE) && optional) continue;

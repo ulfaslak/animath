@@ -302,7 +302,8 @@ function answer(state: DoctorState, seed: number, input: string): DoctorStep {
 		input,
 		correct,
 		answer: phase.puzzle.answer,
-		topic: puzzleTopic(phase.puzzle)
+		topic: puzzleTopic(phase.puzzle),
+		difficulty: phase.puzzle.difficulty
 	};
 	switch (phase.kind) {
 		case 'solving':

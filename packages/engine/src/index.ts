@@ -28,6 +28,7 @@ export {
 export { healingDifficulty, puzzleDifficulty } from './puzzles/difficulty.js';
 export { countSolved } from './puzzles/solved.js';
 export {
+	LADDER_VERSION,
 	MAX_TOPIC_BONUS,
 	MIN_TOPIC_BONUS,
 	RECENT_ANSWERS,
@@ -37,7 +38,9 @@ export {
 	readRecord,
 	recordAnswers,
 	topicBonus,
+	type DifficultyCount,
 	type PuzzleRecord,
+	type SavedByDifficulty,
 	type TopicBonus,
 	type TopicRecord
 } from './puzzles/record.js';

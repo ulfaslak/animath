@@ -928,13 +928,18 @@ function readMatchEvent(value: unknown): WireMatchEvent | null {
 			return { type, side, attackIndex, level, puzzle };
 		}
 		case 'answer-judged': {
-			const { side, correct, topic } = value;
+			const { side, correct, topic, difficulty } = value;
 			if (!isSide(side) || typeof correct !== 'boolean') return null;
+			const event: Extract<WireMatchEvent, { type: 'answer-judged' }> = { type, side, correct };
 			// A topic this build has; any other (a server from before topics sends none, a
 			// newer one may send one this build lacks) is left out, and the answer goes unrecorded.
-			return (ALL_PUZZLE_TOPICS as readonly unknown[]).includes(topic)
-				? { type, side, correct, topic: topic as PuzzleTopic }
-				: { type, side, correct };
+			if ((ALL_PUZZLE_TOPICS as readonly unknown[]).includes(topic)) {
+				event.topic = topic as PuzzleTopic;
+			}
+			// A difficulty a puzzle can have; any other (a server from before it sends none) is
+			// left out, and the answer counts under its topic alone.
+			if (isWhole(difficulty, MIN_DIFFICULTY, MAX_DIFFICULTY)) event.difficulty = difficulty;
+			return event;
 		}
 		case 'hit': {
 			const { attacker, attackIndex, level, damage, targetHp } = value;

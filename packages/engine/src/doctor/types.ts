@@ -148,6 +148,8 @@ export type DoctorEvent =
 			answer: number;
 			/** The puzzle's topic (`puzzleTopic`), which the kid's record counts it under. */
 			topic: PuzzleTopic;
+			/** The puzzle's difficulty, the step of its topic's ladder the record counts it at. */
+			difficulty: number;
 	  }
 	/** `animal` as it is now, at full HP. */
 	| { type: 'healed'; partyIndex: number; animal: AnimalInstance }

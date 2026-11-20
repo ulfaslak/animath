@@ -3,7 +3,13 @@ import type { DoctorEvent } from '../doctor/types.js';
 import type { MatchEvent, MatchSide } from '../match/types.js';
 import { puzzleFace, type PuzzleFace } from './face.js';
 import { SHAPE } from './generators/shape.js';
-import { ALL_PUZZLE_TOPICS, type Puzzle, type PuzzleTopic } from './types.js';
+import {
+	ALL_PUZZLE_TOPICS,
+	MAX_DIFFICULTY,
+	MIN_DIFFICULTY,
+	type Puzzle,
+	type PuzzleTopic
+} from './types.js';
 
 /**
  * The kid's puzzle record ([[PRODUCT]] §4 "Puzzles"): for every topic, how
@@ -17,6 +23,8 @@ import { ALL_PUZZLE_TOPICS, type Puzzle, type PuzzleTopic } from './types.js';
  * miss there costs the turn,
  * where a miss at the druid's or in a friendly match costs nothing,
  * so a kid could miss there on purpose to make a topic look hard.
+ * It also counts each topic's answers by difficulty (`byDifficulty`), for
+ * the human tuning the puzzle ladders: nothing on screen reads them.
  */
 
 /** How many of a topic's latest answers `recent` keeps: the window the bonus reads. */
@@ -33,6 +41,19 @@ const PRIOR_ANSWERS = 4;
 export const MIN_TOPIC_BONUS = 0.7;
 export const MAX_TOPIC_BONUS = 1.6;
 
+/**
+ * Which puzzle ladders this build asks: what every kind asks at every
+ * difficulty. The record's counts by difficulty are this version's only, so
+ * a step of a ladder never mixes the answers to two different puzzles: a
+ * save's counts of any other version start over (`readRecord`). Goes up by
+ * one whenever a kind's puzzles at some difficulty change; `record.test.ts`
+ * pins every kind's ladder and says when.
+ */
+export const LADDER_VERSION = 1;
+
+/** One difficulty's answers of a topic: how many were judged, and how many of those were right. */
+export type DifficultyCount = readonly [tried: number, right: number];
+
 /** One topic's answers. */
 export interface TopicRecord {
 	/** Puzzles of the topic judged, right or wrong. Only grows. */
@@ -44,6 +65,15 @@ export interface TopicRecord {
 	 * `RECENT_ANSWERS`: `1` for a right one, `0` for a wrong one.
 	 */
 	recent: string;
+	/**
+	 * The same answers by the difficulty of their puzzle: difficulty `d`'s at
+	 * index `d − 1`, `[0, 0]` where none was, up to the highest one answered.
+	 * Only answers judged under this build's ladders (`LADDER_VERSION`) by a
+	 * build that counts them, so they add up to no more than `tried` and
+	 * `right`: an older build's answers, and every one from before, have no
+	 * difficulty. Missing until there is one.
+	 */
+	byDifficulty?: readonly DifficultyCount[];
 }
 
 /** The record: a topic never asked has no entry. */
@@ -85,6 +115,7 @@ interface Judged {
 	readonly correct?: boolean;
 	readonly side?: string;
 	readonly topic?: PuzzleTopic;
+	readonly difficulty?: number;
 }
 
 /** Where the events were judged: a wild battle's go into `recent` too; a match's are only `side`'s. */
@@ -94,8 +125,10 @@ export type Judging =
 /**
  * `record` after `events`, the events of one step of a wild battle, a
  * doctor visit or a friendly match (`where`): every answer they judged,
- * right or wrong, under its topic, in a match only `side`'s, the kid's own;
- * a wild battle's in `recent` too. The very same record when they judged none.
+ * right or wrong, under its topic, and at its difficulty too when the event
+ * says one a puzzle can have (a match's server from before difficulties
+ * says none), in a match only `side`'s, the kid's own; a wild battle's in
+ * `recent` too. The very same record when they judged none.
  */
 export function recordAnswers(
 	record: PuzzleRecord,
@@ -113,16 +146,41 @@ export function recordAnswers(
 			judging.where === 'battle'
 				? (was.recent + (e.correct ? '1' : '0')).slice(-RECENT_ANSWERS)
 				: was.recent;
-		out = {
-			...out,
-			[e.topic]: {
-				// No further than a save can hold, as `countSolved`.
-				tried: Math.min(was.tried + 1, Number.MAX_SAFE_INTEGER),
-				right: Math.min(was.right + (e.correct ? 1 : 0), Number.MAX_SAFE_INTEGER),
-				recent
-			}
+		const byDifficulty = isDifficulty(e.difficulty)
+			? countAt(was.byDifficulty ?? [], e.difficulty, e.correct)
+			: was.byDifficulty;
+		const next: TopicRecord = {
+			// No further than a save can hold, as `countSolved`.
+			tried: Math.min(was.tried + 1, Number.MAX_SAFE_INTEGER),
+			right: Math.min(was.right + (e.correct ? 1 : 0), Number.MAX_SAFE_INTEGER),
+			recent
 		};
+		if (byDifficulty) next.byDifficulty = byDifficulty;
+		out = { ...out, [e.topic]: next };
 	}
+	return out;
+}
+
+/** A difficulty a puzzle can have: a whole number from `MIN_DIFFICULTY` to `MAX_DIFFICULTY`. */
+function isDifficulty(v: unknown): v is number {
+	return (
+		Number.isSafeInteger(v) && (v as number) >= MIN_DIFFICULTY && (v as number) <= MAX_DIFFICULTY
+	);
+}
+
+/** `counts` with one more answer at `difficulty`, right or not: a new list, as long as it needs. */
+function countAt(
+	counts: readonly DifficultyCount[],
+	difficulty: number,
+	correct: boolean
+): DifficultyCount[] {
+	const out = counts.map(([tried, right]): DifficultyCount => [tried, right]);
+	while (out.length < difficulty) out.push([0, 0]);
+	const [tried, right] = out[difficulty - 1]!;
+	out[difficulty - 1] = [
+		Math.min(tried + 1, Number.MAX_SAFE_INTEGER),
+		Math.min(right + (correct ? 1 : 0), Number.MAX_SAFE_INTEGER)
+	];
 	return out;
 }
 
@@ -237,17 +295,124 @@ export function recordError(value: unknown): string | null {
 }
 
 /**
+ * The record's counts by difficulty as a save holds them: a field of their
+ * own beside `puzzles`, which keeps the shape every older build reads, so an
+ * older build carrying on with the save keeps them as they were (a field it
+ * does not know), where it would drop a field inside a topic.
+ */
+export interface SavedByDifficulty {
+	/** The ladders they were counted under (`LADDER_VERSION`). */
+	ladder: number;
+	/** By topic, each as `TopicRecord.byDifficulty`. */
+	topics: Record<string, DifficultyCount[]>;
+}
+
+/**
+ * Why `value` is not the counts by difficulty a save can hold beside
+ * `puzzles` (a record `recordError` takes), or null when it is: an object
+ * of a whole `ladder` from 1 and `topics`, an object of topics named as
+ * ids. Of this build's ladders (`LADDER_VERSION`), each of this build's
+ * topics holds at most `MAX_DIFFICULTY` pairs of whole numbers, `[tried,
+ * right]` with `right` no more than `tried`, adding up to no more answers,
+ * right ones or wrong ones than the topic's counts in `puzzles`; a topic
+ * this build does not have holds anything. Of other ladders, `topics`
+ * holds anything: `readRecord` starts them over. A later build that changes
+ * what this build's ladders' topics hold bumps `SAVE_VERSION`.
+ */
+export function byDifficultyError(value: unknown, puzzles: unknown): string | null {
+	if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+		return 'byDifficulty must be an object';
+	}
+	const { ladder, topics } = value as Record<string, unknown>;
+	if (!Number.isSafeInteger(ladder) || (ladder as number) < 1) {
+		return 'byDifficulty.ladder must be a whole number of 1 or more';
+	}
+	if (typeof topics !== 'object' || topics === null || Array.isArray(topics)) {
+		return 'byDifficulty.topics must be an object';
+	}
+	for (const [topic, counts] of Object.entries(topics)) {
+		const where = `byDifficulty.topics.${topic}`;
+		// Named as an id is, so no key ever reaches an object's prototype (`__proto__`).
+		if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(topic)) return `${where} is not a topic`;
+		if (ladder !== LADDER_VERSION) continue;
+		if (!(ALL_PUZZLE_TOPICS as readonly string[]).includes(topic)) continue;
+		if (!Array.isArray(counts) || counts.length > MAX_DIFFICULTY) {
+			return `${where} must be a list of up to ${MAX_DIFFICULTY} counts`;
+		}
+		let tried = 0;
+		let right = 0;
+		for (let i = 0; i < counts.length; i++) {
+			const pair: unknown = counts[i];
+			if (
+				!Array.isArray(pair) ||
+				pair.length !== 2 ||
+				!Number.isSafeInteger(pair[0]) ||
+				!Number.isSafeInteger(pair[1]) ||
+				pair[1] < 0 ||
+				pair[1] > pair[0]
+			) {
+				return `${where}[${i}] must be [tried, right]: whole numbers, right no bigger than tried`;
+			}
+			tried += pair[0] as number;
+			right += pair[1] as number;
+		}
+		const entry = (puzzles as Partial<Record<string, TopicRecord>> | undefined)?.[topic];
+		const was = { tried: entry?.tried ?? 0, right: entry?.right ?? 0 };
+		if (tried > was.tried || right > was.right || tried - right > was.tried - was.right) {
+			return `${where} holds more answers, right or wrong, than puzzles.${topic}`;
+		}
+	}
+	return null;
+}
+
+/**
  * The record a save holds, each topic a copy: a topic this build does not
  * have too, as it was, so a newer build's topic is written back unchanged.
- * Empty when there is none, or it is not a record (`recordError`).
+ * Empty when there is none, or it is not a record (`recordError`). Each of
+ * this build's topics takes its counts by difficulty from `byDifficulty`,
+ * the save's field beside it, when they are of this build's ladders
+ * (`LADDER_VERSION`) and the field is one `byDifficultyError` takes; any
+ * other ladders' start over, with none, as do a topic's this build does
+ * not have.
  */
-export function readRecord(value: unknown): PuzzleRecord {
+export function readRecord(value: unknown, byDifficulty?: unknown): PuzzleRecord {
 	if (value === undefined || recordError(value) !== null) return {};
+	const counted =
+		byDifficulty !== undefined &&
+		byDifficultyError(byDifficulty, value) === null &&
+		(byDifficulty as SavedByDifficulty).ladder === LADDER_VERSION
+			? (byDifficulty as SavedByDifficulty).topics
+			: {};
 	const out: Record<string, unknown> = {};
 	for (const [topic, entry] of Object.entries(value as Record<string, TopicRecord>)) {
-		out[topic] = (ALL_PUZZLE_TOPICS as readonly string[]).includes(topic)
-			? { tried: entry.tried, right: entry.right, recent: entry.recent }
-			: (JSON.parse(JSON.stringify(entry ?? null)) as unknown);
+		if (!(ALL_PUZZLE_TOPICS as readonly string[]).includes(topic)) {
+			out[topic] = JSON.parse(JSON.stringify(entry ?? null)) as unknown;
+			continue;
+		}
+		const copy: TopicRecord = { tried: entry.tried, right: entry.right, recent: entry.recent };
+		const counts = Object.prototype.hasOwnProperty.call(counted, topic)
+			? counted[topic]
+			: undefined;
+		if (counts && counts.length > 0) {
+			copy.byDifficulty = counts.map(([tried, right]): DifficultyCount => [tried, right]);
+		}
+		out[topic] = copy;
 	}
 	return out as PuzzleRecord;
+}
+
+/**
+ * The counts by difficulty a save holds beside the record (`readRecord`
+ * reads them back), of this build's ladders: every topic of this build's
+ * that has some, each a copy. Undefined when none has.
+ */
+export function savedByDifficulty(record: PuzzleRecord): SavedByDifficulty | undefined {
+	const topics: Record<string, DifficultyCount[]> = {};
+	for (const topic of ALL_PUZZLE_TOPICS) {
+		const counts = record[topic]?.byDifficulty;
+		if (counts && counts.length > 0) {
+			topics[topic] = counts.map(([tried, right]): DifficultyCount => [tried, right]);
+		}
+	}
+	return Object.keys(topics).length > 0 ? { ladder: LADDER_VERSION, topics } : undefined;
 }

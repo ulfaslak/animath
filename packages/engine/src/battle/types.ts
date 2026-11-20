@@ -129,6 +129,8 @@ export type BattleEvent =
 			answer: number;
 			/** The puzzle's topic (`puzzleTopic`), which the kid's record counts it under. */
 			topic: PuzzleTopic;
+			/** The puzzle's difficulty, the step of its topic's ladder the record counts it at. */
+			difficulty: number;
 	  }
 	| {
 			type: 'hit';

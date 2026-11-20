@@ -177,7 +177,13 @@ function answer(state: MatchState, side: MatchSide, input: string): MatchStep {
 	const foe = otherSide(side);
 	const correct = checkAnswer(puzzle, input);
 	const events: MatchEvent[] = [
-		{ type: 'answer-judged', side, correct, topic: puzzleTopic(puzzle) }
+		{
+			type: 'answer-judged',
+			side,
+			correct,
+			topic: puzzleTopic(puzzle),
+			difficulty: puzzle.difficulty
+		}
 	];
 
 	if (!correct) {
