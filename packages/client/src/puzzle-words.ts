@@ -1,6 +1,7 @@
 import {
 	BARCHART,
 	CLOCK,
+	DOUBLE,
 	SHAPE,
 	THERMOMETER,
 	UNITS,
@@ -92,6 +93,21 @@ export function questionParts(face: PuzzleFace): QuestionPart[] | null {
 		default:
 			return null;
 	}
+}
+
+/**
+ * The prompt of a puzzle with words and no picture, in the language on
+ * screen, shown as a sum's prompt is: "Double 8 = ?", "Half of 14 = ?",
+ * "2 hours = ? minutes" (`wordedSum`). Null for a face of another kind.
+ */
+export function wordedPrompt(face: PuzzleFace): string | null {
+	if (face.kind === 'units') return wordedSum(face);
+	if (face.kind !== 'double') return null;
+	const n = face.numbers[1] ?? 0;
+	const text =
+		face.numbers[0] === DOUBLE.half ? t('puzzle.ask.half', { n }) : t('puzzle.ask.double', { n });
+	// The number and its "= ?" stay on one line: never "?" alone at a line's start.
+	return text.replace(/ = \?$/, '\u00a0=\u00a0?');
 }
 
 function thermometerText(how: number, a: number, b: number): string {

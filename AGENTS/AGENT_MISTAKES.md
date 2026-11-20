@@ -391,6 +391,16 @@ The first three found by the adversarial review.
 
 To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology that a new saved field is tested against a later build's value of it as well as an earlier build's reading of it, and that a field read for a new purpose is traced to every writer first.
 
+### 2026-11-20 — doubling and halving (feat/double-and-half, PR #245) — a new member of a roster checked against what it does, not against its siblings `[not codified]`
+
+- **Halving took ½, the sign fractions already had.** `kindGlyph` is a roster of signs, and a kid who cannot read tells the topics apart by them; My puzzles and the thought bubble showed two identical chips. Found by the adversarial review. Halving is now ÷2, and `packages/client/test/kinds.test.ts` fails when two topics share a sign.
+- **The players script could not answer the new kind.** `scripts/players.mts`'s `solve` reads prompts as text: one more list a new puzzle kind must join, and not on CLAUDE.md's list of duplicated rosters. Found when `solve:right` failed in a battle.
+- **Words in a box styled for sums.** The prompt's `overflow-wrap: anywhere` suits "15 × □ − 97 = 143" and broke "dobbelte" in two in a narrow card. Found on a phone-sized screenshot. A worded prompt now breaks between words only.
+- **Prose that named only picture kinds.** Four comments said only a picture kind's prompt is its face written out, after `double` became a second such kind. Found by the review. Same category as "Prose is a claim": grep for prose naming the sibling roster the new member joins.
+- **A hint that contradicted itself.** Halving's hint split "half of 30" into (20 ÷ 2) + (10 ÷ 2), because halving an odd ten is the hard part, and then gave "half of 34" the step (30 ÷ 2). Two rules in one function, each checked alone; the test checked only that the arithmetic holds. Found by the second adversarial review. An odd place now passes one ten or hundred down, and `hint.test.ts` checks every halving step is a double the kid knows.
+
+To become `[learned]`: CLAUDE.md's "Duplicated rosters" item names `scripts/players.mts`'s `solve` among the lists a new puzzle kind joins, and says that a new member's sign, word or colour is checked against every sibling's, not only against its own meaning.
+
 ### 2026-11-20 — the Arctic's units (feat/units-puzzle, PR #247) — a ladder checked skill by skill, never step against step, and a size rule that lost the cascade `[not codified]`
 
 - **A harder step asked easier puzzles.** At 9 and 10 the metric pairs were turned back or split ("500 cm = ? m", "7585 g = 7 kg ? g"), which is only reading digits, while 8 asked "4 days and 23 hours = ? hours"; and 7 began every pair again at one big unit ("1 l 1 dl = ? dl", 11) after 6 asked "8 weeks = ? days" (56). The ladder test compared each skill's bands with the same skill's a step before, so a step could get easier by changing what it asks. Found by the adversarial review. Fixed: metric pairs go back only at 6, time alone at 9 and 10, litres never mixed, and `puzzle-kinds.test.ts` checks over the generated puzzles that a pair's fewest big units never fall from one step to the next. Same family as the Nordland ladders' entry above: a step designed on its own, not against the steps a kid meets next to it.

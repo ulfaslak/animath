@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { isWrittenOut, puzzleTopics } from '@mathgame/engine';
+	import { puzzleTopics } from '@mathgame/engine';
 	import { press, unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
-	import { kindGlyph } from '../kinds';
+	import { kindGlyph, wholePanel } from '../kinds';
 	import PuzzlePanel from '../ui/PuzzlePanel.svelte';
 	import { preview } from './preview.svelte';
 
@@ -16,7 +16,7 @@
 	 * finger can press too.
 	 */
 	const topic = $derived(puzzleTopics([preview.kind], preview.difficulty)[0] ?? 'add');
-	const wide = $derived(isWrittenOut(preview.kind));
+	const wide = $derived(wholePanel(preview.kind));
 
 	function key(name: string) {
 		return (e: PointerEvent) => {

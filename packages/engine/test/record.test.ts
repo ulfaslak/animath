@@ -82,7 +82,8 @@ function recordOf(recent: Partial<Record<PuzzleTopic, string>>): PuzzleRecord {
 
 /** The kind a topic's puzzles are when one kind asks it alone, or the kind given. */
 function kindOf(topic: PuzzleTopic): PuzzleKind {
-	return topic === 'area' || topic === 'perimeter' ? 'shape' : topic;
+	if (topic === 'area' || topic === 'perimeter') return 'shape';
+	return topic === 'half' ? 'double' : topic;
 }
 
 function judged(
@@ -115,7 +116,11 @@ describe('puzzleTopic and faceTopic', () => {
 								? [1, 3].includes(Number(/\d+/.exec(puzzle.prompt)![0]))
 									? 'perimeter'
 									: 'area'
-								: kind;
+								: kind === 'double'
+									? puzzle.prompt.startsWith('double(1,')
+										? 'half'
+										: 'double'
+									: kind;
 					expect(topic, puzzle.prompt).toBe(want);
 					// And off its face, as a thought bubble or a match's wire carries it.
 					expect(faceTopic(puzzleFace(puzzle)!), puzzle.prompt).toBe(want);
@@ -425,6 +430,7 @@ const LADDERS: readonly Partial<Record<PuzzleKind, string>>[] = [
 		missing: 'b4ab71a3',
 		sequence: 'f7de6062',
 		sqrt: 'bafc803c',
+		double: '7419f2a1',
 		thermometer: 'ea63120f',
 		kroner: 'baf2c1ba',
 		fraction: 'd82fdde6',

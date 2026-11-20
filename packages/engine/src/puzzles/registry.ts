@@ -3,6 +3,7 @@ import { add, div, missing, mul, sub } from './generators/arithmetic.js';
 import { sequence } from './generators/sequence.js';
 import { sqrt } from './generators/sqrt.js';
 import { balance } from './generators/balance.js';
+import { double } from './generators/double.js';
 import { barchart } from './generators/barchart.js';
 import { CLOCK_MINUTES, clock } from './generators/clock.js';
 import { fraction } from './generators/fraction.js';
@@ -29,6 +30,7 @@ const GENERATORS: Record<PuzzleKind, PuzzleGenerator> = {
 	missing,
 	sequence,
 	sqrt,
+	double,
 	thermometer,
 	kroner,
 	fraction,

@@ -8,7 +8,6 @@
 		catchProbability,
 		getAnimal,
 		hitSpan,
-		isWrittenOut,
 		puzzleDifficulty,
 		puzzleTopic,
 		puzzleTopics,
@@ -27,7 +26,7 @@
 	import { t } from '../copy';
 	import { rowKey, unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
-	import { kindList } from '../kinds';
+	import { kindList, wholePanel } from '../kinds';
 	import { messageWords, whose, words } from '../lines';
 	import { animalWords, nameOf, speciesName } from '../names';
 	import { battle } from '../state/battle.svelte';
@@ -431,7 +430,7 @@
 	class="panel"
 	class:listing={battle.screen === 'party'}
 	class:solo={!!battle.puzzle && touch.on && !(vs && battle.turn === 'opponent')}
-	class:wide={!!battle.puzzle && isWrittenOut(battle.puzzle.kind)}
+	class:wide={!!battle.puzzle && wholePanel(battle.puzzle.kind)}
 >
 	{#if battle.screen === 'party'}
 		<div class="card actions party">

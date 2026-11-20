@@ -74,6 +74,7 @@ const TOKENS = new Set([
 	'missing',
 	'sequence',
 	'sqrt',
+	'double',
 	// The Arctic's kinds (#191): a picture's kind goes by its id, its numbers beside it.
 	'thermometer',
 	'kroner',

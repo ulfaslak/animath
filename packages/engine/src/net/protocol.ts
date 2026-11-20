@@ -74,10 +74,12 @@ import { readFightEvents, readFightView, type FightEvent, type FightView } from 
  * Version 13: the plane between lands (#191 step 7): `plane` joined
  * `BUSY_STATES`, which a version 12 server refuses in a `where` and a
  * version 12 page drops from a `peer`.
- * Version 14: The Arctic's units, a puzzle kind a version 13 page would
+ * Version 14: doubling and halving, a new puzzle kind (`double`), whose
+ * puzzles a version 13 page would drop from a `match` or a `fight`.
+ * Version 15: The Arctic's units, a puzzle kind a version 14 page would
  * drop from a `match` or a `fight`.
  */
-export const PROTOCOL_VERSION = 14;
+export const PROTOCOL_VERSION = 15;
 
 /**
  * The most a message may take on the wire, in bytes (the server closes a

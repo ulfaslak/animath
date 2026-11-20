@@ -1,7 +1,7 @@
 import { Rng, UNITS, generatePuzzle, puzzleFace, type PuzzleFace } from '@mathgame/engine';
 import { afterEach, describe, expect, it } from 'vitest';
 import { language } from '../src/copy';
-import { wordedSum } from '../src/puzzle-words';
+import { wordedPrompt, wordedSum } from '../src/puzzle-words';
 
 /**
  * A measuring puzzle (`units`) is a sum in words the client writes from its
@@ -67,6 +67,8 @@ describe('a measuring puzzle in words', () => {
 				for (const lang of ['en', 'da'] as const) {
 					language.set(lang);
 					const text = wordedSum(face);
+					// The panel shows it as any worded prompt, by the one function.
+					expect(wordedPrompt(face)).toBe(text);
 					// One question mark, and no key or placeholder showing in place of a word.
 					expect(text, JSON.stringify(face)).toMatch(/^[^?]*\?[^?]*$/);
 					expect(text).not.toMatch(/puzzle\.|\{|\}/);

@@ -11,7 +11,7 @@
 	import { HINT_KEY, shownAnswer } from '../input/answer';
 	import HintView from './HintView.svelte';
 	import WandIcon from './WandIcon.svelte';
-	import { questionParts, questionText, wordedSum } from '../puzzle-words';
+	import { questionParts, questionText, wordedPrompt } from '../puzzle-words';
 	import PuzzlePicture from './pictures/PuzzlePicture.svelte';
 	import { unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
@@ -43,10 +43,11 @@
 	 * A puzzle with a picture (the Arctic's kinds, #191) is drawn from its
 	 * face: the picture on the left, filling the card's height, and its
 	 * question in words beside it, picked here in the language on screen
-	 * (`puzzle-words.ts`), over the answer. A clock's answer is a time: the
+	 * (`puzzle-words.ts`), over the answer. A puzzle with words and no
+	 * picture is worded the same way, in the sum's place: "Double 8 = ?" as a
+	 * sum is shown, and a sum in words (`units`, "2 hours = ? minutes") a size
+	 * smaller, breaking at its "=" first. A clock's answer is a time: the
 	 * box shows "--:--" until a digit is typed, and the pad has a colon.
-	 * A puzzle of words with no picture (`units`) is a sum in words, "2 hours
-	 * = ? minutes", in the sum's place, a size smaller, breaking at its "=" first.
 	 *
 	 * A puzzle with a hint (the engine's `puzzleHint` of its face) has a
 	 * Hint button with the wand by the key reminder while it is answered,
@@ -89,8 +90,11 @@
 	const face = $derived(puzzleFace(puzzle));
 	const pictured = $derived(face !== null && isPictureKind(face.kind));
 	const parts = $derived(face && pictured ? questionParts(face) : null);
-	const worded = $derived(face ? wordedSum(face) : null);
-	const sum = $derived(worded ?? puzzle.prompt);
+	/** The prompt in very large type: a sum's as the engine writes it, a worded one's in words. */
+	const worded = $derived(face ? wordedPrompt(face) : null);
+	const prompt = $derived(worded ?? puzzle.prompt);
+	/** A sum in words (`units`), set as its two sides: "2 hours and 35 minutes", "= ? minutes". */
+	const sides = $derived(face?.kind === 'units' && worded ? worded.split(' = ') : null);
 	const form = $derived(answerForm(puzzle.kind));
 	/** The puzzle's hint, for the kid answering it; none for a puzzle only watched. */
 	const hint = $derived(face && !watch ? puzzleHint(face) : null);
@@ -111,7 +115,7 @@
 	class="puzzle-panel"
 	class:with-pad={touch.on && !watch}
 	class:pictured
-	class:worded={worded !== null}
+	class:sides={sides !== null}
 	class:hinted={shownHint !== null}
 >
 	{#if face && pictured}
@@ -136,13 +140,17 @@
 				<HintView hint={shownHint} numbers={face.numbers} />
 			</div>
 		{:else}
-			<div class="puzzle-prompt" class:long={sum.length > 11} class:worded={worded !== null}>
-				{#if worded}
-					{@const [left, right] = worded.split(' = ')}
+			<div
+				class="puzzle-prompt"
+				class:long={prompt.length > 11}
+				class:worded={worded !== null}
+				class:sides={sides !== null}
+			>
+				{#if sides}
 					<!-- Each side in a box of its own, so a long sum breaks at its "=" first. -->
-					<span class="side">{left}</span> <span class="side">= {right}</span>
+					<span class="side">{sides[0]}</span> <span class="side">= {sides[1]}</span>
 				{:else}
-					{sum}
+					{prompt}
 				{/if}
 			</div>
 		{/if}
@@ -407,6 +415,14 @@
 		line-height: 1.1;
 		overflow-wrap: anywhere;
 	}
+	/*
+	 * A worded prompt breaks between words, never inside one ("Det dobbelte
+	 * af", not "dobbe-lte"), and one that needs two lines splits them evenly.
+	 */
+	.puzzle-prompt.worded {
+		overflow-wrap: break-word;
+		text-wrap: balance;
+	}
 	/* Beside the pad the prompt has half the card: smaller, and a long one smaller still. */
 	.with-pad .puzzle-prompt {
 		font-size: clamp(32px, 6vh, 52px);
@@ -419,14 +435,14 @@
 	 * smaller. It breaks at its "=" first, and a side too wide for a line
 	 * breaks evenly between its words, never inside one.
 	 */
-	.puzzle-prompt.worded,
-	.with-pad .puzzle-prompt.worded {
+	.puzzle-prompt.sides,
+	.with-pad .puzzle-prompt.sides {
 		font-size: clamp(28px, 5vh, 44px);
 		line-height: 1.2;
 		max-width: 20em;
 		overflow-wrap: normal;
 	}
-	.puzzle-prompt.worded .side {
+	.puzzle-prompt.sides .side {
 		display: inline-block;
 		text-wrap: balance;
 	}
@@ -437,10 +453,10 @@
 	 * picture's does (the pad's OK says how to answer).
 	 */
 	@media (max-height: 560px) {
-		.puzzle-panel .puzzle-prompt.worded {
+		.puzzle-panel .puzzle-prompt.sides {
 			font-size: 22px;
 		}
-		.with-pad.worded .foot .keys {
+		.with-pad.sides .foot .keys {
 			display: none;
 		}
 	}

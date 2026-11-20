@@ -3,6 +3,7 @@ import { UNITS, UNIT_PAIRS, puzzleFace } from '../src/puzzles/face.js';
 import { BALANCE_LADDER } from '../src/puzzles/generators/balance.js';
 import { BARCHART, BARCHART_LADDER } from '../src/puzzles/generators/barchart.js';
 import { CLOCK, CLOCK_LADDER } from '../src/puzzles/generators/clock.js';
+import { DOUBLE, DOUBLE_LADDER } from '../src/puzzles/generators/double.js';
 import { FRACTION_LADDER } from '../src/puzzles/generators/fraction.js';
 import { KRONER_LADDER } from '../src/puzzles/generators/kroner.js';
 import { SHAPE_LADDER } from '../src/puzzles/generators/shape.js';
@@ -18,9 +19,10 @@ import type { PuzzleKind } from '../src/puzzles/types.js';
 import { Rng } from '../src/rng.js';
 
 /**
- * The Arctic's puzzle kinds (#191): each climbs its own ladder, a table per
- * kind ([[PRODUCT]] §4 "Puzzles"), and keeps the promises a kid relies on.
- * Their answers against an independent solver are in `puzzles.test.ts`.
+ * The kinds that climb by skill, the Arctic's (#191) and doubling and
+ * halving: each climbs its own ladder, a table per kind ([[PRODUCT]] §4
+ * "Puzzles"), and keeps the promises a kid relies on. Their answers against
+ * an independent solver are in `puzzles.test.ts`.
  */
 
 type Band = readonly [number, number];
@@ -70,9 +72,26 @@ describe('the ladders climb', () => {
 			SHAPE_LADDER,
 			BARCHART_LADDER,
 			BALANCE_LADDER,
-			CLOCK_LADDER
+			CLOCK_LADDER,
+			DOUBLE_LADDER
 		])
 			expect(ladder).toHaveLength(10);
+	});
+
+	it('double: doubles alone at 1, halves from 2, and each form climbs wherever it is asked', () => {
+		expect(DOUBLE_LADDER[0]!.map((f) => f.how)).toEqual(['double']);
+		for (const forms of DOUBLE_LADDER.slice(1)) {
+			expect(forms.map((f) => f.how)).toContain('double');
+			expect(forms.map((f) => f.how)).toContain('half');
+		}
+		// A form is what is done and to what: any number, round tens or round hundreds.
+		const rows = new Map<string, Band[]>();
+		for (const forms of DOUBLE_LADDER)
+			for (const f of forms) {
+				const key = `${f.how} every ${f.every}`;
+				rows.set(key, [...(rows.get(key) ?? []), f.shown]);
+			}
+		for (const [key, bands] of rows) expect(climbs(bands), key).toEqual([]);
 	});
 
 	it('thermometer: 0° and above to 4, across 0 from 5, how far from 0 and how much it changes never falling in each', () => {
@@ -458,6 +477,36 @@ describe('what each kind promises a kid', () => {
 			expect(p.difficulty).toBe(UNITS_MIN_DIFFICULTY);
 			expect(generatePuzzle(rng, d, ['thermometer', 'units']).kind).toBe('thermometer');
 		}
+	});
+
+	it("double: every half whole, every number one of its step's forms shows, and every form asked", () => {
+		const bad: string[] = [];
+		for (const d of DS) {
+			const forms = DOUBLE_LADDER[d - 1]!;
+			const met = new Set<number>();
+			for (const [how, shown, answer] of faces('double', d)) {
+				if (how === DOUBLE.double ? answer !== shown! * 2 : answer! * 2 !== shown)
+					bad.push(`d${d}: ${how} ${shown} → ${answer}`);
+				// The form that shows it: in its band, on its steps; a half even, and a round
+				// half an odd number of tens or hundreds; and a number from 11 up round only
+				// in a round form.
+				const i = forms.findIndex(
+					(f) =>
+						DOUBLE[f.how] === how &&
+						shown! >= f.shown[0] &&
+						shown! <= f.shown[1] &&
+						shown! % f.every === 0 &&
+						(f.every > 1 || shown! <= 10 || shown! % 10 !== 0) &&
+						(f.how === 'double' ||
+							(f.every === 1 ? shown! % 2 === 0 : (shown! / f.every) % 2 === 1))
+				);
+				if (i < 0) bad.push(`d${d}: ${how} ${shown} fits no form`);
+				else met.add(i);
+			}
+			if (met.size !== forms.length)
+				bad.push(`d${d}: only ${met.size} of ${forms.length} forms met`);
+		}
+		expect(bad).toEqual([]);
 	});
 
 	it('balance: a times asks both ends of its factor and box bands, as the step writes them', () => {

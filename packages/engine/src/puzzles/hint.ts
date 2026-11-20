@@ -1,4 +1,5 @@
 import { KRONER, THERMOMETER, UNITS, UNIT_PAIRS, type PuzzleFace } from './face.js';
+import { DOUBLE } from './generators/double.js';
 
 /**
  * One piece of a hint's sum: a number, a sign, the unknown (`?`, or `□` on
@@ -51,6 +52,8 @@ export function puzzleHint(face: PuzzleFace): PuzzleHint | null {
 		}
 		case 'sqrt':
 			return equation(['?', '×', '?', '=', at(0)]);
+		case 'double':
+			return at(0) === DOUBLE.half ? halfHint(at(1)) : doubleHint(at(1));
 		case 'balance':
 			return balanceHint(at(0), at(1), at(2), at(3));
 		case 'thermometer':
@@ -126,6 +129,54 @@ function addHint(a: number, b: number): PuzzleHint | null {
 	// Nothing to add up in a place of its own (40 + 30), or nothing sharing a place (30 + 4).
 	if (parts.length < 2 || parts.every((part) => part.length === 1)) return null;
 	return same(joined(parts, '+'));
+}
+
+/**
+ * Doubling is adding a number to itself, so it breaks down as that sum does
+ * (dots to 5 + 5, 7 + 7 through the ten, 37 + 37 place by place: (30 + 30) +
+ * (7 + 7)); a round number doubles its digit and puts the zeros back on
+ * (double 40 is (4 + 4) × 10), and 10 is 10 + 10.
+ */
+function doubleHint(n: number): PuzzleHint | null {
+	if (n < 1) return null;
+	const added = addHint(n, n);
+	if (added) return added;
+	const unit = unitOf(n);
+	const digit = n / unit;
+	if (!Number.isInteger(digit)) return null;
+	return digit === 1 ? same([n, '+', n]) : same(['(', digit, '+', digit, ')', '×', unit]);
+}
+
+/**
+ * Halving: to 18, the double the kid knows backwards (half of 14 is
+ * ? + ? = 14); bigger, place by place, each place an even number of its
+ * tens or hundreds, so each halves as a double the kid knows. A place with
+ * an odd count passes one of them down to the next: half of 76 is
+ * (60 ÷ 2) + (16 ÷ 2), half of 70 is (60 ÷ 2) + (10 ÷ 2), half of 348 is
+ * (200 ÷ 2) + (140 ÷ 2) + (8 ÷ 2). The ones of an even number are even, so
+ * what reaches them always halves whole.
+ */
+function halfHint(n: number): PuzzleHint | null {
+	if (n < 2 || n % 2 !== 0) return null;
+	const knownDouble = equation(['?', '+', '?', '=', n]);
+	if (n <= 18) return knownDouble;
+	const digits = [...String(n)].map(Number);
+	const parts: number[] = [];
+	let carried = 0;
+	digits.forEach((digit, i) => {
+		const unit = 10 ** (digits.length - 1 - i);
+		const count = carried * 10 + digit;
+		carried = unit > 1 && count % 2 === 1 ? 1 : 0;
+		if (count - carried > 0) parts.push((count - carried) * unit);
+	});
+	// A number whose halving is one such step (20, 100, 160) is a double the kid knows.
+	if (parts.length < 2) return knownDouble;
+	return same(
+		joined(
+			parts.map((part): HintToken[] => [part, '÷', 2]),
+			'+'
+		)
+	);
 }
 
 /** The place a part sits in: 1, 10, 100, or the thousands (`places`). */
