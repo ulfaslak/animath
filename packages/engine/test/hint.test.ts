@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { Rng } from '../src/rng.js';
-import { facePrompt, puzzleFace, type PuzzleFace } from '../src/puzzles/face.js';
+import { NUMBERLINE, facePrompt, puzzleFace, type PuzzleFace } from '../src/puzzles/face.js';
 import { DOUBLE, DOUBLE_LADDER, numbersOf } from '../src/puzzles/generators/double.js';
+import { NUMBERLINE_LADDER, arrowMarks } from '../src/puzzles/generators/numberline.js';
 import { puzzleHint, type HintToken, type PuzzleHint } from '../src/puzzles/hint.js';
 import { generatePuzzle, getGenerator } from '../src/puzzles/registry.js';
 import { ALL_PUZZLE_KINDS, type PuzzleKind } from '../src/puzzles/types.js';
@@ -270,6 +271,49 @@ describe('puzzleHint', () => {
 					if (why) bad.push(`${facePrompt(face)}: ${why}`);
 				}
 		expect(bad.slice(0, 20)).toEqual([]);
+	});
+
+	it('holds for every line and place the number line can show, and only one mark past 0 has none', () => {
+		const bad: string[] = [];
+		for (const step of NUMBERLINE_LADDER)
+			for (const f of step.forms)
+				for (let from = f.from[0]; from <= f.from[1]; from += f.from[2])
+					for (const mark of arrowMarks(f, step.half)) {
+						const half = step.half ? NUMBERLINE.half : NUMBERLINE.on;
+						const face: PuzzleFace = {
+							kind: 'numberline',
+							numbers: [from, f.step, f.gaps, f.every, mark, half]
+						};
+						const answer = from + mark * f.step + (step.half ? f.step / 2 : 0);
+						const hint = puzzleHint(face);
+						const why = hint
+							? wrong(face, answer, hint)
+							: from === 0 && mark === 1 && !step.half
+								? null
+								: 'no hint';
+						if (why) bad.push(`${facePrompt(face)}: ${why}`);
+					}
+		expect(bad.slice(0, 20)).toEqual([]);
+	});
+
+	it('counts the number line from the nearest number written, a mark at a time, and half a mark more', () => {
+		const shown = (numbers: number[]) => {
+			const hint = puzzleHint({ kind: 'numberline', numbers });
+			return hint?.form === 'equation' ? hint.tokens.join(' ') : hint;
+		};
+		// 37 on 30, 35, 40; 3 on 0, 5, 10, counted back from the nearer 5.
+		expect(shown([30, 1, 10, 5, 7, 0])).toBe('? = 35 + 1 + 1');
+		expect(shown([0, 1, 10, 5, 3, 0])).toBe('? = 5 − 1 − 1');
+		// 340 on 300, 350, 400; 350 on 300, 400, 500 by 25s, as near from both: on from below.
+		expect(shown([300, 10, 10, 5, 4, 0])).toBe('? = 350 − 10');
+		expect(shown([300, 25, 8, 4, 2, 0])).toBe('? = 300 + 25 + 25');
+		// Halfway between 340 and 360 on 200, 300, 400; between 800 and 900 on 0, 500, 1000.
+		expect(shown([200, 20, 10, 5, 7, 1])).toBe('? = 300 + 20 + 20 + ( 20 ÷ 2 )');
+		expect(shown([0, 100, 10, 5, 8, 1])).toBe('? = 1000 − 100 − ( 100 ÷ 2 )');
+		// From 0 the first jump is the first number; one mark past 0 has nothing easier.
+		expect(shown([0, 10, 10, 5, 2, 0])).toBe('? = 10 + 10');
+		expect(shown([0, 100, 10, 5, 0, 1])).toBe('? = 100 ÷ 2');
+		expect(shown([0, 10, 10, 5, 1, 0])).toBe(null);
 	});
 
 	it('doubles as adding a number to itself, and halves place by place', () => {

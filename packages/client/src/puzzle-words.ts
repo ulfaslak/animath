@@ -2,12 +2,12 @@ import { BARCHART, CLOCK, DOUBLE, SHAPE, THERMOMETER, type PuzzleFace } from '@m
 import { t } from './copy';
 
 /**
- * A puzzle with a picture (the Arctic's kinds, #191) in words: its question,
- * from the face's numbers alone, in the language on screen. The engine sends
- * numbers and never words ([[DECISIONS]] § Copy and languages); the words are
- * picked here, when they are shown. Most of a question is text; a fraction
- * is drawn stacked and a bar chart's bar by its shape, so those come as
- * parts of their own.
+ * A puzzle with a picture (the Arctic's kinds, #191, and the number line)
+ * in words: its question, from the face's numbers alone, in the language on
+ * screen. The engine sends numbers and never words ([[DECISIONS]] § Copy
+ * and languages); the words are picked here, when they are shown. Most of a
+ * question is text; a fraction is drawn stacked and a bar chart's bar by
+ * its shape, so those come as parts of their own.
  */
 export type QuestionPart =
 	{ text: string } | { fraction: readonly [number, number] } | { shape: number };
@@ -67,6 +67,8 @@ export function questionParts(face: PuzzleFace): QuestionPart[] | null {
 							: t('puzzle.ask.barchart.all');
 			return cut(text, { who: i, other: j });
 		}
+		case 'numberline':
+			return [{ text: t('puzzle.ask.numberline') }];
 		case 'clock': {
 			const how = at(0);
 			if (how === CLOCK.read) return [{ text: t('puzzle.ask.clock.read') }];

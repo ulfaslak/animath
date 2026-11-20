@@ -41,7 +41,13 @@ import { isPictureKind, type Puzzle, type PuzzleKind } from './types.js';
  *     (2) or every bar (3);
  *   - `clock`: `[how, h, m, dh, dm]`: the clock shows `h`:`m` (1 to 12,
  *     0 to 59); what time it is (`how` 0), `dh` hours and `dm` minutes
- *     later (1), or that long before (2).
+ *     later (1), or that long before (2);
+ *   - `numberline`: `[from, step, gaps, every, mark, half]`: a line from
+ *     `from`, a mark every `step`, `gaps` gaps long, a number written every
+ *     `every` marks from the first (on both ends, and in the middle when
+ *     there are two such stretches); the arrow on mark `mark` (counted from
+ *     0, never one with a number), or halfway past it (`half`, one of
+ *     `NUMBERLINE`).
  */
 export interface PuzzleFace {
 	kind: PuzzleKind;
@@ -66,6 +72,7 @@ export const FACE_NUMBERS: Readonly<Record<PuzzleKind, number>> = {
 	shape: 6,
 	barchart: 10,
 	clock: 5,
+	numberline: 6,
 	balance: 4
 };
 
@@ -79,6 +86,13 @@ export const MAX_FACE_NUMBER = 99_999;
 
 /** What a thermometer face's first number says: colder, warmer, or how far it went up or down. */
 export const THERMOMETER = { colder: 0, warmer: 1, rose: 2, fell: 3 } as const;
+
+/** Where a number line face's arrow is: on its mark, or halfway past it to the next. */
+export const NUMBERLINE = { on: 0, half: 1 } as const;
+
+/** The most gaps a number line has, and the most stretches with a number at each end: more would not fit the picture. */
+const MAX_LINE_GAPS = 10;
+const MAX_LINE_STRETCHES = 2;
 
 /** The Danish money a `kroner` face counts, in its order: coins of 1 to 20 kroner, notes of 50 to 200. */
 export const KRONER = [1, 2, 5, 10, 20, 50, 100, 200] as const;
@@ -140,6 +154,7 @@ export function facePrompt(face: PuzzleFace): string {
 		case 'shape':
 		case 'barchart':
 		case 'clock':
+		case 'numberline':
 			return `${face.kind}(${face.numbers.join(', ')})`;
 	}
 }
@@ -303,6 +318,15 @@ function faceFits(face: PuzzleFace): boolean {
 			if (h < 1 || h > 12 || m > 59) return false;
 			if (how === 0) return dh === 0 && dm === 0;
 			return (how === 1 || how === 2) && dh <= 12 && dm <= 59 && dh + dm > 0;
+		}
+		case 'numberline': {
+			const [from, step, gaps, every, mark, half] = [at(0), at(1), at(2), at(3), at(4), at(5)];
+			if (step < 1 || gaps < 2 || gaps > MAX_LINE_GAPS || every < 1 || gaps % every !== 0)
+				return false;
+			if (gaps / every > MAX_LINE_STRETCHES || from + gaps * step > MAX_FACE_NUMBER) return false;
+			// Halfway between two marks, a whole number; on a mark, one with no number written on it.
+			if (half === NUMBERLINE.half) return mark < gaps && step % 2 === 0;
+			return half === NUMBERLINE.on && mark >= 1 && mark < gaps && mark % every !== 0;
 		}
 		default:
 			return true;

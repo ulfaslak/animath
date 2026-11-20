@@ -545,11 +545,11 @@ describe('the wire protocol', () => {
 		// puzzle of a kind its registry lacks (#191's seven Arctic kinds: 8); lands, #191, which added
 		// neither: 9; The Arctic's small land animals, #192's first wave: 10; its big ones: 11;
 		// its sea and fishing-hole animals: 12; the plane's `busy`, #191 step 7, which added
-		// neither: 13; doubling and halving, Nordland's `double`: 14.
+		// neither: 13; doubling and halving, Nordland's `double`: 14; its number line: 15.
 		expect(
 			{ version: PROTOCOL_VERSION, species: ANIMALS.length, kinds: ALL_PUZZLE_KINDS.length },
 			'a new species or puzzle kind bumps PROTOCOL_VERSION'
-		).toEqual({ version: 14, species: 100, kinds: 15 });
+		).toEqual({ version: 15, species: 100, kinds: 16 });
 	});
 
 	it('bounds worlds, coordinates, names and rosters', () => {

@@ -1,4 +1,4 @@
-import { KRONER, THERMOMETER, type PuzzleFace } from './face.js';
+import { KRONER, NUMBERLINE, THERMOMETER, type PuzzleFace } from './face.js';
 import { DOUBLE } from './generators/double.js';
 
 /**
@@ -66,6 +66,8 @@ export function puzzleHint(face: PuzzleFace): PuzzleHint | null {
 				: equation(['?', '=', '(', at(2), '÷', at(1), ')', '×', at(0)]);
 		case 'shape':
 			return shapeHint(at(0), at(1), at(2), at(3), at(4), at(5));
+		case 'numberline':
+			return numberLineHint(at(0), at(1), at(3), at(4), at(5) === NUMBERLINE.half);
 		case 'barchart':
 		case 'clock':
 			return null;
@@ -319,6 +321,38 @@ function thermometerHint(how: number, a: number, b: number): PuzzleHint | null {
 		default:
 			return null;
 	}
+}
+
+/**
+ * A number line, counted from the nearest number written on it, one mark at
+ * a time, and half a mark more when the arrow is halfway: 37 on a line with
+ * 30, 35 and 40 written is 35 + 1 + 1, 340 with 300, 350 and 400 is
+ * 350 − 10, and 350 halfway between 340 and 360 with 200, 300 and 400 is
+ * 300 + 20 + 20 + (20 ÷ 2). As near from both, it counts on from the one
+ * below. From 0 the first jump is the first number (20 with 0, 50 and 100
+ * is 10 + 10), so an arrow one mark past 0 has nothing easier, and no hint.
+ */
+function numberLineHint(
+	from: number,
+	step: number,
+	every: number,
+	mark: number,
+	half: boolean
+): PuzzleHint | null {
+	// Where the arrow is and the written numbers either side of it, in marks from the line's start.
+	const at = mark + (half ? 0.5 : 0);
+	const below = Math.floor(mark / every) * every;
+	const above = below + every;
+	const on = at - below <= above - at;
+	const sign: HintToken = on ? '+' : '−';
+	const tokens: HintToken[] = [];
+	const start = from + (on ? below : above) * step;
+	if (start !== 0) tokens.push(start);
+	const jump = (...part: HintToken[]) => tokens.push(...(tokens.length > 0 ? [sign] : []), ...part);
+	for (let k = Math.floor(on ? at - below : above - at); k > 0; k--) jump(step);
+	if (half)
+		jump(...(tokens.length > 0 ? (['(', step, '÷', 2, ')'] as const) : ([step, '÷', 2] as const)));
+	return tokens.length > 1 ? same(tokens) : null;
 }
 
 /**

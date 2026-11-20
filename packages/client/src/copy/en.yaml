@@ -1300,6 +1300,7 @@ puzzle:
   ask:
     double: Double {n} = ?
     half: Half of {n} = ?
+    numberline: What number does the arrow point to?
     thermometer:
       colder: It is {start}°. It gets {change}° colder. What does the thermometer show now?
       warmer: It is {start}°. It gets {change}° warmer. What does the thermometer show now?
@@ -1562,6 +1563,7 @@ battle:
     sqrt: square roots
     double: doubling
     half: halving
+    numberline: number lines
     thermometer: temperatures
     kroner: money
     fraction: fractions
