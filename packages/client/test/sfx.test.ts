@@ -194,6 +194,7 @@ describe('cues', () => {
 				'encounter',
 				'faint',
 				'heal',
+				'hint',
 				'hit',
 				'lead',
 				'move',

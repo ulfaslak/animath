@@ -3,11 +3,14 @@
 		answerForm,
 		isPictureKind,
 		puzzleFace,
+		puzzleHint,
 		type AttackLevel,
 		type ShownPuzzle
 	} from '@mathgame/engine';
 	import { t } from '../copy';
-	import { shownAnswer } from '../input/answer';
+	import { HINT_KEY, shownAnswer } from '../input/answer';
+	import HintView from './HintView.svelte';
+	import WandIcon from './WandIcon.svelte';
 	import { questionParts, questionText, wordedPrompt } from '../puzzle-words';
 	import PuzzlePicture from './pictures/PuzzlePicture.svelte';
 	import { unfocusable } from '../input/press';
@@ -43,12 +46,20 @@
 	 * (`puzzle-words.ts`), over the answer. A puzzle with words and no
 	 * picture ("Double 8 = ?") is worded the same way and shown as a sum is. A clock's answer is a time: the
 	 * box shows "--:--" until a digit is typed, and the pad has a colon.
+	 *
+	 * A puzzle with a hint (the engine's `puzzleHint` of its face) has a
+	 * Hint button with the wand by the key reminder while it is answered,
+	 * which presses H; once `hinted`, the button goes and the hint stands
+	 * between the question and the answer (`HintView`), or, for a number
+	 * pattern, its jumps stand over the prompt itself, until the puzzle goes.
+	 * The other player's puzzle in a friendly match never has one.
 	 */
 	let {
 		puzzle,
 		input,
 		judged,
 		typing,
+		hinted = false,
 		note,
 		story,
 		back,
@@ -60,6 +71,8 @@
 		judged: { correct: boolean } | null;
 		/** True while keys type into the answer (shows a blinking cursor). */
 		typing: boolean;
+		/** The kid asked for the hint: it shows, in place of its button. */
+		hinted?: boolean;
 		/** The doctor's "↑ ↓ help another animal", when someone else is hurt too. */
 		note?: string;
 		/** What the numbers are: "You have 23 tokens. The axe costs 8. How many will you have left?" */
@@ -79,6 +92,10 @@
 	const worded = $derived(face ? wordedPrompt(face) : null);
 	const prompt = $derived(worded ?? puzzle.prompt);
 	const form = $derived(answerForm(puzzle.kind));
+	/** The puzzle's hint, for the kid answering it; none for a puzzle only watched. */
+	const hint = $derived(face && !watch ? puzzleHint(face) : null);
+	const shownHint = $derived(hinted ? hint : null);
+	const hintButton = $derived(hint !== null && !hinted && typing && !judged);
 	const reminder = $derived(
 		form === 'time'
 			? touch.on
@@ -90,7 +107,12 @@
 	);
 </script>
 
-<div class="puzzle-panel" class:with-pad={touch.on && !watch} class:pictured>
+<div
+	class="puzzle-panel"
+	class:with-pad={touch.on && !watch}
+	class:pictured
+	class:hinted={shownHint !== null}
+>
 	{#if face && pictured}
 		<div class="picture-slot"><PuzzlePicture {face} /></div>
 	{/if}
@@ -108,10 +130,17 @@
 							>{:else}<BarMark index={part.shape} inline />{/if}{/each}</span
 				>
 			</div>
+		{:else if shownHint?.form === 'gaps' && face}
+			<div class="puzzle-prompt" class:long={puzzle.prompt.length > 11}>
+				<HintView hint={shownHint} numbers={face.numbers} />
+			</div>
 		{:else}
 			<div class="puzzle-prompt" class:long={prompt.length > 11} class:worded={worded !== null}>
 				{prompt}
 			</div>
+		{/if}
+		{#if shownHint && shownHint.form !== 'gaps'}
+			<HintView hint={shownHint} />
 		{/if}
 		<div
 			class="answer"
@@ -126,6 +155,13 @@
 				<button type="button" class="back" data-press="Escape" {@attach unfocusable}>
 					{back}
 					{#if !touch.on}<kbd>{t('keys.esc')}</kbd>{/if}
+				</button>
+			{/if}
+			{#if hintButton}
+				<button type="button" class="hint-button" data-press={HINT_KEY} {@attach unfocusable}>
+					<WandIcon size={24} />
+					{t('puzzle.hint')}
+					{#if !touch.on}<kbd>{t('keys.hint')}</kbd>{/if}
 				</button>
 			{/if}
 			{#if judged}
@@ -325,12 +361,38 @@
 			background: rgba(255, 159, 67, 0.18);
 		}
 	}
-	.back kbd {
+	.back kbd,
+	.hint-button kbd {
 		font-family: inherit;
 		font-size: 16px;
 		padding: 0 6px;
 		border-radius: 6px;
 		background: rgba(0, 0, 0, 0.08);
+	}
+	/* The Hint button: a pill of pale sky in the trainer's blue, as the hint it brings. */
+	.hint-button {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		min-height: 36px;
+		padding: 0 14px 0 10px;
+		border-radius: 18px;
+		background: color-mix(in srgb, var(--blue) 14%, var(--panel-cream));
+		color: var(--blue);
+		font-weight: 800;
+		font-size: 16px;
+	}
+	:global(.touch) .hint-button {
+		min-height: var(--tap);
+		padding: 0 20px 0 14px;
+	}
+	.hint-button:active {
+		transform: translateY(1px) scale(0.97);
+	}
+	@media (hover: hover) and (pointer: fine) {
+		.hint-button:hover {
+			background: color-mix(in srgb, var(--blue) 24%, var(--panel-cream));
+		}
 	}
 	.puzzle-prompt {
 		font-weight: 800;
