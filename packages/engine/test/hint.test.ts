@@ -237,6 +237,14 @@ describe('puzzleHint', () => {
 				for (let b = 0; b <= top; b++) check(kind, a, b, solve(a, b));
 			}
 		}
+		// A hundred and a thousand, which have no table in them: times a number, and as an answer.
+		for (const round of [100, 1000]) {
+			for (let b = 2; b <= 99; b++) {
+				check('mul', round, b, round * b);
+				check('mul', b, round, round * b);
+				check('div', round * b, b, round);
+			}
+		}
 		// Token sums run to five digits (a hand-over of 999 bears brings 29,970), and their
 		// thousands stay together: round numbers among them, as a price or a balance can be.
 		const rng = new Rng(17);
