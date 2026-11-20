@@ -1,15 +1,16 @@
 import type { SaveWrite } from '@mathgame/engine';
-import { eq, getTableName, sql } from 'drizzle-orm';
+import { and, eq, getTableName, ne, sql } from 'drizzle-orm';
 import type { QueryConfig } from 'pg';
 import { db, pool } from './db/index.js';
 import { accountSaveBackups, accountSaves, sessions, users } from './db/schema.js';
 import { NO_PASSWORD } from './passwords.js';
+import { hashSecret } from './secrets.js';
 import { createSession } from './sessions.js';
 
 /**
  * Accounts in the database: whether they work here now, finding one by name,
- * making one, and the two things only the admin does (a new password,
- * deleting an account). What a name or a password may be is the engine's
+ * making one, a new password the kid picks at home, and the two things only
+ * the admin does (a new password, deleting an account). What a name or a password may be is the engine's
  * rule; the routes check it before anything here runs.
  */
 
@@ -140,12 +141,19 @@ export interface UserRow {
 	id: string;
 	name: string;
 	passwordHash: string;
+	/** The SHA-256 of its home browser's key (`home.ts`), or null with no home yet. */
+	homeHash: string | null;
 }
 
 /** The account whose name has this `nameKey`, if any. */
 export async function findUser(key: string): Promise<UserRow | null> {
 	const [row] = await db
-		.select({ id: users.id, name: users.name, passwordHash: users.passwordHash })
+		.select({
+			id: users.id,
+			name: users.name,
+			passwordHash: users.passwordHash,
+			homeHash: users.homeHash
+		})
 		.from(users)
 		.where(eq(users.nameKey, key));
 	return row ?? null;
@@ -165,11 +173,13 @@ export interface NewAccount {
 	passwordHash: string;
 	/** The guest game the player brings along, already checked with `validateSaveWrite`. */
 	save: SaveWrite | null;
+	/** The SHA-256 of the home key of the browser it is made in (`home.ts`): its home. None: no home yet. */
+	homeHash?: string;
 }
 
 /**
  * Makes the account, its save (when one came along) and a first session, all
- * or nothing. Null when the name was taken, even by a registration that
+ * or nothing, with the browser it is made in as its home. Null when the name was taken, even by a registration that
  * landed a moment earlier: the unique `name_key` decides.
  */
 export async function createAccount(input: NewAccount): Promise<{ token: string } | null> {
@@ -177,7 +187,12 @@ export async function createAccount(input: NewAccount): Promise<{ token: string 
 		return await db.transaction(async (tx) => {
 			const [user] = await tx
 				.insert(users)
-				.values({ name: input.name, nameKey: input.nameKey, passwordHash: input.passwordHash })
+				.values({
+					name: input.name,
+					nameKey: input.nameKey,
+					passwordHash: input.passwordHash,
+					homeHash: input.homeHash ?? null
+				})
 				.returning({ id: users.id });
 			if (!user) throw new Error('insert into users returned no row');
 			if (input.save) {
@@ -206,6 +221,29 @@ export async function setPasswordHash(userId: string, passwordHash: string): Pro
 	});
 }
 
+/**
+ * The kid picked a new password at home (`POST /password`): every other
+ * browser logged in to the account is logged out, and this one, whose
+ * session token is `keep`, stays in. False when there is no such account.
+ */
+export async function changePasswordHash(
+	userId: string,
+	passwordHash: string,
+	keep: string
+): Promise<boolean> {
+	return db.transaction(async (tx) => {
+		const updated = await tx
+			.update(users)
+			.set({ passwordHash })
+			.where(eq(users.id, userId))
+			.returning({ id: users.id });
+		await tx
+			.delete(sessions)
+			.where(and(eq(sessions.userId, userId), ne(sessions.tokenHash, hashSecret(keep))));
+		return updated.length > 0;
+	});
+}
+
 /** Deletes the account with its sessions, save and set-aside saves. False when there is no such account. */
 export async function deleteUser(userId: string): Promise<boolean> {
 	const deleted = await db.delete(users).where(eq(users.id, userId)).returning({ id: users.id });
@@ -218,6 +256,8 @@ export interface AccountSummary {
 	/** False for an account waiting for its welcome link (`welcome.ts`). */
 	hasPassword: boolean;
 	sessions: number;
+	/** It has its own browser (`home.ts`). */
+	hasHome: boolean;
 	/** The save's `seq`, or null with no save. */
 	seq: number | null;
 	savedAt: Date | null;
@@ -231,6 +271,7 @@ export async function listAccounts(): Promise<AccountSummary[]> {
 			createdAt: users.createdAt,
 			hasPassword: sql<boolean>`${users.passwordHash} <> ${NO_PASSWORD}`,
 			sessions: sql<number>`(select count(*)::int from ${sessions} where ${sessions.userId} = ${users.id} and ${sessions.expiresAt} > now())`,
+			hasHome: sql<boolean>`${users.homeHash} is not null`,
 			seq: accountSaves.seq,
 			savedAt: accountSaves.updatedAt
 		})

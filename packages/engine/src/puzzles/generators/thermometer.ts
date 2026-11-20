@@ -6,7 +6,7 @@ import type { Band } from './arithmetic.js';
 /**
  * One step of the thermometer's ladder ([[PRODUCT]] §4 "Puzzles"): how far
  * from 0 a temperature may be (`reach`), how many degrees it changes by
- * (`change`), whether the change must cross 0 (`cross`; at difficulty 1
+ * (`change`), whether the change must cross 0 (`cross`; otherwise
  * everything stays at 0 or above), and what is asked: a temperature after
  * it gets colder or warmer (`turn`), or the degrees between two
  * temperatures (`between`).
@@ -19,25 +19,29 @@ export interface ThermometerStep {
 	between: boolean;
 }
 
-/** Index = difficulty − 1. Both ends of `change` and `reach` never fall. */
+/**
+ * Index = difficulty − 1. Two skills: 0° and above at 1–4 (colder and
+ * warmer, then the degrees between two temperatures from 3), then across 0
+ * from 5. Within each, both ends of `change` and `reach` never fall.
+ */
 export const THERMOMETER_LADDER: readonly ThermometerStep[] = [
 	{ reach: 10, change: [2, 5], cross: false, turn: true, between: false },
+	{ reach: 20, change: [3, 9], cross: false, turn: true, between: false },
+	{ reach: 20, change: [4, 12], cross: false, turn: true, between: true },
+	{ reach: 30, change: [5, 20], cross: false, turn: true, between: true },
 	{ reach: 10, change: [2, 6], cross: true, turn: true, between: false },
-	{ reach: 15, change: [5, 12], cross: true, turn: true, between: false },
-	{ reach: 15, change: [5, 15], cross: true, turn: false, between: true },
-	{ reach: 20, change: [8, 20], cross: true, turn: true, between: true },
-	{ reach: 25, change: [10, 25], cross: true, turn: true, between: true },
-	{ reach: 30, change: [12, 30], cross: true, turn: true, between: true },
-	{ reach: 35, change: [15, 35], cross: true, turn: true, between: true },
-	{ reach: 40, change: [18, 40], cross: true, turn: true, between: true },
-	{ reach: 40, change: [25, 60], cross: true, turn: true, between: true }
+	{ reach: 15, change: [4, 12], cross: true, turn: true, between: true },
+	{ reach: 20, change: [6, 18], cross: true, turn: true, between: true },
+	{ reach: 25, change: [8, 25], cross: true, turn: true, between: true },
+	{ reach: 30, change: [10, 30], cross: true, turn: true, between: true },
+	{ reach: 40, change: [15, 40], cross: true, turn: true, between: true }
 ];
 
 /**
  * "It is 3°. It gets 5° colder." → −2. A temperature and how much it
- * changes, or two temperatures and how far apart they are. From difficulty 2
- * every puzzle crosses 0: one temperature above it and one below, neither on
- * it, so the minus is the point.
+ * changes, or two temperatures and how far apart they are. Up to difficulty
+ * 4 nothing goes below 0; from 5 every puzzle crosses 0: one temperature
+ * above it and one below, neither on it, so the minus is the point.
  */
 export const thermometer: PuzzleGenerator = {
 	kind: 'thermometer',

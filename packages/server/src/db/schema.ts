@@ -66,13 +66,24 @@ export const saveBackups = pgTable(
  * case or in how a letter is written cannot both exist. `password_hash` is a
  * salted scrypt hash with its parameters (`passwords.ts`).
  */
-export const users = pgTable('users', {
-	id: uuid('id').primaryKey().defaultRandom(),
-	name: text('name').notNull(),
-	nameKey: text('name_key').notNull().unique('users_name_key_unique'),
-	passwordHash: text('password_hash').notNull(),
-	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
-});
+export const users = pgTable(
+	'users',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		name: text('name').notNull(),
+		nameKey: text('name_key').notNull().unique('users_name_key_unique'),
+		passwordHash: text('password_hash').notNull(),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+		/**
+		 * The account's own browser (`home.ts`): the SHA-256 of the random key in
+		 * that browser's home cookie. There the name alone logs in and the password
+		 * can be changed. Null until the account has one: an account made before
+		 * homes takes the first browser it is logged in on.
+		 */
+		homeHash: text('home_hash')
+	},
+	(t) => [index('users_home_hash_idx').on(t.homeHash)]
+);
 
 /**
  * A logged-in browser. The cookie holds a random token; only its SHA-256 hash
