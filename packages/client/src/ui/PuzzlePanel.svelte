@@ -76,7 +76,8 @@
 	const pictured = $derived(face !== null && isPictureKind(face.kind));
 	const parts = $derived(face && pictured ? questionParts(face) : null);
 	/** The prompt in very large type: a sum's as the engine writes it, a worded one's in words. */
-	const prompt = $derived((face && wordedPrompt(face)) ?? puzzle.prompt);
+	const worded = $derived(face ? wordedPrompt(face) : null);
+	const prompt = $derived(worded ?? puzzle.prompt);
 	const form = $derived(answerForm(puzzle.kind));
 	const reminder = $derived(
 		form === 'time'
@@ -108,7 +109,9 @@
 				>
 			</div>
 		{:else}
-			<div class="puzzle-prompt" class:long={prompt.length > 11}>{prompt}</div>
+			<div class="puzzle-prompt" class:long={prompt.length > 11} class:worded={worded !== null}>
+				{prompt}
+			</div>
 		{/if}
 		<div
 			class="answer"
@@ -336,6 +339,10 @@
 		overflow-wrap: anywhere;
 		/* A worded prompt that needs two lines splits them evenly. */
 		text-wrap: balance;
+	}
+	/* Words break between them, never inside one: "Det dobbelte af", not "dobbe-lte". */
+	.puzzle-prompt.worded {
+		overflow-wrap: break-word;
 	}
 	/* Beside the pad the prompt has half the card: smaller, and a long one smaller still. */
 	.with-pad .puzzle-prompt {

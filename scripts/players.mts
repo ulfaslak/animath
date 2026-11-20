@@ -692,6 +692,14 @@ function solve(prompt: string): number {
 	if (seq) return nextInSequence(seq[1]!.split(', ').map(Number));
 	const root = prompt.match(/^√(\d+) = \?$/);
 	if (root) return Math.sqrt(Number(root[1]));
+	// Doubling and halving, as the page words them in either language: "Double 8 = ?", "Halvdelen af 14 = ?".
+	const worded = prompt
+		.replace(/ /g, ' ')
+		.match(/^(Double|Det dobbelte af|Half of|Halvdelen af) (\d+) = \?$/);
+	if (worded) {
+		const n = Number(worded[2]);
+		return worded[1] === 'Double' || worded[1] === 'Det dobbelte af' ? n + n : n / 2;
+	}
 	const missing = prompt.match(/^(\d+) ([+×]) \? = (\d+)$/);
 	if (missing) {
 		const [, a, op, c] = missing;
