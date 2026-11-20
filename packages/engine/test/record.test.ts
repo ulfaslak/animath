@@ -406,53 +406,61 @@ function ladderPrint(kind: PuzzleKind): string {
 }
 
 /**
- * Every kind's ladder (`ladderPrint`), oldest first: the last is what the kind
- * asks now. The record's counts by difficulty are those of `LADDER_VERSION`'s
- * ladders, so when what a kind asks at some difficulty changes, its new print
- * goes at the end of its list and `LADDER_VERSION` goes up by one, and every
- * kid's counts start over: no step of a ladder mixes the answers to two
- * different puzzles. A new kind is a list of one, and no bump: the record
- * counts each kind apart, so no step of another kind's ladder meets it.
+ * What every kind asks (`ladderPrint`) at each `LADDER_VERSION`, oldest first:
+ * the last is what the kinds ask now. The record's counts by difficulty are
+ * those of `LADDER_VERSION`'s ladders, so when what any kind asks at some
+ * difficulty changes, every kind's prints go in a new version at the end, and
+ * `LADDER_VERSION` goes up by one to it, however many kinds changed together:
+ * every kid's counts start over, and no step of a ladder mixes the answers to
+ * two different puzzles. A new kind joins the last version, and no bump: the
+ * record counts each kind apart, so no step of another kind's ladder meets it.
  */
-const LADDERS: Partial<Record<PuzzleKind, readonly string[]>> = {
-	add: ['fdb0f914'],
-	sub: ['50ac249a'],
-	mul: ['57a1ea18'],
-	div: ['24f318fc'],
-	missing: ['ed18214d'],
-	sequence: ['f7de6062'],
-	sqrt: ['11c3e8a5'],
-	thermometer: ['19cef719'],
-	kroner: ['baf2c1ba'],
-	fraction: ['e63344ad'],
-	shape: ['d707af0d'],
-	barchart: ['3d87eae5'],
-	clock: ['62371ccf'],
-	balance: ['6854ed3d']
-};
+const LADDERS: readonly Partial<Record<PuzzleKind, string>>[] = [
+	// 1: the school-year ladders of #242 and #243, the first any build counted.
+	{
+		add: 'fdb0f914',
+		sub: '50ac249a',
+		mul: 'ab7c922c',
+		div: 'aae252ce',
+		missing: 'b4ab71a3',
+		sequence: 'f7de6062',
+		sqrt: 'bafc803c',
+		thermometer: 'ea63120f',
+		kroner: 'baf2c1ba',
+		fraction: 'd82fdde6',
+		shape: 'd1d08cba',
+		barchart: '20383366',
+		clock: '32d98dae',
+		balance: 'e7d15a69'
+	}
+];
 
 describe('the ladders the record counts by difficulty', () => {
-	it('LADDER_VERSION goes up with every change to what a kind asks', () => {
-		const changes = Object.values(LADDERS).reduce((n, prints) => n + prints!.length - 1, 0);
+	it('LADDER_VERSION goes up by one with every change to what the kinds ask', () => {
+		const now = Object.fromEntries(ALL_PUZZLE_KINDS.map((kind) => [kind, ladderPrint(kind)]));
+		const last = LADDERS[LADDERS.length - 1]!;
 		const told: string[] = [];
-		const changed = ALL_PUZZLE_KINDS.filter((kind) => {
-			const prints = LADDERS[kind];
-			return prints !== undefined && prints[prints.length - 1] !== ladderPrint(kind);
-		}).length;
-		for (const kind of ALL_PUZZLE_KINDS) {
-			const now = ladderPrint(kind);
-			const prints = LADDERS[kind];
-			if (prints === undefined) {
-				told.push(`${kind} is new: pin its ladder in LADDERS as ${kind}: ['${now}'], no bump`);
-			} else if (prints[prints.length - 1] !== now) {
-				told.push(
-					`${kind} asks something else now: add '${now}' at the end of its list in LADDERS, ` +
-						`and set LADDER_VERSION (puzzles/record.ts) to ${1 + changes + changed}`
-				);
+		const changed = ALL_PUZZLE_KINDS.filter((k) => last[k] !== undefined && last[k] !== now[k]);
+		if (changed.length > 0) {
+			told.push(
+				`${changed.join(', ')} ask something else now: add ${JSON.stringify(now)} at the end ` +
+					`of LADDERS, and set LADDER_VERSION (puzzles/record.ts) to ${LADDERS.length + 1}`
+			);
+		} else {
+			for (const kind of ALL_PUZZLE_KINDS.filter((k) => last[k] === undefined)) {
+				told.push(`${kind} is new: add ${kind}: '${now[kind]}' to the last of LADDERS, no bump`);
 			}
 		}
 		expect(told).toEqual([]);
-		expect(LADDER_VERSION, 'one more than the changes LADDERS lists').toBe(1 + changes);
+		// Each version asks something the one before did not: no bump without a change.
+		for (let v = 1; v < LADDERS.length; v++) {
+			const [before, after] = [LADDERS[v - 1]!, LADDERS[v]!];
+			const differs = ALL_PUZZLE_KINDS.some(
+				(k) => before[k] !== undefined && after[k] !== before[k]
+			);
+			expect(differs, `LADDERS' version ${v + 1} asks what ${v} did`).toBe(true);
+		}
+		expect(LADDER_VERSION, 'the versions LADDERS lists').toBe(LADDERS.length);
 	});
 });
 
