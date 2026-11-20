@@ -36,34 +36,23 @@ export interface BalanceStep {
 
 const { plus, minus, times, timesPlus, timesMinus } = BALANCE;
 
-/** Index = difficulty − 1. Each band's ends never fall. */
+/**
+ * Index = difficulty − 1. Plus first (1–5), minus from 6, times from 8
+ * (2–5 times 2–9), then 2–9 times 2–9 (9), and two steps, a times and a plus
+ * or a minus, with the same small numbers at 10. Each band's ends never fall.
+ */
 export const BALANCE_LADDER: readonly BalanceStep[] = [
-	{ forms: [plus], sum: [1, 9], factor: [2, 5], box: [2, 5], extra: [1, 10] },
-	{ forms: [plus], sum: [5, 20], factor: [2, 5], box: [2, 5], extra: [1, 10] },
-	{ forms: [plus, minus], sum: [10, 30], factor: [2, 5], box: [2, 5], extra: [1, 10] },
-	{ forms: [plus, minus], sum: [20, 60], factor: [2, 5], box: [2, 5], extra: [1, 10] },
-	{ forms: [plus, minus, times], sum: [50, 100], factor: [2, 5], box: [2, 9], extra: [1, 10] },
-	{ forms: [timesPlus], sum: [50, 100], factor: [2, 5], box: [2, 9], extra: [1, 20] },
-	{ forms: [timesPlus, timesMinus], sum: [50, 100], factor: [2, 9], box: [2, 9], extra: [5, 30] },
-	{ forms: [timesPlus, timesMinus], sum: [50, 100], factor: [3, 9], box: [6, 15], extra: [10, 50] },
-	{
-		forms: [times, timesPlus, timesMinus],
-		sum: [50, 100],
-		factor: [6, 12],
-		box: [11, 20],
-		extra: [20, 80]
-	},
-	{
-		forms: [timesPlus, timesMinus],
-		sum: [50, 100],
-		factor: [11, 20],
-		box: [11, 25],
-		extra: [30, 100]
-	}
+	{ forms: [plus], sum: [1, 9], factor: [2, 5], box: [2, 9], extra: [1, 10] },
+	{ forms: [plus], sum: [2, 12], factor: [2, 5], box: [2, 9], extra: [1, 10] },
+	{ forms: [plus], sum: [5, 20], factor: [2, 5], box: [2, 9], extra: [1, 10] },
+	{ forms: [plus], sum: [10, 30], factor: [2, 5], box: [2, 9], extra: [1, 10] },
+	{ forms: [plus], sum: [10, 50], factor: [2, 5], box: [2, 9], extra: [1, 10] },
+	{ forms: [plus, minus], sum: [15, 60], factor: [2, 5], box: [2, 9], extra: [1, 10] },
+	{ forms: [plus, minus], sum: [20, 80], factor: [2, 5], box: [2, 9], extra: [1, 10] },
+	{ forms: [plus, minus, times], sum: [30, 100], factor: [2, 5], box: [2, 9], extra: [1, 10] },
+	{ forms: [minus, times], sum: [50, 100], factor: [2, 9], box: [2, 9], extra: [1, 10] },
+	{ forms: [timesPlus, timesMinus], sum: [50, 100], factor: [2, 9], box: [2, 9], extra: [1, 20] }
 ];
-
-/** Draws of a pair of factors for `times` before the step asks another form instead. */
-const TRIES = 50;
 
 /**
  * "8 + □ = 5 + 6", later "3 × □ + 4 = 25": both sides weigh the same, and
@@ -110,15 +99,9 @@ function draw(rng: Rng, step: BalanceStep, form: Form): [Form, number[], number]
 		}
 		case times: {
 			// a × x = b × c, with {b, c} another pair than {a, x}: the box is not read off.
-			for (let i = 0; i < TRIES; i++) {
-				const [a, x] = [int(step.factor), int(step.box)];
-				const pairs = otherPairs(a * x, a, x);
-				if (pairs.length > 0) {
-					const [b, c] = rng.pick(pairs);
-					return [times, [a, b, c], x];
-				}
-			}
-			return draw(rng, step, timesPlus);
+			const [a, x] = rng.pick(timesPairs(step));
+			const [b, c] = rng.pick(otherPairs(a * x, a, x));
+			return [times, [a, b, c], x];
 		}
 		case timesPlus: {
 			const [a, x, b] = [int(step.factor), int(step.box), int(step.extra)];
@@ -132,6 +115,19 @@ function draw(rng: Rng, step: BalanceStep, form: Form): [Form, number[], number]
 			return [timesMinus, [a, b, a * x - b], x];
 		}
 	}
+}
+
+/**
+ * Every factor `a` and box `x` from the step's bands whose product another
+ * pair makes too (2 × 3 has none: only 3 × 2 and 2 × 3 make 6), so a
+ * `times` puzzle never needs another form in its place.
+ */
+function timesPairs(step: BalanceStep): [number, number][] {
+	const out: [number, number][] = [];
+	for (let a = step.factor[0]; a <= step.factor[1]; a++)
+		for (let x = step.box[0]; x <= step.box[1]; x++)
+			if (otherPairs(a * x, a, x).length > 0) out.push([a, x]);
+	return out;
 }
 
 /** Every pair `[b, c]`, each from 2 up, with `b × c = product`, other than `a` and `x` either way round. */

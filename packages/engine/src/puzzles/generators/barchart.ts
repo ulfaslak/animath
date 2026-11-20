@@ -26,20 +26,22 @@ export interface BarchartStep {
 const { read, more, both, all } = BARCHART;
 
 /**
- * Index = difficulty − 1. A chart counted in ones, then in twos, fives and
- * tens; a bar between two lines from difficulty 5 (in twos) and 9 (in tens).
+ * Index = difficulty − 1. A chart counted in ones (1–5), then in twos
+ * (6–7), fives (8–9) and tens (10); a bar between two lines at 7 (in twos)
+ * and 10 (in tens). Read one bar first, two together from 3, how many more
+ * from 4, all of them from 5.
  */
 export const BARCHART_LADDER: readonly BarchartStep[] = [
 	{ bars: 3, scale: 1, least: 1, lines: 6, half: false, asks: [read] },
-	{ bars: 4, scale: 1, least: 1, lines: 9, half: false, asks: [read, more] },
-	{ bars: 4, scale: 1, least: 2, lines: 10, half: false, asks: [more, both] },
+	{ bars: 4, scale: 1, least: 1, lines: 9, half: false, asks: [read] },
+	{ bars: 4, scale: 1, least: 1, lines: 10, half: false, asks: [read, both] },
+	{ bars: 4, scale: 1, least: 1, lines: 10, half: false, asks: [read, more, both] },
+	{ bars: 4, scale: 1, least: 2, lines: 10, half: false, asks: [more, both, all] },
 	{ bars: 4, scale: 2, least: 1, lines: 10, half: false, asks: [read, more, both] },
-	{ bars: 4, scale: 2, least: 1, lines: 10, half: true, asks: [read, more, both] },
+	{ bars: 4, scale: 2, least: 1, lines: 10, half: true, asks: [read, more, both, all] },
 	{ bars: 4, scale: 5, least: 2, lines: 10, half: false, asks: [read, more, both] },
 	{ bars: 5, scale: 5, least: 2, lines: 10, half: false, asks: [more, both, all] },
-	{ bars: 4, scale: 10, least: 2, lines: 10, half: false, asks: [more, both] },
-	{ bars: 5, scale: 10, least: 2, lines: 10, half: true, asks: [read, more, both] },
-	{ bars: 5, scale: 10, least: 3, lines: 10, half: true, asks: [more, both, all] }
+	{ bars: 5, scale: 10, least: 2, lines: 10, half: true, asks: [read, more, both, all] }
 ];
 
 /**
