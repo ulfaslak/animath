@@ -3,6 +3,7 @@ import { tokenPuzzle } from '../src/doctor/tokens.js';
 import {
 	FACE_NUMBERS,
 	MAX_FACE_NUMBER,
+	UNIT_PAIRS,
 	facePrompt,
 	puzzleFace,
 	readPuzzleFace,
@@ -95,6 +96,24 @@ describe('a puzzle and its face', () => {
 		// The doctor's sums go through the same formatter.
 		expect(tokenPuzzle(23, 5).prompt).toBe('23 + 5 = ?');
 		expect(tokenPuzzle(23, -5).prompt).toBe('23 − 5 = ?');
+	});
+
+	it('names each pair of units by the place it has always had, so a saved measuring puzzle reads the same', () => {
+		// A battle saved mid-puzzle holds `units(how, pair, a, b)` and its answer: a pair
+		// moved to another place would ask a kid "2 minutes = ? seconds" and judge 48 right.
+		// Add a pair at the end, here and in `UNIT_PAIRS`; never move one.
+		expect(UNIT_PAIRS.map((p) => `${p.big}-${p.small} ${p.per}`)).toEqual([
+			'week-day 7',
+			'day-hour 24',
+			'hour-minute 60',
+			'minute-second 60',
+			'year-month 12',
+			'km-m 1000',
+			'm-cm 100',
+			'cm-mm 10',
+			'kg-g 1000',
+			'l-dl 10'
+		]);
 	});
 
 	it('reads no face from text the formatter did not write', () => {
