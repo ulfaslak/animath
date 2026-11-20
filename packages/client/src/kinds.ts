@@ -3,7 +3,7 @@ import {
 	facePrompt,
 	faceTopic,
 	getAnimal,
-	isPictureKind,
+	isWordedKind,
 	puzzleDifficulty,
 	puzzleTopics,
 	type PuzzleFace,
@@ -32,6 +32,10 @@ export function kindWord(topic: PuzzleTopic): string {
 			return t('battle.kinds.sequence');
 		case 'sqrt':
 			return t('battle.kinds.sqrt');
+		case 'double':
+			return t('battle.kinds.double');
+		case 'half':
+			return t('battle.kinds.half');
 		case 'thermometer':
 			return t('battle.kinds.thermometer');
 		case 'kroner':
@@ -73,6 +77,11 @@ export function kindGlyph(topic: PuzzleTopic): string {
 			return '2 4 6';
 		case 'sqrt':
 			return '√';
+		// Doubling and halving: what is done to the number, as a sign.
+		case 'double':
+			return '×2';
+		case 'half':
+			return '½';
 		// The Arctic's kinds (#191): a sign of the picture each puzzle draws.
 		case 'thermometer':
 			return '−3°';
@@ -95,12 +104,12 @@ export function kindGlyph(topic: PuzzleTopic): string {
 
 /**
  * A puzzle as a thought bubble over a player near a battle shows it: a sum
- * as the prompt the engine writes ("7 × 8 = ?"), and a puzzle with a
- * picture, which no bubble has room to draw, as its kind's sign and a "?"
- * ("½ ?", "3:00 ?"). Never a word.
+ * as the prompt the engine writes ("7 × 8 = ?"), and a puzzle with words or
+ * a picture, which no bubble has room for, as its kind's sign and a "?"
+ * ("×2 ?", "½ ?", "3:00 ?"). Never a word.
  */
 export function thoughtSum(face: PuzzleFace): string {
-	if (!isPictureKind(face.kind)) return facePrompt(face);
+	if (!isWordedKind(face.kind)) return facePrompt(face);
 	return `${kindGlyph(faceTopic(face))} ?`;
 }
 

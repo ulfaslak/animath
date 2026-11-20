@@ -1270,6 +1270,8 @@ puzzle:
   keysTimeTouch: Tast først timer, så minutter. Tryk så på OK
   colon: Kolon
   ask:
+    double: Det dobbelte af {n} = ?
+    half: Halvdelen af {n} = ?
     thermometer:
       colder: Det er {start}°. Det bliver {change}° koldere. Hvad viser termometeret nu?
       warmer: Det er {start}°. Det bliver {change}° varmere. Hvad viser termometeret nu?
@@ -1432,6 +1434,8 @@ battle:
     missing: manglende tal
     sequence: talmønstre
     sqrt: kvadratrødder
+    double: fordobling
+    half: halvering
     thermometer: temperaturer
     kroner: penge
     fraction: brøker

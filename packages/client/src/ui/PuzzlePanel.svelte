@@ -8,7 +8,7 @@
 	} from '@mathgame/engine';
 	import { t } from '../copy';
 	import { shownAnswer } from '../input/answer';
-	import { questionParts, questionText } from '../puzzle-words';
+	import { questionParts, questionText, wordedPrompt } from '../puzzle-words';
 	import PuzzlePicture from './pictures/PuzzlePicture.svelte';
 	import { unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
@@ -40,7 +40,8 @@
 	 * A puzzle with a picture (the Arctic's kinds, #191) is drawn from its
 	 * face: the picture on the left, filling the card's height, and its
 	 * question in words beside it, picked here in the language on screen
-	 * (`puzzle-words.ts`), over the answer. A clock's answer is a time: the
+	 * (`puzzle-words.ts`), over the answer. A puzzle with words and no
+	 * picture ("Double 8 = ?") is worded the same way and shown as a sum is. A clock's answer is a time: the
 	 * box shows "--:--" until a digit is typed, and the pad has a colon.
 	 */
 	let {
@@ -74,6 +75,8 @@
 	const face = $derived(puzzleFace(puzzle));
 	const pictured = $derived(face !== null && isPictureKind(face.kind));
 	const parts = $derived(face && pictured ? questionParts(face) : null);
+	/** The prompt in very large type: a sum's as the engine writes it, a worded one's in words. */
+	const prompt = $derived((face && wordedPrompt(face)) ?? puzzle.prompt);
 	const form = $derived(answerForm(puzzle.kind));
 	const reminder = $derived(
 		form === 'time'
@@ -105,7 +108,7 @@
 				>
 			</div>
 		{:else}
-			<div class="puzzle-prompt" class:long={puzzle.prompt.length > 11}>{puzzle.prompt}</div>
+			<div class="puzzle-prompt" class:long={prompt.length > 11}>{prompt}</div>
 		{/if}
 		<div
 			class="answer"
@@ -331,6 +334,8 @@
 		font-size: clamp(40px, 7vh, 64px);
 		line-height: 1.1;
 		overflow-wrap: anywhere;
+		/* A worded prompt that needs two lines splits them evenly. */
+		text-wrap: balance;
 	}
 	/* Beside the pad the prompt has half the card: smaller, and a long one smaller still. */
 	.with-pad .puzzle-prompt {

@@ -1,3 +1,4 @@
+import { DOUBLE } from './generators/double.js';
 import { isPictureKind, type Puzzle, type PuzzleKind } from './types.js';
 
 /**
@@ -14,6 +15,9 @@ import { isPictureKind, type Puzzle, type PuzzleKind } from './types.js';
  * - `missing`: `a + ? = total`, or `a × ? = total` (`times`), `[a, total]`;
  * - `sequence`: the four numbers shown before the "?";
  * - `sqrt`: `√n = ?`, `[n]`;
+ * - `double`: `[how, n]`, `how` one of `DOUBLE`: double `n` (0), or half of
+ *   `n` (1), which is even. Worded by the client ("Double 8 = ?"), so its
+ *   prompt is the face written out, `double(0, 8)`, as a picture kind's is;
  * - `balance`: `[form, a, b, c]`, one of `BALANCE_FORMS` ("8 + □ = 5 + 6");
  * - the picture kinds (#191), each a fixed row of numbers, and nothing in it
  *   the kid is not shown:
@@ -55,6 +59,7 @@ export const FACE_NUMBERS: Readonly<Record<PuzzleKind, number>> = {
 	missing: 2,
 	sequence: 4,
 	sqrt: 1,
+	double: 2,
 	thermometer: 3,
 	kroner: 11,
 	fraction: 3,
@@ -128,6 +133,7 @@ export function facePrompt(face: PuzzleFace): string {
 			return `√${a} = ?`;
 		case 'balance':
 			return BALANCE_FORMS[a!]?.(b!, c!, d!) ?? '';
+		case 'double':
 		case 'thermometer':
 		case 'kroner':
 		case 'fraction':
@@ -221,6 +227,12 @@ function faceFits(face: PuzzleFace): boolean {
 			// Neither side below 1: `a − □ = b − c` has b over c.
 			if (form === 1 && b <= c) return false;
 			return answer !== null && Number.isInteger(answer) && answer >= 1;
+		}
+		case 'double': {
+			const [how, shown] = [at(0), at(1)];
+			if (shown < 1) return false;
+			if (how === DOUBLE.double) return true;
+			return how === DOUBLE.half && shown % 2 === 0;
 		}
 		case 'thermometer': {
 			const [how, a, b] = [at(0), at(1), at(2)];

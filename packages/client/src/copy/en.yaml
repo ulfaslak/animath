@@ -1291,7 +1291,11 @@ puzzle:
   # The question of a puzzle with a picture (the Arctic's kinds). Numbers are
   # filled in from the puzzle; {fraction} is a fraction drawn stacked, and
   # {who} and {other} are the shapes under a bar chart's bars, drawn in the line.
+  # `double` and `half` have no picture: they are shown in the big type of a
+  # sum, as a maths book writes them, the number {n} doubled or halved.
   ask:
+    double: Double {n} = ?
+    half: Half of {n} = ?
     thermometer:
       colder: It is {start}°. It gets {change}° colder. What does the thermometer show now?
       warmer: It is {start}°. It gets {change}° warmer. What does the thermometer show now?
@@ -1552,6 +1556,8 @@ battle:
     missing: missing numbers
     sequence: number patterns
     sqrt: square roots
+    double: doubling
+    half: halving
     thermometer: temperatures
     kroner: money
     fraction: fractions

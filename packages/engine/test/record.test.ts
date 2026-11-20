@@ -98,7 +98,11 @@ describe('puzzleTopic and faceTopic', () => {
 								? [1, 3].includes(Number(/\d+/.exec(puzzle.prompt)![0]))
 									? 'perimeter'
 									: 'area'
-								: kind;
+								: kind === 'double'
+									? puzzle.prompt.startsWith('double(1,')
+										? 'half'
+										: 'double'
+									: kind;
 					expect(topic, puzzle.prompt).toBe(want);
 					// And off its face, as a thought bubble or a match's wire carries it.
 					expect(faceTopic(puzzleFace(puzzle)!), puzzle.prompt).toBe(want);

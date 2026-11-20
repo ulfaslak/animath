@@ -129,6 +129,17 @@ function solvePicture(prompt: string): number | null {
 			if (how === 2) return v[i]! + v[j]!;
 			return v.reduce((s, x) => s + x, 0);
 		}
+		case 'double': {
+			// Double: the number counted on by itself. Half: the number that, counted on by itself, makes it.
+			const [how, shown] = [at(0), at(1)];
+			if (how === 0) {
+				let total = shown;
+				for (let k = 0; k < shown; k++) total += 1;
+				return total;
+			}
+			for (let half = 0; half <= shown; half++) if (half + half === shown) return half;
+			throw new Error(`no half of ${prompt}`);
+		}
 		case 'clock': {
 			// Turn the minute hand a minute at a time, round a twelve-hour face.
 			const [how, h, mins, dh, dm] = [at(0), at(1), at(2), at(3), at(4)];
@@ -628,6 +639,8 @@ function topicOf(prompt: string): string {
 	if (picture) {
 		// A shape asks for its floor (0, or a side from the floor's squares: 2) or its fence (1, 3).
 		if (picture[1] === 'shape') return Number(picture[2]) % 2 === 0 ? 'area' : 'perimeter';
+		// Doubling (0) or halving (1).
+		if (picture[1] === 'double') return Number(picture[2]) === 0 ? 'double' : 'half';
 		return picture[1] as string;
 	}
 	if (prompt.includes('□')) return 'balance';
