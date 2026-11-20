@@ -86,7 +86,7 @@ export function kindGlyph(topic: PuzzleTopic): string {
 			return '÷2';
 		// The number line: a line with its marks.
 		case 'numberline':
-			return '├┼┤';
+			return '┣╋┫';
 		// The Arctic's kinds (#191): a sign of the picture each puzzle draws.
 		case 'thermometer':
 			return '−3°';
