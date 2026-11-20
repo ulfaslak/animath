@@ -77,7 +77,9 @@ import { readFightEvents, readFightView, type FightEvent, type FightView } from 
  * Version 14: doubling and halving, a new puzzle kind (`double`), whose
  * puzzles a version 13 page would drop from a `match` or a `fight`.
  * Version 15: The Arctic's units, a puzzle kind a version 14 page would
- * drop from a `match` or a `fight`.
+ * drop from a `match` or a `fight`. A new way a kind asks or a new pair of
+ * units (`UNITS`, `UNIT_PAIRS`) bumps it too: a page of the version before
+ * cannot read the face, and shows its puzzle as a "?" alone.
  */
 export const PROTOCOL_VERSION = 15;
 

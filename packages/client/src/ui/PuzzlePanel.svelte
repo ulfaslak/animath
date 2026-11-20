@@ -11,7 +11,7 @@
 	import { HINT_KEY, shownAnswer } from '../input/answer';
 	import HintView from './HintView.svelte';
 	import WandIcon from './WandIcon.svelte';
-	import { questionParts, questionText, wordedPrompt } from '../puzzle-words';
+	import { questionParts, questionText, shownPrompt, wordedPrompt } from '../puzzle-words';
 	import PuzzlePicture from './pictures/PuzzlePicture.svelte';
 	import { unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
@@ -92,7 +92,7 @@
 	const parts = $derived(face && pictured ? questionParts(face) : null);
 	/** The prompt in very large type: a sum's as the engine writes it, a worded one's in words. */
 	const worded = $derived(face ? wordedPrompt(face) : null);
-	const prompt = $derived(worded ?? puzzle.prompt);
+	const prompt = $derived(shownPrompt(puzzle, face));
 	/** A sum in words (`units`), set as its two sides: "2 hours and 35 minutes", "= ? minutes". */
 	const sides = $derived(face?.kind === 'units' && worded ? worded.split(' = ') : null);
 	const form = $derived(answerForm(puzzle.kind));

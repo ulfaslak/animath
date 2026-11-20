@@ -6,6 +6,8 @@ import {
 	THERMOMETER,
 	UNITS,
 	UNIT_PAIRS,
+	isWordedKind,
+	type Puzzle,
 	type PuzzleFace,
 	type UnitId
 } from '@mathgame/engine';
@@ -93,6 +95,22 @@ export function questionParts(face: PuzzleFace): QuestionPart[] | null {
 		default:
 			return null;
 	}
+}
+
+/**
+ * The prompt in the puzzle's big type: a worded one in words (`wordedPrompt`),
+ * a sum as the engine writes it. A worded kind whose face this page cannot
+ * read (a newer build's way of asking, at the same `PROTOCOL_VERSION` by
+ * mistake) is a "?" alone, never its face written out ("units(0, 10, 3, 0)").
+ * A picture puzzle's question is its words and its picture (`questionParts`).
+ */
+export function shownPrompt(
+	puzzle: Pick<Puzzle, 'kind' | 'prompt'>,
+	face: PuzzleFace | null
+): string {
+	const worded = face ? wordedPrompt(face) : null;
+	if (worded !== null) return worded;
+	return isWordedKind(puzzle.kind) ? '?' : puzzle.prompt;
 }
 
 /**

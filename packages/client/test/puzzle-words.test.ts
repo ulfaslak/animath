@@ -1,7 +1,7 @@
 import { Rng, UNITS, generatePuzzle, puzzleFace, type PuzzleFace } from '@mathgame/engine';
 import { afterEach, describe, expect, it } from 'vitest';
 import { language } from '../src/copy';
-import { wordedPrompt, wordedSum } from '../src/puzzle-words';
+import { shownPrompt, wordedPrompt, wordedSum } from '../src/puzzle-words';
 
 /**
  * A measuring puzzle (`units`) is a sum in words the client writes from its
@@ -78,5 +78,22 @@ describe('a measuring puzzle in words', () => {
 		const sumFace: PuzzleFace = { kind: 'add', numbers: [2, 3] };
 		expect(wordedSum(sumFace)).toBeNull();
 		expect(wordedSum({ kind: 'units', numbers: [0, 99, 1, 0] })).toBeNull();
+	});
+});
+
+describe('the prompt in big type', () => {
+	it('is a worded puzzle in words, a sum as written, and a "?" for a face this page cannot read', () => {
+		const units = { kind: 'units' as const, prompt: 'units(0, 6, 3, 0)' };
+		expect(shownPrompt(units, puzzleFace(units))).toBe('3\u00a0m = ?\u00a0cm');
+		const sum = { kind: 'add' as const, prompt: '2 + 3 = ?' };
+		expect(shownPrompt(sum, puzzleFace(sum))).toBe('2 + 3 = ?');
+		// A pair of units, a way of asking and a picture this build does not know, from a newer one.
+		for (const prompt of ['units(0, 10, 3, 0)', 'units(4, 6, 3, 0)']) {
+			const newer = { kind: 'units' as const, prompt };
+			expect(puzzleFace(newer)).toBeNull();
+			expect(shownPrompt(newer, null), prompt).toBe('?');
+		}
+		expect(shownPrompt({ kind: 'clock', prompt: 'clock(9, 3, 0, 0, 0)' }, null)).toBe('?');
+		expect(shownPrompt({ kind: 'double', prompt: 'double(5, 8)' }, null)).toBe('?');
 	});
 });
