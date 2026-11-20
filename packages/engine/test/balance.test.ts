@@ -313,11 +313,11 @@ describe('balance simulation', () => {
 			return [a.tier, a.maxHp, a.catchRate, a.attacks.map((k) => k.power)];
 		};
 		for (const [id, twin] of Object.entries(twins)) expect(numbers(id), id).toEqual(numbers(twin));
-		// The small ones ask sums and number patterns, never a times-table sum.
+		// The small ones ask sums, number patterns and number lines, never a times-table sum.
 		for (const id of sea.filter((s) => tier(s) === 1)) {
 			const kinds = new Set(getAnimal(id).attacks.flatMap((k) => k.kinds));
 			for (const kind of kinds)
-				expect(['add', 'sub', 'sequence'], `${id} asks ${kind}`).toContain(kind);
+				expect(['add', 'sub', 'sequence', 'numberline'], `${id} asks ${kind}`).toContain(kind);
 		}
 	});
 
