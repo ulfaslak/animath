@@ -271,8 +271,10 @@ describe('puzzleHint', () => {
 		expect(tokens([UNITS.back, 2, 360, 0])).toBe('? = 360 ÷ 60');
 		expect(tokens([UNITS.rest, 2, 130, 2])).toBe('? = 130 − ( 2 × 60 )');
 		expect(tokens([UNITS.rest, 2, 70, 1])).toBe('? = 70 − 60');
-		// 1 hour = ? minutes: 1 × 60 changes nothing.
+		// 1 hour = ? minutes: 1 × 60 changes nothing; nor does 60 ÷ 60, nor 100 ÷ 100.
 		expect(tokens([UNITS.whole, 2, 1, 0])).toBeNull();
+		expect(tokens([UNITS.back, 2, 60, 0])).toBeNull();
+		expect(tokens([UNITS.back, 6, 100, 0])).toBeNull();
 	});
 
 	it('holds for every number doubling and halving can show, and each has a hint', () => {

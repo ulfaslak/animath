@@ -340,7 +340,8 @@ function unitsHint(how: number, pair: number, a: number, b: number): PuzzleHint 
 		case UNITS.mixed:
 			return same([...big(a), '+', b]);
 		case UNITS.back:
-			return same([a, '÷', per]);
+			// "60 minutes = ? hours": 60 ÷ 60 is a step that changes nothing.
+			return a > per ? same([a, '÷', per]) : null;
 		case UNITS.rest:
 			return same([a, '−', ...big(b)]);
 		default:
