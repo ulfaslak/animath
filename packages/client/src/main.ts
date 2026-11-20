@@ -199,7 +199,11 @@ const accountController = new AccountController({
 		restartWith(note, name);
 	},
 	forgetWelcome: () => forgetWelcome(tabStore),
-	passwordChanged: () => hud.accountNotice('newPassword')
+	// The menu under the card goes too: the message line it would cover says it at once.
+	passwordChanged: () => {
+		pauseController.close();
+		hud.accountNotice('newPassword');
+	}
 });
 // A page that plays no account asks which accounts this browser is the own of, so the
 // login card for one of them asks no password (only `/ready` reads no cookie either).
