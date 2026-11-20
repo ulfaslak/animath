@@ -353,3 +353,12 @@ To become `[learned]`: the 2026-10-28 line, plus a test or a check in [[DEVELOPM
 - **A band end written in the table but never asked.** The balance's box was 2–9 at 8, but `a × □ = b × c` needs a product another pair makes, and 2 × 2–5 never has one, so the box was always 3–9 and PRODUCT copied the table's 2–9. Found by the adversarial review. Prose taken from a table is a claim about what the generator does: sample the ends, not the table.
 
 To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology that a ladder test checks each step asks something the one below does not, and that a band's ends are sampled from the generator before prose quotes them.
+
+### 2026-11-20 — doubling and halving (feat/double-and-half, PR #245) — a new member of a roster checked against what it does, not against its siblings `[not codified]`
+
+- **Halving took ½, the sign fractions already had.** `kindGlyph` is a roster of signs, and a kid who cannot read tells the topics apart by them; My puzzles and the thought bubble showed two identical chips. Found by the adversarial review. Halving is now ÷2, and `packages/client/test/kinds.test.ts` fails when two topics share a sign.
+- **The players script could not answer the new kind.** `scripts/players.mts`'s `solve` reads prompts as text: one more list a new puzzle kind must join, and not on CLAUDE.md's list of duplicated rosters. Found when `solve:right` failed in a battle.
+- **Words in a box styled for sums.** The prompt's `overflow-wrap: anywhere` suits "15 × □ − 97 = 143" and broke "dobbelte" in two in a narrow card. Found on a phone-sized screenshot. A worded prompt now breaks between words only.
+- **Prose that named only picture kinds.** Four comments said only a picture kind's prompt is its face written out, after `double` became a second such kind. Found by the review. Same category as "Prose is a claim": grep for prose naming the sibling roster the new member joins.
+
+To become `[learned]`: CLAUDE.md's "Duplicated rosters" item names `scripts/players.mts`'s `solve` among the lists a new puzzle kind joins, and says that a new member's sign, word or colour is checked against every sibling's, not only against its own meaning.
