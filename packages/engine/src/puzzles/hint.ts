@@ -146,24 +146,29 @@ function doubleHint(n: number): PuzzleHint | null {
 }
 
 /**
- * Halving: to 10, the double the kid knows backwards (half of 8 is ? + ? = 8);
- * bigger, place by place, each place halved on its own (half of 76 is
- * (70 ÷ 2) + (6 ÷ 2)); a round number of an odd digit splits off one of its
- * tens or hundreds first (half of 70 is (60 ÷ 2) + (10 ÷ 2)). Every place of
- * an even number halves whole: its ones are even, and a ten or a hundred
- * halves to 5 or 50.
+ * Halving: to 18, the double the kid knows backwards (half of 14 is
+ * ? + ? = 14); bigger, place by place, each place an even number of its
+ * tens or hundreds, so each halves as a double the kid knows. A place with
+ * an odd count passes one of them down to the next: half of 76 is
+ * (60 ÷ 2) + (16 ÷ 2), half of 70 is (60 ÷ 2) + (10 ÷ 2), half of 348 is
+ * (200 ÷ 2) + (140 ÷ 2) + (8 ÷ 2). The ones of an even number are even, so
+ * what reaches them always halves whole.
  */
 function halfHint(n: number): PuzzleHint | null {
 	if (n < 2 || n % 2 !== 0) return null;
 	const knownDouble = equation(['?', '+', '?', '=', n]);
-	if (n <= 10) return knownDouble;
-	const parts = places(n);
-	if (parts.length === 1) {
-		const unit = unitOf(n);
-		const digit = n / unit;
-		if (digit % 2 === 0 || digit === 1) return knownDouble;
-		parts.splice(0, 1, n - unit, unit);
-	}
+	if (n <= 18) return knownDouble;
+	const digits = [...String(n)].map(Number);
+	const parts: number[] = [];
+	let carried = 0;
+	digits.forEach((digit, i) => {
+		const unit = 10 ** (digits.length - 1 - i);
+		const count = carried * 10 + digit;
+		carried = unit > 1 && count % 2 === 1 ? 1 : 0;
+		if (count - carried > 0) parts.push((count - carried) * unit);
+	});
+	// A number whose halving is one such step (20, 100, 160) is a double the kid knows.
+	if (parts.length < 2) return knownDouble;
 	return same(
 		joined(
 			parts.map((part): HintToken[] => [part, '÷', 2]),

@@ -283,8 +283,28 @@ describe('puzzleHint', () => {
 		expect(text('double', 37)).toBe('? = ( 30 + 30 ) + ( 7 + 7 )');
 		expect(text('double', 40)).toBe('? = ( 4 + 4 ) × 10');
 		expect(text('half', 8)).toBe('? + ? = 8');
-		expect(text('half', 76)).toBe('? = ( 70 ÷ 2 ) + ( 6 ÷ 2 )');
+		expect(text('half', 14)).toBe('? + ? = 14');
+		expect(text('half', 76)).toBe('? = ( 60 ÷ 2 ) + ( 16 ÷ 2 )');
 		expect(text('half', 70)).toBe('? = ( 60 ÷ 2 ) + ( 10 ÷ 2 )');
+	});
+
+	it('halves only what is a double the kid knows: an even count of ones, tens or hundreds, to 18', () => {
+		// Half of 30 is split as (20 ÷ 2) + (10 ÷ 2), so no other hint may hand over 30 ÷ 2 as a step.
+		const bad: string[] = [];
+		for (const forms of DOUBLE_LADDER)
+			for (const form of forms) {
+				if (form.how !== 'half') continue;
+				for (const n of numbersOf(form)) {
+					const hint = puzzleHint({ kind: 'double', numbers: [DOUBLE.half, n] });
+					if (hint?.form !== 'equation') continue;
+					for (const pill of pills(hint.tokens)) {
+						let count = pill[0] as number;
+						while (count % 10 === 0) count /= 10;
+						if (count !== 1 && (count % 2 !== 0 || count > 18)) bad.push(`${n}: ${pill.join(' ')}`);
+					}
+				}
+			}
+		expect(bad.slice(0, 20)).toEqual([]);
 	});
 
 	it('keeps the thousands together, so a token sum is a few parts long', () => {
