@@ -338,3 +338,11 @@ To become `[learned]`: the same line as 2026-10-31's, extended to absolutes in a
 - **A confirmation said where the kid could not see it.** "Your new password is saved!" went to the message line under the still-open pause menu.
 
 To become `[learned]`: a line in [[DEVELOPMENT]] (or CLAUDE.md § Regardless of what the change is) that any value the server treats as a credential is minted by the server, and that a right granted on "first come" lists who else could come first (every live session, every shared device); and that making an optional server call compulsory re-reads that route's rate limits as a block.
+
+### 2026-11-20 — school-year ladders for Nordland's kinds (feat/nordland-ladders, PR #243, #235) — ladder steps designed one kind at a time, not against how attacks reach them, and prose claims again not measured `[not codified]`
+
+- **Two neighbouring steps were the same.** To give a school year two difficulties, the first draft repeated a step (times 5 = 6, roots 3 = 4 and 5 = 6). `puzzleDifficulty` puts an attack's levels on neighbouring difficulties, so 21 attacks asked the very same sums on two levels for different damage: the trap of #32, again. Found by the adversarial review. A table indexed by difficulty is checked against every attack's three levels, not only read as a ladder.
+- **Steps out of reach were quoted as the top.** No animal asks multiplication above 9 or a missing number above 6, so the brief's "18 × 15" sat on a step no kid could meet, and the prose promised it. Found by the review. Before writing what a step gives kids, find the highest difficulty any attack and the druid ask of that kind.
+- **Prose claims written from the band ends.** "Across a hundred" and "across a thousand" held for 50–75% of puzzles, and "neither number is a multiple of ten" was false for the sum. Same category as 2026-10-28's second item: a claim is measured from the generator's output, or tested.
+
+To become `[learned]`: the 2026-10-28 line, plus a test or a check in [[DEVELOPMENT]] § Testing ideology that no two neighbouring difficulties of any kind's table give the same puzzles.
