@@ -59,9 +59,16 @@ function wrong(face: PuzzleFace, answer: number, hint: PuzzleHint): string | nul
 	const negatives = face.kind === 'thermometer';
 	switch (hint.form) {
 		case 'gaps': {
+			// One jump between each two numbers shown, none to the answer: from the first
+			// number, the jumps walk through every other.
 			const n = face.numbers;
-			const gaps = n.slice(1).map((x, i) => x - (n[i] as number));
-			return JSON.stringify(gaps) === JSON.stringify(hint.gaps) ? null : 'gaps';
+			if (hint.gaps.length !== n.length - 1) return 'a jump too many or too few';
+			let at = n[0] as number;
+			for (let k = 0; k < hint.gaps.length; k++) {
+				at += hint.gaps[k] as number;
+				if (at !== n[k + 1]) return 'a jump that misses its number';
+			}
+			return null;
 		}
 		case 'dots': {
 			if (hint.a < 1 || hint.b < 1) return 'a dot count below 1';
@@ -97,6 +104,46 @@ function wrong(face: PuzzleFace, answer: number, hint: PuzzleHint): string | nul
 			if (open >= 0) return 'a pill never closed';
 			if (tokens.some((t) => typeof t === 'number' && !Number.isSafeInteger(t))) return 'not whole';
 			if (!negatives && tokens.some((t) => typeof t === 'number' && t < 0)) return 'below 0';
+			// Nothing in it is worth nothing: no 0, no pill that comes to 0 (10 − 10).
+			if (tokens.some((t) => t === 0)) return 'a 0';
+			// Nor a step that changes nothing: times 1, or shared by 1 (1 × 7, 24 ÷ 24 is fine).
+			for (let k = 1; k < tokens.length - 1; k++)
+				if (
+					(tokens[k] === '×' || tokens[k] === '÷') &&
+					(tokens[k - 1] === 1 || tokens[k + 1] === 1)
+				)
+					return 'a times 1';
+			for (const pill of pills(tokens))
+				if (evaluate(pill, negatives) === 0) return `a pill worth 0: ${pill.join(' ')}`;
+			// Nor does it say the answer with the rest coming to nothing beside it: the answer as a
+			// number of its own (outside a pill) that, taken out, leaves 0 with no work in what is
+			// left, a pill of two different numbers (−4 + 4 + 7 for 7; 3 − 3 − 2 for −2;
+			// (24 ÷ 24) × 100 for 100; but −3 + 3 + (6 − 3) has 6 − 3 still to work out).
+			const work = pills(known).some(
+				(pill) => new Set(pill.filter((t) => typeof t === 'number')).size > 1
+			);
+			if (answer !== 0 && !work) {
+				let depth = 0;
+				for (let k = 0; k < known.length; k++) {
+					const t = known[k];
+					if (t === '(') depth++;
+					else if (t === ')') depth--;
+					else if (depth === 0 && typeof t === 'number' && Math.abs(t) === Math.abs(answer)) {
+						const without = known.map((u, j) => (j === k ? 0 : u));
+						if (evaluate(without, true) === 0) return 'the answer, with nothing beside it';
+					}
+				}
+			}
+			// Nor is it the prompt's own sum again, in any order (? = b + a for a + b).
+			const op = PROMPT_SIGN[face.kind];
+			const numbers = (s: readonly HintToken[]) =>
+				s.filter((t): t is number => typeof t === 'number').sort((x, y) => x - y);
+			if (
+				op &&
+				known.every((t) => typeof t === 'number' || t === op) &&
+				JSON.stringify(numbers(known)) === JSON.stringify([...face.numbers].sort((x, y) => x - y))
+			)
+				return 'the prompt again';
 			const [left, right] = sides.map((s) =>
 				evaluate(
 					s.map((t) => (unknown(t) ? answer : t)),
@@ -109,11 +156,26 @@ function wrong(face: PuzzleFace, answer: number, hint: PuzzleHint): string | nul
 	}
 }
 
-/** The prompt's own sum, as a hint would write it: `[a, op, b]`. */
-function promptSum(face: PuzzleFace): HintToken[] | null {
-	const op = { add: '+', sub: '−', mul: '×', div: '÷' }[face.kind as string] as
-		HintToken | undefined;
-	return op ? [face.numbers[0] as number, op, face.numbers[1] as number] : null;
+/** The sign of a prompt that is one sum of its two numbers. */
+const PROMPT_SIGN: Partial<Record<PuzzleKind, HintToken>> = {
+	add: '+',
+	sub: '−',
+	mul: '×',
+	div: '÷'
+};
+
+/** What each pill of an equation holds. */
+function pills(tokens: readonly HintToken[]): HintToken[][] {
+	const out: HintToken[][] = [];
+	let open = -1;
+	tokens.forEach((t, k) => {
+		if (t === '(') open = k;
+		else if (t === ')' && open >= 0) {
+			out.push(tokens.slice(open + 1, k));
+			open = -1;
+		}
+	});
+	return out;
 }
 
 const SEEDS = 200;
@@ -139,13 +201,6 @@ describe('puzzleHint', () => {
 					hinted++;
 					const why = wrong(face, puzzle.answer, hint);
 					if (why) bad.push(`${puzzle.prompt} (${puzzle.answer}): ${why}`);
-					// Not the prompt's own sum again.
-					const own = promptSum(face);
-					if (own && hint.form === 'equation') {
-						const side = hint.tokens.slice(hint.tokens.indexOf('=') + 1);
-						if (JSON.stringify(side) === JSON.stringify(own))
-							bad.push(`${puzzle.prompt}: the prompt again`);
-					}
 				}
 				shown[`${kind} ${d}`] = hinted / SEEDS;
 			}

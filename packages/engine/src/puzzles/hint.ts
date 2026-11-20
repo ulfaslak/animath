@@ -148,9 +148,10 @@ function subHint(a: number, b: number): PuzzleHint | null {
 	}
 	const parts = places(b);
 	if (parts.length > 1) return same([a, ...parts.flatMap((p): HintToken[] => ['−', p])]);
-	// A round number goes from the round part of the other (72 − 30 is (70 − 30) + 2).
+	// A round number goes from the round part of the other (72 − 30 is (70 − 30) + 2), but
+	// not when that part is the round number itself: (10 − 10) + 6 would say 16 − 10 is 6.
 	const rest = a % unitOf(b);
-	return rest > 0 ? same(['(', a - rest, '−', b, ')', '+', rest]) : null;
+	return rest > 0 && a - rest !== b ? same(['(', a - rest, '−', b, ')', '+', rest]) : null;
 }
 
 /**
@@ -170,11 +171,12 @@ function mulHint(a: number, b: number): PuzzleHint | null {
 			Array.from({ length: small }, () => big).flatMap((x, i) => (i > 0 ? ['+', x] : [x]))
 		);
 	}
-	// Which factor is split: `a` (the left one) when `split` is true.
+	// Which factor is split: `a` (the left one) when `left` is true. A part of 1 is the other
+	// factor itself, never "× 1" (8 × 6 is (8 × 5) + 8).
 	const splitting = (left: boolean, parts: readonly number[]) =>
 		same(
 			joined(
-				parts.map((p) => (left ? [p, '×', b] : [a, '×', p])),
+				parts.map((p) => (p === 1 ? [left ? b : a] : left ? [p, '×', b] : [a, '×', p])),
 				'+'
 			)
 		);
@@ -187,9 +189,10 @@ function mulHint(a: number, b: number): PuzzleHint | null {
 	if (small >= 10 && smallParts.length > 1) return splitting(a === small && a !== b, smallParts);
 	if (bigParts.length > 1) return splitting(a === big, bigParts);
 	// A table and a round number: the zeros come off and go back on (20 × 6 is (2 × 6) × 10).
-	if (small < 10 && big >= 20) {
-		const tens = unitOf(big);
-		const digit = big / tens;
+	// A hundred or a thousand has no table to take off: 100 × 7 is as easy as it gets.
+	const tens = unitOf(big);
+	const digit = big / tens;
+	if (small < 10 && big >= 20 && digit > 1) {
 		const table: HintToken[] = a === big ? [digit, '×', b] : [a, '×', digit];
 		return same(['(', ...table, ')', '×', tens]);
 	}
@@ -213,11 +216,10 @@ function divHint(a: number, b: number): PuzzleHint | null {
 				'+'
 			)
 		);
-	// A round answer: the zeros come off and go back on (1710 ÷ 19 is (171 ÷ 19) × 10).
-	if (answer >= 20) {
-		const tens = unitOf(answer);
-		return same(['(', a / tens, '÷', b, ')', '×', tens]);
-	}
+	// A round answer: the zeros come off and go back on (1710 ÷ 19 is (171 ÷ 19) × 10); an
+	// answer of 100 or 1000 would be (24 ÷ 24) × 100, the answer itself, so it turns round.
+	const tens = unitOf(answer);
+	if (answer >= 20 && answer / tens > 1) return same(['(', a / tens, '÷', b, ')', '×', tens]);
 	return equation([b, '×', '?', '=', a]);
 }
 
@@ -245,20 +247,23 @@ function balanceHint(form: number, a: number, b: number, c: number): PuzzleHint 
 
 /**
  * The thermometer as a sum, through 0 when it crosses it: 3° and 5° colder
- * is 3 − 3 − 2 (down to 0, then on), from −4° to 7° is 4 + 7 degrees.
+ * is 3 − 3 − (5 − 3) (down to 0, then what is left of the 5), from −4° to
+ * 7° is 4 + 7 degrees. A thermometer that starts or ends at 0° has nothing
+ * easier in it, and no hint.
  */
 function thermometerHint(how: number, a: number, b: number): PuzzleHint | null {
+	if (a === 0 || ((how === THERMOMETER.rose || how === THERMOMETER.fell) && b === 0)) return null;
 	switch (how) {
 		case THERMOMETER.colder:
-			return a > 0 && a - b < 0 ? same([a, '−', a, '−', b - a]) : same([a, '−', b]);
+			return a > 0 && a - b < 0 ? same([a, '−', a, '−', '(', b, '−', a, ')']) : same([a, '−', b]);
 		case THERMOMETER.warmer:
-			return a < 0 && a + b > 0 ? same([a, '+', -a, '+', a + b]) : same([a, '+', b]);
+			return a < 0 && a + b > 0 ? same([a, '+', -a, '+', '(', b, '−', -a, ')']) : same([a, '+', b]);
 		case THERMOMETER.rose:
 			if (a < 0 && b > 0) return same([-a, '+', b]);
-			return b <= 0 ? same([-a, '−', -b]) : same([b, '−', a]);
+			return b < 0 ? same([-a, '−', -b]) : same([b, '−', a]);
 		case THERMOMETER.fell:
 			if (a > 0 && b < 0) return same([a, '+', -b]);
-			return a <= 0 ? same([-b, '−', -a]) : same([a, '−', b]);
+			return a < 0 ? same([-b, '−', -a]) : same([a, '−', b]);
 		default:
 			return null;
 	}
@@ -297,7 +302,9 @@ function shapeHint(
 	const cut = cw > 0 && ch > 0;
 	switch (how) {
 		case 0:
-			if (cut) return same(['(', w, '×', h, ')', '−', '(', cw, '×', ch, ')']);
+			// A corner one tile wide is its row of tiles, never "1 × 2".
+			if (cut)
+				return same(joined([[w, '×', h], cw === 1 ? [ch] : ch === 1 ? [cw] : [cw, '×', ch]], '−'));
 			if (w < 2 || h < 2) return null;
 			// Drawn in squares: its rows added up, or its columns when there are fewer of them.
 			if (grid === 1) {
