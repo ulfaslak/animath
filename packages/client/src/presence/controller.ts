@@ -304,7 +304,7 @@ export class PresenceController {
 				y: Math.round(p.y),
 				opacity: Math.round(head.opacity * 20) / 20,
 				// The puzzle they are thinking about, written out here by the engine's own formatter (a
-				// puzzle with a picture as its kind's sign: `thoughtSum`); the
+				// puzzle with a picture or in words as its kind's sign: `thoughtSum`); the
 				// bubble leans away from their battle, off its animals' names.
 				thought: thought
 					? {

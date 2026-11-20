@@ -81,7 +81,7 @@ export function kindGlyph(topic: PuzzleTopic): string {
 		case 'double':
 			return '×2';
 		case 'half':
-			return '½';
+			return '÷2';
 		// The Arctic's kinds (#191): a sign of the picture each puzzle draws.
 		case 'thermometer':
 			return '−3°';
@@ -106,7 +106,7 @@ export function kindGlyph(topic: PuzzleTopic): string {
  * A puzzle as a thought bubble over a player near a battle shows it: a sum
  * as the prompt the engine writes ("7 × 8 = ?"), and a puzzle with words or
  * a picture, which no bubble has room for, as its kind's sign and a "?"
- * ("×2 ?", "½ ?", "3:00 ?"). Never a word.
+ * ("×2 ?", "÷2 ?", "3:00 ?"). Never a word.
  */
 export function thoughtSum(face: PuzzleFace): string {
 	if (!isWordedKind(face.kind)) return facePrompt(face);

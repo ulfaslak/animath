@@ -1,5 +1,6 @@
 import {
 	ALL_PUZZLE_KINDS,
+	ALL_PUZZLE_TOPICS,
 	MAX_DIFFICULTY,
 	MIN_DIFFICULTY,
 	Rng,
@@ -7,7 +8,7 @@ import {
 	puzzleFace
 } from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
-import { thoughtSum } from '../src/kinds';
+import { kindGlyph, thoughtSum } from '../src/kinds';
 
 /**
  * The thought bubble over a player in a battle ([[UI_SPEC]] § Explore mode,
@@ -34,7 +35,23 @@ describe('a thought bubble', () => {
 
 	it('shows doubling and halving by their signs, and a sum as it is', () => {
 		expect(thoughtSum({ kind: 'double', numbers: [0, 8] })).toBe('×2 ?');
-		expect(thoughtSum({ kind: 'double', numbers: [1, 14] })).toBe('½ ?');
+		expect(thoughtSum({ kind: 'double', numbers: [1, 14] })).toBe('÷2 ?');
 		expect(thoughtSum({ kind: 'mul', numbers: [7, 8] })).toBe('7 × 8 = ?');
+	});
+});
+
+/**
+ * A topic's sign, on an attack's chips, on My puzzles and in a thought bubble,
+ * is the picture a kid who cannot read yet tells the topics apart by: no two
+ * topics share one.
+ */
+describe("a topic's sign", () => {
+	it('is its own, for every topic', () => {
+		const byGlyph = new Map<string, string[]>();
+		for (const topic of ALL_PUZZLE_TOPICS) {
+			const glyph = kindGlyph(topic);
+			byGlyph.set(glyph, [...(byGlyph.get(glyph) ?? []), topic]);
+		}
+		expect([...byGlyph].filter(([, topics]) => topics.length > 1)).toEqual([]);
 	});
 });

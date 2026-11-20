@@ -109,8 +109,8 @@ const BALANCE_FORMS: readonly ((a: number, b: number, c: number) => string)[] = 
 
 /**
  * The prompt a face is written as: "7 × 8 = ?", "7 + ? = 12", "2, 4, 8, 16, ?",
- * "√144 = ?", "8 + □ = 5 + 6", and a picture kind's numbers as they are,
- * "thermometer(0, 3, 5)". Every puzzle's prompt is made here, the
+ * "√144 = ?", "8 + □ = 5 + 6", and a picture kind's or a worded kind's
+ * numbers as they are, "thermometer(0, 3, 5)", "double(0, 8)". Every puzzle's prompt is made here, the
  * generators' and the doctor's alike, so a face read back from a prompt
  * (`puzzleFace`) is written again the same.
  */

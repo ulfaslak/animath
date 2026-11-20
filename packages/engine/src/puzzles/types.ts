@@ -128,7 +128,8 @@ export interface Puzzle {
 	 * reads back: a puzzle shown to a player near a battle travels as those
 	 * numbers, never as text. The UI shows a sum's verbatim ("8 + □ = 5 + 6"
 	 * too); a picture kind's is its face written out, `clock(1, 3, 15, 1, 20)`,
-	 * which the UI words and draws from the face and never shows.
+	 * which the UI words and draws from the face and never shows, and so is a
+	 * worded kind's (`double(0, 8)`), which the UI words ("Double 8 = ?").
 	 */
 	prompt: string;
 	/**

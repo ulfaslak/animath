@@ -337,12 +337,14 @@
 		font-size: clamp(40px, 7vh, 64px);
 		line-height: 1.1;
 		overflow-wrap: anywhere;
-		/* A worded prompt that needs two lines splits them evenly. */
-		text-wrap: balance;
 	}
-	/* Words break between them, never inside one: "Det dobbelte af", not "dobbe-lte". */
+	/*
+	 * A worded prompt breaks between words, never inside one ("Det dobbelte
+	 * af", not "dobbe-lte"), and one that needs two lines splits them evenly.
+	 */
 	.puzzle-prompt.worded {
 		overflow-wrap: break-word;
+		text-wrap: balance;
 	}
 	/* Beside the pad the prompt has half the card: smaller, and a long one smaller still. */
 	.with-pad .puzzle-prompt {
