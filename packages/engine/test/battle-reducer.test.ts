@@ -667,6 +667,7 @@ describe('answers', () => {
 							correct: false,
 							answer,
 							topic: puzzleTopic(solving.phase.puzzle),
+							kind: solving.phase.puzzle.kind,
 							difficulty: solving.phase.puzzle.difficulty
 						},
 						missed: { type: 'missed', attacker: 'player', attackIndex: n, level },
@@ -735,6 +736,7 @@ describe('answers', () => {
 									correct: true,
 									answer,
 									topic: puzzleTopic(solving.phase.puzzle),
+									kind: solving.phase.puzzle.kind,
 									difficulty: solving.phase.puzzle.difficulty
 								},
 								hit: {

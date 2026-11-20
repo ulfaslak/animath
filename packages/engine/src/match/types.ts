@@ -145,10 +145,11 @@ export type MatchEvent =
 			 */
 			topic?: PuzzleTopic;
 			/**
-			 * The puzzle's difficulty, the step of its topic's ladder the record
-			 * counts it at. Missing from a server from before it: counted under
-			 * its topic alone, at no difficulty.
+			 * The puzzle's kind and difficulty: the step of whose ladder the record
+			 * counts it at. Missing from a server from before them: counted under
+			 * its topic alone.
 			 */
+			kind?: PuzzleKind;
 			difficulty?: number;
 	  }
 	| {

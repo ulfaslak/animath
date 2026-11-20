@@ -95,7 +95,7 @@ interface LooseSave {
 	items?: string[];
 	solved?: number;
 	puzzles?: Record<string, TopicRecord>;
-	/** The record's counts by difficulty: per topic `[tried, right]` at index difficulty − 1. */
+	/** The record's counts by difficulty: per topic, per kind, `[tried, right]` at index difficulty − 1. */
 	byDifficulty?: { ladder?: number; topics?: Record<string, unknown> };
 	caught?: string[];
 	unlocked?: string[];
@@ -236,35 +236,51 @@ function topics(save: LooseSave | null): string {
 		.join(' ');
 }
 
-/** A topic's counts by difficulty as the save holds them: `[tried, right]` pairs, or none. */
-function difficultyCounts(save: LooseSave | null, topic: string): [number, number][] {
-	const counts = save?.byDifficulty?.topics?.[topic];
-	if (!Array.isArray(counts)) return [];
-	return counts
-		.slice(0, MAX_DIFFICULTY)
-		.map((c) => (Array.isArray(c) ? [Number(c[0]) || 0, Number(c[1]) || 0] : [0, 0]));
+/** One kind's counts of a topic: `[tried, right]` at index difficulty − 1. */
+type Pairs = [number, number][];
+
+/**
+ * A topic's counts by difficulty as the save holds them, by kind, the kind
+ * named as the topic first: each kind's `[tried, right]` pairs.
+ */
+function difficultyCounts(save: LooseSave | null, topic: string): [string, Pairs][] {
+	const kinds = save?.byDifficulty?.topics?.[topic];
+	if (typeof kinds !== 'object' || kinds === null || Array.isArray(kinds)) return [];
+	return Object.entries(kinds as Record<string, unknown>)
+		.filter((entry): entry is [string, unknown[]] => Array.isArray(entry[1]))
+		.sort(([x], [y]) => Number(y === topic) - Number(x === topic))
+		.map(([kind, counts]) => [
+			kind,
+			counts
+				.slice(0, MAX_DIFFICULTY)
+				.map((c): [number, number] =>
+					Array.isArray(c) ? [Number(c[0]) || 0, Number(c[1]) || 0] : [0, 0]
+				)
+		]);
 }
 
 /**
- * `mul 58%/211 [d3 9/10 · d4 5/12!] +189`: a topic's right and tried, then
- * right of tried at each difficulty answered (`!` on a weak one), then how
- * many answers have no difficulty.
+ * `mul 58%/211 [d3 9/10 · d4 5/12!] missing [d4 3/5] +189`: a topic's right
+ * and tried, then right of tried at each difficulty answered (`!` on a weak
+ * one), by kind, a kind not named as the topic named before its list, then
+ * how many answers have no difficulty.
  */
 function topicSteps(
 	topic: string,
 	tried: number,
 	right: number,
-	counts: readonly [number, number][]
+	kinds: readonly [string, Pairs][]
 ): string {
-	const steps = counts.flatMap(([t, r], i) =>
-		t === 0 ? [] : [`d${i + 1} ${r}/${t}${t >= SHOWN_AFTER && r / t < WEAK ? '!' : ''}`]
-	);
-	const none = tried - counts.reduce((n, [t]) => n + t, 0);
-	return [
-		`${topic} ${percent(right, tried)}/${tried}`,
-		steps.length > 0 && `[${steps.join(' · ')}]`,
-		none > 0 && `+${none}`
-	]
+	const lists = kinds.flatMap(([kind, counts]) => {
+		const steps = counts.flatMap(([t, r], i) =>
+			t === 0 ? [] : [`d${i + 1} ${r}/${t}${t >= SHOWN_AFTER && r / t < WEAK ? '!' : ''}`]
+		);
+		if (steps.length === 0) return [];
+		return [`${kind === topic ? '' : `${kind} `}[${steps.join(' · ')}]`];
+	});
+	const counted = kinds.reduce((n, [, counts]) => n + counts.reduce((m, [t]) => m + t, 0), 0);
+	const none = tried - counted;
+	return [`${topic} ${percent(right, tried)}/${tried}`, ...lists, none > 0 && `+${none}`]
 		.filter(Boolean)
 		.join(' ');
 }
@@ -277,7 +293,7 @@ function topicSteps(
  * says which, and is left out of the sum.
  */
 function stepsReport(accounts: readonly Account[]): string[] {
-	const all = new Map<string, { tried: number; right: number; counts: [number, number][] }>();
+	const all = new Map<string, { tried: number; right: number; kinds: Map<string, Pairs> }>();
 	const lines: string[] = [];
 	for (const a of accounts) {
 		const s = a.save;
@@ -287,19 +303,23 @@ function stepsReport(accounts: readonly Account[]): string[] {
 			.filter(([, r]) => r.tried > 0)
 			.sort(([, x], [, y]) => y.tried - x.tried)
 			.map(([topic, r]) => {
-				const counts = difficultyCounts(s, topic);
+				const kinds = difficultyCounts(s, topic);
 				if (ours) {
-					const sum = all.get(topic) ?? { tried: 0, right: 0, counts: [] };
+					const sum = all.get(topic) ?? { tried: 0, right: 0, kinds: new Map() };
 					sum.tried += r.tried;
 					sum.right += r.right;
-					counts.forEach(([tried, right], i) => {
-						while (sum.counts.length <= i) sum.counts.push([0, 0]);
-						sum.counts[i]![0] += tried;
-						sum.counts[i]![1] += right;
-					});
+					for (const [kind, counts] of kinds) {
+						const into = sum.kinds.get(kind) ?? [];
+						counts.forEach(([tried, right], i) => {
+							while (into.length <= i) into.push([0, 0]);
+							into[i]![0] += tried;
+							into[i]![1] += right;
+						});
+						sum.kinds.set(kind, into);
+					}
 					all.set(topic, sum);
 				}
-				return topicSteps(topic, r.tried, r.right, counts);
+				return topicSteps(topic, r.tried, r.right, kinds);
 			});
 		if (rows.length === 0) continue;
 		const other = ours ? '' : ` (ladder ${ladder}, not summed)`;
@@ -307,7 +327,10 @@ function stepsReport(accounts: readonly Account[]): string[] {
 	}
 	const sums = [...all]
 		.sort(([, x], [, y]) => y.tried - x.tried)
-		.map(([topic, r]) => `  ${topicSteps(topic, r.tried, r.right, r.counts)}`);
+		.map(([topic, r]) => {
+			const kinds = [...r.kinds].sort(([x], [y]) => Number(y === topic) - Number(x === topic));
+			return `  ${topicSteps(topic, r.tried, r.right, kinds)}`;
+		});
 	return [
 		`Math by difficulty, ladder ${LADDER_VERSION} (right/tried at each difficulty d1–d${MAX_DIFFICULTY}; ! under ${WEAK * 100}% of ${SHOWN_AFTER}+):`,
 		'Every player together:',
@@ -315,9 +338,11 @@ function stepsReport(accounts: readonly Account[]): string[] {
 		'Each player:',
 		...lines,
 		'',
-		'Key: +N = answers with no difficulty: judged before the game counted difficulties, ' +
-			'by a page still on such a build, or under an earlier ladder (a change to what a puzzle ' +
-			'asks starts every count by difficulty over).'
+		'Key: a list is the ladder of the kind of puzzle the topic is named after; a name before ' +
+			"a list is another kind's ladder that asks the topic too (a times table's missing number " +
+			'is mul; a floor or a fence is a shape). +N = answers with no difficulty: judged before ' +
+			"the game counted difficulties, by a page still on such a build, a druid's token sum, or " +
+			'under an earlier ladder (a change to what a puzzle asks starts every count by difficulty over).'
 	];
 }
 

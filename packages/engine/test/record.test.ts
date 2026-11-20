@@ -17,9 +17,10 @@ import {
 	RECENT_ANSWERS,
 	faceTopic,
 	puzzleTopic,
+	readRecord,
 	recordAnswers,
+	savedByDifficulty,
 	topicBonus,
-	type DifficultyCount,
 	type Judging,
 	type PuzzleRecord
 } from '../src/puzzles/record.js';
@@ -79,8 +80,18 @@ function recordOf(recent: Partial<Record<PuzzleTopic, string>>): PuzzleRecord {
 	return out;
 }
 
-function judged(topic: PuzzleTopic, correct: boolean, difficulty = 1): BattleEvent {
-	return { type: 'answer-judged', input: '0', correct, answer: 0, topic, difficulty };
+/** The kind a topic's puzzles are when one kind asks it alone, or the kind given. */
+function kindOf(topic: PuzzleTopic): PuzzleKind {
+	return topic === 'area' || topic === 'perimeter' ? 'shape' : topic;
+}
+
+function judged(
+	topic: PuzzleTopic,
+	correct: boolean,
+	difficulty = 1,
+	kind: PuzzleKind = kindOf(topic)
+): BattleEvent {
+	return { type: 'answer-judged', input: '0', correct, answer: 0, topic, kind, difficulty };
 }
 
 describe('puzzleTopic and faceTopic', () => {
@@ -121,8 +132,8 @@ describe('recordAnswers', () => {
 		record = recordAnswers(record, [judged('div', false), judged('add', true)], BATTLE);
 		expect(before).toEqual({});
 		expect(record).toEqual({
-			div: { tried: 1, right: 0, recent: '0', byDifficulty: [[1, 0]] },
-			add: { tried: 1, right: 1, recent: '1', byDifficulty: [[1, 1]] }
+			div: { tried: 1, right: 0, recent: '0', byDifficulty: { div: [[1, 0]] } },
+			add: { tried: 1, right: 1, recent: '1', byDifficulty: { add: [[1, 1]] } }
 		});
 		for (let i = 0; i < 30; i++) {
 			record = recordAnswers(record, [judged('div', i % 3 === 0)], BATTLE);
@@ -150,7 +161,8 @@ describe('recordAnswers', () => {
 		let record = recordOf({ div: '1111' });
 		const misses = Array.from({ length: 20 }, () => judged('div', false));
 		record = recordAnswers(record, misses, { where: 'doctor' });
-		expect(record.div).toEqual({ tried: 24, right: 4, recent: '1111', byDifficulty: [[20, 0]] });
+		const byDifficulty = { div: [[20, 0]] };
+		expect(record.div).toEqual({ tried: 24, right: 4, recent: '1111', byDifficulty });
 		const matchMisses: MatchEvent[] = misses.map(() => ({
 			type: 'answer-judged',
 			side: 'a',
@@ -159,10 +171,15 @@ describe('recordAnswers', () => {
 		}));
 		record = recordAnswers(record, matchMisses, { where: 'match', side: 'a' });
 		// A match's answers from a server that says no difficulty count under the topic alone.
-		expect(record.div).toEqual({ tried: 44, right: 4, recent: '1111', byDifficulty: [[20, 0]] });
+		expect(record.div).toEqual({ tried: 44, right: 4, recent: '1111', byDifficulty });
 		const withAdd = recordAnswers(record, [judged('add', true)], { where: 'doctor' });
 		// Met at the doctor's only: no recent answers, no bonus.
-		expect(withAdd.add).toEqual({ tried: 1, right: 1, recent: '', byDifficulty: [[1, 1]] });
+		expect(withAdd.add).toEqual({
+			tried: 1,
+			right: 1,
+			recent: '',
+			byDifficulty: { add: [[1, 1]] }
+		});
 		expect(topicBonus(withAdd)).toEqual({ div: 1 });
 	});
 
@@ -185,105 +202,144 @@ describe('recordAnswers', () => {
 describe('the record by difficulty', () => {
 	const WHERE: readonly Judging[] = [BATTLE, { where: 'doctor' }, { where: 'match', side: 'a' }];
 
-	it("counts every judged answer at its puzzle's difficulty too, wherever it was asked, a match's the kid's own", () => {
+	it("counts every judged answer by its puzzle's kind and difficulty too, wherever it was asked, a match's the kid's own", () => {
 		const bad: string[] = [];
 		for (let s = 0; s < 300; s++) {
 			const rng = new Rng(hashInts(79, s));
 			let record: PuzzleRecord = {};
-			// Counted by hand: per topic, [tried, right] at index difficulty − 1.
-			const want = new Map<PuzzleTopic, [number, number][]>();
+			// Counted by hand: per topic and kind, [tried, right] at index difficulty − 1.
+			const want = new Map<string, [number, number][]>();
 			for (let step = 0; step < 25; step++) {
 				const judging = rng.pick(WHERE);
 				const events: (BattleEvent | MatchEvent)[] = [];
 				const n = rng.int(0, 3);
 				for (let k = 0; k < n; k++) {
 					const topic = rng.pick(ALL_PUZZLE_TOPICS);
+					// A times table is asked by two kinds, each its own ladder.
+					const kind = topic === 'mul' && rng.chance(0.5) ? 'missing' : kindOf(topic);
 					const difficulty = rng.int(MIN_DIFFICULTY, MAX_DIFFICULTY);
 					const correct = rng.chance(0.6);
 					const side: MatchSide = judging.where === 'match' && rng.chance(0.5) ? 'b' : 'a';
 					events.push(
 						judging.where === 'match'
-							? { type: 'answer-judged', side, correct, topic, difficulty }
-							: judged(topic, correct, difficulty)
+							? { type: 'answer-judged', side, correct, topic, kind, difficulty }
+							: judged(topic, correct, difficulty, kind)
 					);
 					if (side === 'b') continue;
-					const counts = want.get(topic) ?? [];
+					const counts = want.get(`${topic} ${kind}`) ?? [];
 					while (counts.length < difficulty) counts.push([0, 0]);
 					counts[difficulty - 1]![0] += 1;
 					if (correct) counts[difficulty - 1]![1] += 1;
-					want.set(topic, counts);
+					want.set(`${topic} ${kind}`, counts);
 				}
 				record = recordAnswers(record, events, judging);
 			}
 			for (const topic of ALL_PUZZLE_TOPICS) {
 				const got = record[topic];
-				const counts = want.get(topic);
-				if (JSON.stringify(got?.byDifficulty) !== JSON.stringify(counts)) {
-					bad.push(
-						`seed ${s}, ${topic}: ${JSON.stringify(got?.byDifficulty)}, not ${JSON.stringify(counts)}`
-					);
+				let tried = 0;
+				let right = 0;
+				for (const kind of ALL_PUZZLE_KINDS) {
+					const counts = want.get(`${topic} ${kind}`);
+					const has = got?.byDifficulty?.[kind];
+					if (JSON.stringify(has) !== JSON.stringify(counts)) {
+						bad.push(
+							`seed ${s}, ${topic} ${kind}: ${JSON.stringify(has)}, not ${JSON.stringify(counts)}`
+						);
+					}
+					tried += (counts ?? []).reduce((sum, [t]) => sum + t, 0);
+					right += (counts ?? []).reduce((sum, [, r]) => sum + r, 0);
 				}
-				// Every answer said its difficulty: the counts add up to the topic's.
-				const tried = (counts ?? []).reduce((sum, [t]) => sum + t, 0);
-				const right = (counts ?? []).reduce((sum, [, r]) => sum + r, 0);
+				// Every answer said its kind and difficulty: the counts add up to the topic's.
 				if ((got?.tried ?? 0) !== tried || (got?.right ?? 0) !== right) {
 					bad.push(`seed ${s}, ${topic}: ${got?.right}/${got?.tried} beside ${right}/${tried}`);
 				}
+				// A topic none counted has no counts at all, not an empty object.
+				if (got && tried === 0 && 'byDifficulty' in got)
+					bad.push(`seed ${s}, ${topic}: empty counts`);
 			}
 		}
 		expect(bad.slice(0, 20)).toEqual([]);
 	});
 
-	it('counts an answer with no difficulty, or one no puzzle has, under its topic alone', () => {
+	it('counts an answer with no kind or difficulty, or one no puzzle has, under its topic alone', () => {
 		const before = deepFreeze(recordAnswers({}, [judged('add', true, 4)], BATTLE));
 		expect(before.add).toStrictEqual({
 			tried: 1,
 			right: 1,
 			recent: '1',
-			byDifficulty: [
-				[0, 0],
-				[0, 0],
-				[0, 0],
-				[1, 1]
-			]
+			byDifficulty: {
+				add: [
+					[0, 0],
+					[0, 0],
+					[0, 0],
+					[1, 1]
+				]
+			}
 		});
 		const side = { where: 'match', side: 'a' } as const;
-		for (const difficulty of [undefined, 0, 11, 2.5, -3, Number.NaN, Infinity, '3', null]) {
+		const odd = [undefined, 0, 11, 2.5, -3, Number.NaN, Infinity, '3', null];
+		const cases = [
+			...odd.map((difficulty) => ({ kind: 'add', difficulty })),
+			...[undefined, 'adding', 'Add', 7, null, 'constructor'].map((kind) => ({
+				kind,
+				difficulty: 2
+			}))
+		];
+		for (const { kind, difficulty } of cases) {
+			const what = `${String(kind)} at ${String(difficulty)}`;
 			const event = {
 				type: 'answer-judged',
 				side: 'a',
 				correct: false,
 				topic: 'add',
+				kind,
 				difficulty
 			} as unknown as MatchEvent;
 			const after = recordAnswers(before, [event], side);
-			expect(after.add, String(difficulty)).toStrictEqual({
+			expect(after.add, what).toStrictEqual({
 				...before.add,
 				tried: 2,
 				byDifficulty: before.add!.byDifficulty
 			});
-			// A topic first met so has no counts by difficulty at all, not an empty list.
+			// A topic first met so has no counts by difficulty at all, not an empty object.
 			const div = recordAnswers({}, [{ ...event, topic: 'div' } as MatchEvent], side);
-			expect(div.div, String(difficulty)).toStrictEqual({ tried: 1, right: 0, recent: '' });
+			expect(div.div, what).toStrictEqual({ tried: 1, right: 0, recent: '' });
 		}
 	});
 
-	it('never counts past the most a save holds, and never writes to the record it is given', () => {
+	it('counts by difficulty only the answers the totals count, so a save always reads them back, and never writes to the record it is given', () => {
 		const most = Number.MAX_SAFE_INTEGER;
-		const full: DifficultyCount[] = [[most, most]];
 		const record = deepFreeze({
-			add: { tried: most, right: most, recent: '', byDifficulty: full }
+			add: {
+				tried: most - 1,
+				right: most - 1,
+				recent: '',
+				byDifficulty: { add: [[most - 1, most - 1]] }
+			}
 		} as PuzzleRecord);
-		const after = recordAnswers(record, [judged('add', true, 1), judged('add', true, 2)], {
-			where: 'doctor'
+		const after = recordAnswers(
+			record,
+			[judged('add', true, 2), judged('add', true, 3), judged('add', false, 3)],
+			{ where: 'doctor' }
+		);
+		// The first fills the totals; the next two go past what a save holds, and count nowhere new.
+		expect(after.add).toStrictEqual({
+			tried: most,
+			right: most,
+			recent: '',
+			byDifficulty: {
+				add: [
+					[most - 1, most - 1],
+					[1, 1]
+				]
+			}
 		});
-		expect(after.add!.byDifficulty).toEqual([
-			[most, most],
-			[1, 1]
-		]);
+		// As a save writes the record, and reads it back.
+		const saved = readRecord(after);
+		expect(readRecord(saved, savedByDifficulty(after))).toStrictEqual(after);
 	});
 
-	it("says each judged puzzle's own difficulty, on the way out of a battle and at the druid's", () => {
+	it("says each judged puzzle's own kind and difficulty, on the way out of a battle and at the druid's", () => {
 		let checked = 0;
 		for (let seed = 0; seed < 40; seed++) {
 			// The escape puzzle: the wild animal's own, and after a miss the kid's animal's.
@@ -297,6 +353,7 @@ describe('the record by difficulty', () => {
 					type: 'answer-judged',
 					correct: false,
 					topic: puzzleTopic(puzzle),
+					kind: puzzle.kind,
 					difficulty: puzzle.difficulty
 				});
 				checked++;
@@ -320,6 +377,7 @@ describe('the record by difficulty', () => {
 			expect(healed.events[0]).toMatchObject({
 				type: 'answer-judged',
 				correct: true,
+				kind: puzzle.kind,
 				difficulty: puzzle.difficulty
 			});
 			checked++;
@@ -353,7 +411,8 @@ function ladderPrint(kind: PuzzleKind): string {
  * ladders, so when what a kind asks at some difficulty changes, its new print
  * goes at the end of its list and `LADDER_VERSION` goes up by one, and every
  * kid's counts start over: no step of a ladder mixes the answers to two
- * different puzzles. A new kind is a list of one, and no bump.
+ * different puzzles. A new kind is a list of one, and no bump: the record
+ * counts each kind apart, so no step of another kind's ladder meets it.
  */
 const LADDERS: Partial<Record<PuzzleKind, readonly string[]>> = {
 	add: ['fdb0f914'],
@@ -566,6 +625,7 @@ describe('a wild battle with a topic bonus', () => {
 					type: 'answer-judged',
 					correct: true,
 					topic,
+					kind: puzzle.kind,
 					difficulty: puzzle.difficulty
 				});
 				const b = (bonus as Partial<Record<PuzzleTopic, number>>)[topic] ?? 1;
@@ -602,6 +662,7 @@ describe('a wild battle with a topic bonus', () => {
 			side,
 			correct: true,
 			topic: puzzleTopic(state.phase.puzzle),
+			kind: state.phase.puzzle.kind,
 			difficulty: state.phase.puzzle.difficulty
 		});
 		expect(right.events[1]).toMatchObject({ type: 'hit', damage: attackDamage(fox, 1, 1, true) });

@@ -12,7 +12,7 @@ import { bundled, joinParty } from './party/bundles.js';
 import { normalizeNickname } from './party/names.js';
 import type { Starter } from './party/starters.js';
 import {
-	byDifficultyError,
+	byDifficultyOwner,
 	readRecord,
 	readTopicBonus,
 	recordError,
@@ -127,8 +127,8 @@ export interface SavedGame {
 	solved: number;
 	/**
 	 * The puzzle record (`puzzles/record.ts`): every puzzle judged, right or
-	 * wrong, under its topic, in every world and land together, and by
-	 * difficulty under this build's ladders. A topic a newer build has is
+	 * wrong, under its topic, in every world and land together, and by kind
+	 * and difficulty under this build's ladders. A topic a newer build has is
 	 * kept as it is.
 	 */
 	puzzles: PuzzleRecord;
@@ -302,11 +302,11 @@ export interface SaveV6 {
 	 */
 	puzzles?: Record<string, TopicRecord>;
 	/**
-	 * The record's counts by difficulty (`byDifficultyError` says what it may
-	 * hold), a field of its own so an older build carrying on with the save
-	 * keeps it as it was, as any field it does not know. Written only once an
-	 * answer has been counted at its difficulty; a save without it, or with
-	 * another build's ladders (`LADDER_VERSION`), has none of this build's.
+	 * The record's counts by difficulty, a field of its own so an older build
+	 * carrying on with the save keeps it as it was, as any field it does not
+	 * know. Written only once an answer has been counted at its difficulty.
+	 * Never makes a save unreadable: counts that are not this build's start
+	 * over, or are kept as they are when a newer build's (`byDifficultyOwner`).
 	 */
 	byDifficulty?: SavedByDifficulty;
 	/**
@@ -879,10 +879,6 @@ function findSaveError(input: Doc): string | null {
 		const puzzles = recordError(input.puzzles);
 		if (puzzles) return puzzles;
 	}
-	if (input.byDifficulty !== undefined) {
-		const byDifficulty = byDifficultyError(input.byDifficulty, input.puzzles);
-		if (byDifficulty) return byDifficulty;
-	}
 	const items = input.items;
 	if (items !== undefined && (!Array.isArray(items) || !items.every(isId))) {
 		return `items must be a list of ids of 1–${MAX_SAVE_ID_LENGTH} characters`;
@@ -1350,10 +1346,17 @@ function isSavedPuzzle(puzzle: unknown): boolean {
 	return difficulty >= MIN_DIFFICULTY && difficulty <= MAX_DIFFICULTY;
 }
 
-/** The top-level fields of a document that `SaveV6` does not name. */
+/**
+ * The top-level fields of a document that `SaveV6` does not name, and a
+ * newer build's counts by difficulty (`byDifficultyOwner`): fields this
+ * build writes back as they were.
+ */
 export function saveExtras(doc: SaveV6): Doc {
 	const extras: Doc = {};
-	for (const [key, value] of Object.entries(doc)) if (!SAVE_KEYS.has(key)) extras[key] = value;
+	for (const [key, value] of Object.entries(doc)) {
+		const newer = key === 'byDifficulty' && byDifficultyOwner(value) === 'newer';
+		if (!SAVE_KEYS.has(key) || newer) extras[key] = value;
+	}
 	return extras;
 }
 
@@ -1393,9 +1396,10 @@ export function saveDocument(
 	// Only once a puzzle has been judged.
 	if (Object.keys(game.puzzles).length > 0)
 		doc.puzzles = readRecord(game.puzzles) as Record<string, TopicRecord>;
-	// Only once an answer was counted at its difficulty.
+	// Only once an answer was counted at its difficulty, and never over a
+	// newer build's counts (`saveExtras`): this build saves none of its own while it holds them.
 	const byDifficulty = savedByDifficulty(game.puzzles);
-	if (byDifficulty) doc.byDifficulty = byDifficulty;
+	if (byDifficulty && extras.byDifficulty === undefined) doc.byDifficulty = byDifficulty;
 	if (game.battle) doc.battle = JSON.parse(JSON.stringify(game.battle));
 	// Only once something is cleared: a game that never used a tool saves as it did before tools.
 	if (game.edits.length > 0) doc.edits = [...game.edits];

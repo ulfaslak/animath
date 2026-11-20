@@ -71,6 +71,7 @@ describe('countSolved', () => {
 			correct: true,
 			answer: 12,
 			topic: 'add',
+			kind: 'add',
 			difficulty: 1
 		};
 		const wrong: BattleEvent = {
@@ -79,6 +80,7 @@ describe('countSolved', () => {
 			correct: false,
 			answer: 12,
 			topic: 'add',
+			kind: 'add',
 			difficulty: 1
 		};
 		const miss: BattleEvent = { type: 'missed', attacker: 'player', attackIndex: 1, level: 1 };
@@ -92,6 +94,7 @@ describe('countSolved', () => {
 			correct: true,
 			answer: 4,
 			topic: 'add',
+			kind: 'add',
 			difficulty: 1
 		};
 		expect(countSolved(312, [healed])).toBe(313);
@@ -115,6 +118,7 @@ describe('countSolved', () => {
 			correct: true,
 			answer: 1,
 			topic: 'add',
+			kind: 'add',
 			difficulty: 1
 		};
 		const max = Number.MAX_SAFE_INTEGER;

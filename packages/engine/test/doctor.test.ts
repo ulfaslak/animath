@@ -338,6 +338,7 @@ describe('healing, for every species', () => {
 							correct: false,
 							answer: puzzle.answer,
 							topic: puzzleTopic(puzzle),
+							kind: puzzle.kind,
 							difficulty: puzzle.difficulty
 						});
 						expect(checkAnswer(puzzle, input)).toBe(false);
@@ -359,6 +360,7 @@ describe('healing, for every species', () => {
 							correct: true,
 							answer: puzzle.answer,
 							topic: puzzleTopic(puzzle),
+							kind: puzzle.kind,
 							difficulty: puzzle.difficulty
 						},
 						{
@@ -416,6 +418,7 @@ describe('healing, for every species', () => {
 					correct,
 					answer: puzzle.answer,
 					topic: puzzleTopic(puzzle),
+					kind: puzzle.kind,
 					difficulty: puzzle.difficulty
 				});
 				expect(s.state.party[0]!.hp).toBe(correct ? getAnimal('wolf').maxHp : 0);
@@ -669,7 +672,7 @@ describe('helping animals home', () => {
 					correct: false,
 					answer: puzzle.answer,
 					topic: 'add',
-					difficulty: puzzle.difficulty
+					kind: 'add'
 				}
 			]);
 			expect(trading(s.state)).toEqual(trading(state));
@@ -685,7 +688,7 @@ describe('helping animals home', () => {
 				correct: true,
 				answer: 13,
 				topic: 'add',
-				difficulty: puzzle.difficulty
+				kind: 'add'
 			},
 			{
 				type: 'went-home',
@@ -903,6 +906,16 @@ describe('buying', () => {
 		expect(s.events).toEqual([
 			{ type: 'purchase-shown', itemId: 'axe', price: 8, puzzle: phase.puzzle }
 		]);
+		// A token sum is the kid's own tokens, not a step of a ladder: judged with no difficulty.
+		const paid = apply(s.state, { type: 'answer', input: '13' }, 1);
+		expect(paid.events[0]).toStrictEqual({
+			type: 'answer-judged',
+			input: '13',
+			correct: true,
+			answer: 13,
+			topic: 'sub',
+			kind: 'sub'
+		});
 	});
 
 	it('buyRefusal says exactly what buy does: every item, shop, owned set and balance round the price', () => {
@@ -1233,6 +1246,7 @@ describe('flying from the druid (#191)', () => {
 					correct: true,
 					answer: fare.puzzle.answer,
 					topic: puzzleTopic(fare.puzzle),
+					kind: fare.puzzle.kind,
 					difficulty: fare.puzzle.difficulty
 				},
 				{ type: 'flew', land: 'arctic' },
@@ -1741,6 +1755,7 @@ describe('asking the druid about an animal', () => {
 							correct: true,
 							answer: puzzle.answer,
 							topic: puzzleTopic(puzzle),
+							kind: puzzle.kind,
 							difficulty: puzzle.difficulty
 						},
 						{ type: 'revealed', speciesId: spec.id }

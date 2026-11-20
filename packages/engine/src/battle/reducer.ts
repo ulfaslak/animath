@@ -224,6 +224,7 @@ function answer(state: BattleState, seed: number, input: string): BattleStep {
 		correct,
 		answer: puzzle.answer,
 		topic,
+		kind: puzzle.kind,
 		difficulty: puzzle.difficulty
 	});
 
@@ -304,6 +305,7 @@ function answerEscape(state: BattleState, seed: number, input: string): BattleSt
 		correct,
 		answer: puzzle.answer,
 		topic,
+		kind: puzzle.kind,
 		difficulty: puzzle.difficulty
 	});
 	if (correct) {

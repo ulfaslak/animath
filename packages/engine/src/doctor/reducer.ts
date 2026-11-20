@@ -297,13 +297,16 @@ function answer(state: DoctorState, seed: number, input: string): DoctorStep {
 		return reject(state, 'no-puzzle');
 	}
 	const correct = checkAnswer(phase.puzzle, input);
+	// A token sum's numbers are the kid's own tokens, not a step of a ladder: no difficulty.
+	const tokenSum = phase.kind === 'handing-over' || phase.kind === 'buying';
 	const judged: DoctorEvent = {
 		type: 'answer-judged',
 		input,
 		correct,
 		answer: phase.puzzle.answer,
 		topic: puzzleTopic(phase.puzzle),
-		difficulty: phase.puzzle.difficulty
+		kind: phase.puzzle.kind,
+		...(tokenSum ? {} : { difficulty: phase.puzzle.difficulty })
 	};
 	switch (phase.kind) {
 		case 'solving':

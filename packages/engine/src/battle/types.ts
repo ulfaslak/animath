@@ -1,6 +1,6 @@
 import type { AnimalInstance, AttackLevel, Realm } from '../animals/types.js';
 import type { TopicBonus } from '../puzzles/record.js';
-import type { Puzzle, PuzzleTopic } from '../puzzles/types.js';
+import type { Puzzle, PuzzleKind, PuzzleTopic } from '../puzzles/types.js';
 
 /**
  * Battle state machine. `startBattle` builds a state, `applyBattleIntent`
@@ -129,7 +129,8 @@ export type BattleEvent =
 			answer: number;
 			/** The puzzle's topic (`puzzleTopic`), which the kid's record counts it under. */
 			topic: PuzzleTopic;
-			/** The puzzle's difficulty, the step of its topic's ladder the record counts it at. */
+			/** The puzzle's kind and difficulty: the step of whose ladder the record counts it at. */
+			kind: PuzzleKind;
 			difficulty: number;
 	  }
 	| {

@@ -3,7 +3,7 @@ import type { AnimalInstance } from '../animals/types.js';
 import type { ItemId } from '../items/catalog.js';
 import type { LandId } from '../lands/ids.js';
 import type { FlyRefusal } from '../lands/lands.js';
-import type { Puzzle, PuzzleTopic } from '../puzzles/types.js';
+import type { Puzzle, PuzzleKind, PuzzleTopic } from '../puzzles/types.js';
 
 /**
  * A visit to the doctor. `startDoctorVisit` builds a state, `applyDoctorIntent`
@@ -148,8 +148,13 @@ export type DoctorEvent =
 			answer: number;
 			/** The puzzle's topic (`puzzleTopic`), which the kid's record counts it under. */
 			topic: PuzzleTopic;
-			/** The puzzle's difficulty, the step of its topic's ladder the record counts it at. */
-			difficulty: number;
+			/** The puzzle's kind and difficulty: the step of whose ladder the record counts it at. */
+			kind: PuzzleKind;
+			/**
+			 * Missing for a token sum (`tokenPuzzle`): its numbers are the kid's
+			 * own tokens, not a step of a ladder, so it counts under its topic alone.
+			 */
+			difficulty?: number;
 	  }
 	/** `animal` as it is now, at full HP. */
 	| { type: 'healed'; partyIndex: number; animal: AnimalInstance }

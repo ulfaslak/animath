@@ -182,6 +182,7 @@ function answer(state: MatchState, side: MatchSide, input: string): MatchStep {
 			side,
 			correct,
 			topic: puzzleTopic(puzzle),
+			kind: puzzle.kind,
 			difficulty: puzzle.difficulty
 		}
 	];

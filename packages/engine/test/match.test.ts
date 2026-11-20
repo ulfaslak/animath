@@ -389,6 +389,7 @@ describe('an attack', () => {
 											side: me,
 											correct: true,
 											topic: puzzleTopic(puzzle),
+											kind: puzzle.kind,
 											difficulty: puzzle.difficulty
 										},
 										{ type: 'hit', attacker: me, attackIndex: n, level, damage, targetHp: left }
@@ -399,6 +400,7 @@ describe('an attack', () => {
 											side: me,
 											correct: false,
 											topic: puzzleTopic(puzzle),
+											kind: puzzle.kind,
 											difficulty: puzzle.difficulty
 										},
 										{ type: 'missed', attacker: me, attackIndex: n, level }

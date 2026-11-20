@@ -2713,61 +2713,85 @@ describe('the puzzle record in a save', () => {
 	const byDifficulty = {
 		ladder: LADDER_VERSION,
 		topics: {
-			div: [
-				[0, 0],
-				[0, 0],
-				[0, 0],
-				[0, 0],
-				[0, 0],
-				[0, 0],
-				[5, 2]
-			],
-			add: [
-				[30, 29],
-				[12, 12]
-			]
+			div: {
+				div: [
+					[0, 0],
+					[0, 0],
+					[0, 0],
+					[0, 0],
+					[0, 0],
+					[0, 0],
+					[5, 2]
+				]
+			},
+			add: {
+				add: [
+					[30, 29],
+					[12, 12]
+				]
+			},
+			// A times table, asked by two kinds, each its own ladder.
+			mul: {
+				mul: [
+					[0, 0],
+					[2, 2]
+				],
+				missing: [
+					[0, 0],
+					[0, 0],
+					[0, 0],
+					[3, 1]
+				]
+			}
 		}
 	};
+	const counted = { ...record, mul: { tried: 6, right: 4, recent: '' } };
+
+	/** A right answer to a division at difficulty 9, in a wild battle. */
+	const divAt9 = {
+		type: 'answer-judged',
+		input: '5',
+		correct: true,
+		answer: 5,
+		topic: 'div',
+		kind: 'div',
+		difficulty: 9
+	} as const;
 
 	it('saves and restores the counts by difficulty in a field of their own, the record as an older build reads it', () => {
-		const read = readSave({ ...written, puzzles: record, byDifficulty });
+		const read = readSave({ ...written, puzzles: counted, byDifficulty });
 		expect(read.ok).toBe(true);
 		if (!read.ok) return;
 		const game = restoreGame(read.save, mint);
 		expect(game.puzzles).toStrictEqual({
-			div: { ...record.div, byDifficulty: byDifficulty.topics.div },
-			add: { ...record.add, byDifficulty: byDifficulty.topics.add }
+			div: { ...counted.div, byDifficulty: byDifficulty.topics.div },
+			add: { ...counted.add, byDifficulty: byDifficulty.topics.add },
+			mul: { ...counted.mul, byDifficulty: byDifficulty.topics.mul }
 		});
-		// One more answer, at difficulty 9, then saved.
+		// Two more answers, then saved: a division, and a times table's missing number.
+		const missing = { ...divAt9, topic: 'mul', kind: 'missing', correct: false } as const;
 		const played = {
 			...game,
-			puzzles: recordAnswers(
-				game.puzzles,
-				[
-					{
-						type: 'answer-judged',
-						input: '5',
-						correct: true,
-						answer: 5,
-						topic: 'div',
-						difficulty: 9
-					}
-				],
-				{ where: 'battle' }
-			)
+			puzzles: recordAnswers(game.puzzles, [divAt9, missing], { where: 'battle' })
 		};
-		const doc = saveDocument(played, { lineage: 'L', seq: 4 });
+		const doc = saveDocument(played, { lineage: 'L', seq: 4 }, saveExtras(read.save));
 		// The record's topics hold just what every build since the record reads, so one that
 		// knows no difficulties drops nothing; the counts by difficulty are a field it keeps as sent.
 		expect(doc.puzzles).toStrictEqual({
 			div: { tried: 10, right: 5, recent: '0101101001' },
-			add: record.add
+			add: counted.add,
+			mul: { tried: 7, right: 4, recent: '0' }
 		});
+		const pad = (n: number) => Array.from({ length: n }, () => [0, 0]);
 		expect(doc.byDifficulty).toStrictEqual({
 			ladder: LADDER_VERSION,
 			topics: {
 				add: byDifficulty.topics.add,
-				div: [...byDifficulty.topics.div, [0, 0], [1, 1]]
+				div: { div: [...byDifficulty.topics.div.div, [0, 0], [1, 1]] },
+				mul: {
+					mul: byDifficulty.topics.mul.mul,
+					missing: [...byDifficulty.topics.mul.missing, ...pad(4), [1, 0]]
+				}
 			}
 		});
 		expect(validateSaveWrite(doc).ok).toBe(true);
@@ -2782,7 +2806,7 @@ describe('the puzzle record in a save', () => {
 		const game = restoreGame(read.save, mint);
 		expect(game.puzzles).toStrictEqual(record);
 		expect('byDifficulty' in saveDocument(game, { lineage: 'L', seq: 4 })).toBe(false);
-		// An answer from a match's server that says no difficulty counts under its topic alone.
+		// An answer from a match's server that says no kind or difficulty counts under its topic alone.
 		const played = recordAnswers(
 			game.puzzles,
 			[{ type: 'answer-judged', side: 'a', correct: true, topic: 'add' }],
@@ -2793,96 +2817,120 @@ describe('the puzzle record in a save', () => {
 		).toBe(false);
 	});
 
-	it("starts over another ladder's counts and a topic's this build lacks, whatever they hold", () => {
-		// Another build's ladders (`LADDER_VERSION`), older or newer: whatever the topics hold, the
-		// save reads, and the counts start over, so a step never mixes two ladders' puzzles.
-		for (const ladder of [LADDER_VERSION - 1, LADDER_VERSION + 1].filter((l) => l >= 1)) {
-			const other = { ladder, topics: { div: 'anything', add: [[999, 3]], later: { x: 1 } } };
-			const read = readSave({ ...written, puzzles: record, byDifficulty: other });
-			expect(read.ok, `ladder ${ladder}`).toBe(true);
+	it("keeps a newer build's counts as they were, whatever they hold, and saves none of its own over them", () => {
+		const newer: unknown[] = [
+			// A later ladder, whatever it holds.
+			{ ladder: LADDER_VERSION + 1, topics: { div: 'anything', add: [[999, 3]], later: { x: 1 } } },
+			{ ladder: LADDER_VERSION + 1, steps: [1, 2] },
+			// This ladder, naming a topic or a kind a later build has.
+			{ ...byDifficulty, topics: { ...byDifficulty.topics, later: { later: [[1, 1]] } } },
+			{
+				...byDifficulty,
+				topics: {
+					...byDifficulty.topics,
+					div: { ...byDifficulty.topics.div, 'long-division': [[1, 0]] }
+				}
+			}
+		];
+		for (const field of newer) {
+			const what = JSON.stringify(field);
+			const read = readSave({ ...written, puzzles: counted, byDifficulty: field });
+			expect(read.ok, what).toBe(true);
 			if (!read.ok) continue;
 			const game = restoreGame(read.save, mint);
-			expect(game.puzzles).toStrictEqual(record);
-			expect('byDifficulty' in saveDocument(game, { lineage: 'L', seq: 4 })).toBe(false);
+			expect(game.puzzles, what).toStrictEqual(counted);
+			// An answer still counts in its topic's totals; the newer build's counts stay as they were.
+			const played = {
+				...game,
+				puzzles: recordAnswers(game.puzzles, [divAt9], { where: 'battle' })
+			};
+			const doc = saveDocument(played, { lineage: 'L', seq: 4 }, saveExtras(read.save));
+			expect(doc.puzzles!.div, what).toStrictEqual({ tried: 10, right: 5, recent: '0101101001' });
+			expect(doc.byDifficulty, what).toStrictEqual(field);
+			expect(validateSaveWrite(doc).ok, what).toBe(true);
 		}
-		// This build's ladders, with a topic a later build has: read, and not kept.
-		const later = { ...byDifficulty, topics: { ...byDifficulty.topics, later: [[1, 1]] } };
-		const read = readSave({
-			...written,
-			puzzles: { ...record, later: { tried: 1, right: 1, recent: '1' } },
-			byDifficulty: later
-		});
-		expect(read.ok).toBe(true);
-		if (!read.ok) return;
-		const doc = saveDocument(restoreGame(read.save, mint), { lineage: 'L', seq: 4 });
-		expect(doc.byDifficulty).toStrictEqual(byDifficulty);
 	});
 
-	it('refuses counts by difficulty that are not ones', () => {
-		const div = byDifficulty.topics.div;
-		const bad: [unknown, RegExp][] = [
-			[[], /byDifficulty must be an object/],
-			['x', /byDifficulty must be an object/],
-			[{ topics: {} }, /ladder/],
-			[{ ladder: 0, topics: {} }, /ladder/],
-			[{ ladder: 1.5, topics: {} }, /ladder/],
-			[{ ladder: LADDER_VERSION }, /topics must be an object/],
-			[{ ladder: LADDER_VERSION, topics: [] }, /topics must be an object/],
-			[{ ladder: LADDER_VERSION + 1, topics: { Div: [] } }, /not a topic/],
-			[{ ladder: LADDER_VERSION, topics: { div: {} } }, /up to 10 counts/],
-			[{ ladder: LADDER_VERSION, topics: { div: Array(11).fill([0, 0]) } }, /up to 10 counts/],
-			[{ ladder: LADDER_VERSION, topics: { div: [[1]] } }, /\[0\] must be \[tried, right\]/],
-			[{ ladder: LADDER_VERSION, topics: { div: [[1, 2]] } }, /right no bigger than tried/],
-			[{ ladder: LADDER_VERSION, topics: { div: [[1, -1]] } }, /right no bigger than tried/],
-			[
-				{
-					ladder: LADDER_VERSION,
-					topics: {
-						div: [
-							[0, 0],
-							[2.5, 1]
-						]
-					}
-				},
-				/\[1\] must be/
-			],
-			[
-				{
-					ladder: LADDER_VERSION,
-					topics: {
-						div: [
-							[0, 0],
-							[2, '1']
-						]
-					}
-				},
-				/\[1\] must be/
-			],
+	it('starts over counts of an earlier ladder, or that do not fit the record, and never refuses a save for them', () => {
+		const div = byDifficulty.topics.div.div;
+		const ours = (topics: unknown) => ({ ladder: LADDER_VERSION, topics });
+		const gone: unknown[] = [
+			[],
+			'x',
+			null,
+			7,
+			{ topics: byDifficulty.topics },
+			{ ladder: 0, topics: byDifficulty.topics },
+			{ ladder: 1.5, topics: byDifficulty.topics },
+			{ ladder: String(LADDER_VERSION), topics: byDifficulty.topics },
+			// Every earlier ladder (none yet, at the first).
+			...Array.from({ length: LADDER_VERSION - 1 }, (_, i) => ({
+				ladder: i + 1,
+				topics: byDifficulty.topics
+			})),
+			ours(undefined),
+			ours([]),
+			ours({ div: [] }),
+			ours({ div: { div: {} } }),
+			ours({ div: { div: Array(11).fill([0, 0]) } }),
+			ours({ div: { div: [[1]] } }),
+			ours({ div: { div: [[1, 2]] } }),
+			ours({ div: { div: [[1, -1]] } }),
+			ours({
+				div: {
+					div: [
+						[0, 0],
+						[2.5, 1]
+					]
+				}
+			}),
+			ours({
+				div: {
+					div: [
+						[0, 0],
+						[2, '1']
+					]
+				}
+			}),
 			// More answers than the topic's counts: in all, right ones, or wrong ones.
 			// div is 4 right of 9 in all; its counts by difficulty already hold 2 right of 5.
-			[{ ladder: LADDER_VERSION, topics: { div: [...div, [5, 2]] } }, /more answers/],
-			[{ ladder: LADDER_VERSION, topics: { div: [...div, [3, 3]] } }, /more answers/],
-			[{ ladder: LADDER_VERSION, topics: { div: [...div, [3, 0]] } }, /more answers/],
+			ours({ div: { div: [...div, [5, 2]] } }),
+			ours({ div: { div: [...div, [3, 3]] } }),
+			ours({ div: { div: [...div, [3, 0]] } }),
+			// Two kinds of a topic together: 6 wrong ones, where div has 5.
+			ours({ div: { div, missing: [[3, 0]] } }),
 			// Counts for a topic the record has never met.
-			[{ ladder: LADDER_VERSION, topics: { sqrt: [[1, 0]] } }, /more answers/]
+			ours({ sqrt: { sqrt: [[1, 0]] } })
 		];
-		for (const [value, why] of bad) {
-			expect(
-				error({ ...written, puzzles: record, byDifficulty: value }),
-				JSON.stringify(value)
-			).toMatch(why);
+		for (const field of gone) {
+			const what = JSON.stringify(field) ?? String(field);
+			const read = readSave({ ...written, puzzles: record, byDifficulty: field });
+			expect(read.ok, what).toBe(true);
+			if (!read.ok) continue;
+			expect('byDifficulty' in saveExtras(read.save), what).toBe(false);
+			const game = restoreGame(read.save, mint);
+			expect(game.puzzles, what).toStrictEqual(record);
+			const doc = saveDocument(game, { lineage: 'L', seq: 4 }, saveExtras(read.save));
+			expect('byDifficulty' in doc, what).toBe(false);
 		}
-		// Up to the counts, a topic that sums to exactly the record's is a save.
-		const whole = { ladder: LADDER_VERSION, topics: { div: [...div, [4, 2]] } };
-		expect(validateSave({ ...written, puzzles: record, byDifficulty: whole }).ok).toBe(true);
-		// A key JSON reads as an own `__proto__` is refused too.
-		expect(
-			error(
-				JSON.parse(
-					`{"version":${SAVE_VERSION},"home":${WORLD},"world":${WORLD},"pos":{"x":0,"y":0},"party":[],"byDifficulty":{"ladder":${LADDER_VERSION},"topics":{"__proto__":[]}}}`
-				)
-			)
-		).toMatch(/not a topic/);
+		// Up to the counts, a topic that sums to exactly the record's is read.
+		const whole = { div: [...div, [4, 2]] };
+		const read = readSave({ ...written, puzzles: record, byDifficulty: ours({ div: whole }) });
+		expect(read.ok && restoreGame(read.save, mint).puzzles.div).toStrictEqual({
+			...record.div,
+			byDifficulty: whole
+		});
+		// A key JSON reads as an own `__proto__` is a topic this build lacks: kept as it was, and
+		// never a prototype.
+		const proto = JSON.parse(
+			`{"version":${SAVE_VERSION},"home":${WORLD},"world":${WORLD},"pos":{"x":0,"y":0},"party":[],"byDifficulty":{"ladder":${LADDER_VERSION},"topics":{"__proto__":{"add":[[1,1]]}}}}`
+		) as Record<string, unknown>;
+		const kept = readSave(proto);
+		expect(kept.ok).toBe(true);
+		if (!kept.ok) return;
+		expect(restoreGame(kept.save, mint).puzzles).toStrictEqual({});
+		expect(saveExtras(kept.save).byDifficulty).toStrictEqual(proto.byDifficulty);
+		expect(({} as Record<string, unknown>).add).toBeUndefined();
 	});
 
 	it('keeps the bonus a battle started with, and lands every hit as it is when it holds one no battle could', () => {
