@@ -366,3 +366,9 @@ To become `[learned]`: a line in [[DEVELOPMENT]] that a new piece in `PuzzlePane
 - **A token sum asked again lost its hint.** The druid's `settle()` clears what a puzzle showed after every beat, and the hint went with the typed answer. But a wrong token sum asks the very same sum again ("Try again"), so the kid who used the hint and still missed lost it just then. Now the hint stays while the kind and prompt on screen stay the same.
 
 To become `[learned]`: a line in CLAUDE.md § Duplicated rosters that a per-puzzle flag is checked against each way a puzzle comes back (a new puzzle after a miss, the same one after a miss, a swap, Escape and back).
+
+### 2026-11-20 — puzzle hints (feat/puzzle-hints, PR #246) — a test named for a "never" that checked one way it could happen `[not codified]`
+
+- **"Never says the answer" was checked one way only.** `hint.test.ts` rejected an unknown standing alone against a bare number, and passed hints that showed the answer beside a step worth nothing: 16 − 10 as (10 − 10) + 6, a thermometer from 0° as 0 + 5, a walk through 0° as −4 + 4 + 7, 2400 ÷ 24 as (24 ÷ 24) × 100. Its check of a pattern's jumps repeated the code's own expression, so it could not fail. Found by the cold review. The test now looks for a 0, a pill worth 0, a times 1, and the answer beside steps that cancel out, and it found two more on its own (8 × 6 as (8 × 5) + (8 × 1), an L corner as 1 × 2).
+
+To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology that a test named for a "never" lists the shapes the forbidden thing can take and checks each, and computes what it compares by another route than the code.
