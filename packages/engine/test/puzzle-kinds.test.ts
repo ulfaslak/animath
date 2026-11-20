@@ -186,26 +186,22 @@ describe('the ladders climb', () => {
 	it('clock: reading finer marks first, then time passing, longer and longer', () => {
 		expect(CLOCK_LADDER.map((s) => s.minutes)).toEqual([60, 60, 30, 15, 15, 5, 5, 1, 1, 1]);
 		const asks = (d: number) => CLOCK_LADDER[d - 1]!.asks;
-		// Time passing from 6, back in time only at 10.
+		// Time passing at 2 and from 5, back in time only at 10.
 		expect(DS.map((d) => asks(d).includes(CLOCK.later))).toEqual([
-			...Array(5).fill(false),
-			...Array(5).fill(true)
+			false,
+			true,
+			false,
+			false,
+			...Array(6).fill(true)
 		]);
 		expect(DS.map((d) => asks(d).includes(CLOCK.earlier))).toEqual([...Array(9).fill(false), true]);
-		// Whole hours later at 6–7; hours and minutes from 8, within the hour, then across it.
-		expect(CLOCK_LADDER.slice(5, 7).map((s) => s.step)).toEqual([60, 60]);
+		// Whole hours later at 2 and 5–7; hours and minutes from 8, within the hour, then across it.
+		const passing = DS.filter((d) => asks(d).includes(CLOCK.later));
+		const hours = passing.filter((d) => CLOCK_LADDER[d - 1]!.step === 60);
+		expect(hours).toEqual([2, 5, 6, 7]);
 		expect(CLOCK_LADDER.slice(7).map((s) => s.hour)).toEqual(['within', 'across', undefined]);
-		for (const [from, to] of [
-			[6, 7],
-			[8, 10]
-		] as const)
-			expect(
-				climbs(
-					CLOCK_LADDER.map((s) => s.passing),
-					from,
-					to
-				)
-			).toEqual([]);
+		for (const skill of [hours, [8, 9, 10]])
+			expect(climbs(skill.map((d) => CLOCK_LADDER[d - 1]!.passing)), `${skill}`).toEqual([]);
 	});
 });
 
@@ -335,6 +331,28 @@ describe('what each kind promises a kid', () => {
 			}
 		}
 		expect(bad.slice(0, 20)).toEqual([]);
+	});
+
+	it('balance: a times asks both ends of its factor and box bands, as the step writes them', () => {
+		// A band end no puzzle can reach is a step that says more than it asks: a box of 2 at 8 would
+		// need a product of 2 × 2–5 that another pair makes too, and none does.
+		const ends: string[] = [];
+		for (const d of DS) {
+			const step = BALANCE_LADDER[d - 1]!;
+			const times = faces('balance', d, 2000).filter(([form]) => form! >= 2);
+			if (times.length === 0) continue;
+			const factors = times.map(([, a]) => a!);
+			const boxes = times.map((n) => n[4]!);
+			for (const [name, seen, [lo, hi]] of [
+				['factor', factors, step.factor],
+				['box', boxes, step.box]
+			] as const)
+				if (Math.min(...seen) !== lo || Math.max(...seen) !== hi)
+					ends.push(
+						`d${d} ${name} ${Math.min(...seen)}–${Math.max(...seen)}, step says ${lo}–${hi}`
+					);
+		}
+		expect(ends).toEqual([]);
 	});
 
 	it('clock: the hand on its marks, the new mark at least half the time, and within or across the hour where it says', () => {

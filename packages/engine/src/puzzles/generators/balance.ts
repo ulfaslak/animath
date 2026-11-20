@@ -38,20 +38,22 @@ const { plus, minus, times, timesPlus, timesMinus } = BALANCE;
 
 /**
  * Index = difficulty − 1. Plus first (1–5), minus from 6, times from 8
- * (2–5 times 2–9), then 2–9 times 2–9 (9), and two steps, a times and a plus
- * or a minus, with the same small numbers at 10. Each band's ends never fall.
+ * (2–5 times 3–9), then 2–9 times 3–9 (9), and two steps, a times and a plus
+ * or a minus, with the same small numbers at 10. The box is never 2: at 8, 2
+ * times 2–5 is a product no other pair makes, so `a × □ = b × c` could never
+ * ask it. Each band's ends never fall, and each end is asked.
  */
 export const BALANCE_LADDER: readonly BalanceStep[] = [
-	{ forms: [plus], sum: [1, 9], factor: [2, 5], box: [2, 9], extra: [1, 10] },
-	{ forms: [plus], sum: [2, 12], factor: [2, 5], box: [2, 9], extra: [1, 10] },
-	{ forms: [plus], sum: [5, 20], factor: [2, 5], box: [2, 9], extra: [1, 10] },
-	{ forms: [plus], sum: [10, 30], factor: [2, 5], box: [2, 9], extra: [1, 10] },
-	{ forms: [plus], sum: [10, 50], factor: [2, 5], box: [2, 9], extra: [1, 10] },
-	{ forms: [plus, minus], sum: [15, 60], factor: [2, 5], box: [2, 9], extra: [1, 10] },
-	{ forms: [plus, minus], sum: [20, 80], factor: [2, 5], box: [2, 9], extra: [1, 10] },
-	{ forms: [plus, minus, times], sum: [30, 100], factor: [2, 5], box: [2, 9], extra: [1, 10] },
-	{ forms: [minus, times], sum: [50, 100], factor: [2, 9], box: [2, 9], extra: [1, 10] },
-	{ forms: [timesPlus, timesMinus], sum: [50, 100], factor: [2, 9], box: [2, 9], extra: [1, 20] }
+	{ forms: [plus], sum: [1, 9], factor: [2, 5], box: [3, 9], extra: [1, 10] },
+	{ forms: [plus], sum: [2, 12], factor: [2, 5], box: [3, 9], extra: [1, 10] },
+	{ forms: [plus], sum: [5, 20], factor: [2, 5], box: [3, 9], extra: [1, 10] },
+	{ forms: [plus], sum: [10, 30], factor: [2, 5], box: [3, 9], extra: [1, 10] },
+	{ forms: [plus], sum: [10, 50], factor: [2, 5], box: [3, 9], extra: [1, 10] },
+	{ forms: [plus, minus], sum: [15, 60], factor: [2, 5], box: [3, 9], extra: [1, 10] },
+	{ forms: [plus, minus], sum: [20, 80], factor: [2, 5], box: [3, 9], extra: [1, 10] },
+	{ forms: [plus, minus, times], sum: [30, 100], factor: [2, 5], box: [3, 9], extra: [1, 10] },
+	{ forms: [minus, times], sum: [50, 100], factor: [2, 9], box: [3, 9], extra: [1, 10] },
+	{ forms: [timesPlus, timesMinus], sum: [50, 100], factor: [2, 9], box: [3, 9], extra: [1, 20] }
 ];
 
 /**

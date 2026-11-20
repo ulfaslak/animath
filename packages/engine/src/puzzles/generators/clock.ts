@@ -34,20 +34,21 @@ const { read, later, earlier } = CLOCK;
 
 /**
  * Index = difficulty − 1. Reading the face first (whole hours, half past,
- * a quarter past and to, five minutes, any minute), then time passing beside
- * it: whole hours later (6–7), hours and minutes later, the minute hand
- * staying before 12 (8), then taking it past 12 (9), then back in time too
- * (10). Two skills of time passing, whole hours and hours and minutes: within
- * each, both ends of `passing` never fall.
+ * a quarter past and to, five minutes, any minute), and time passing beside
+ * it: whole hours later on the second step of a mark (2, 5, 6–7), so no step
+ * asks what the one below it asks; then hours and minutes later, the minute
+ * hand staying before 12 (8), then taking it past 12 (9), then back in time
+ * too (10). Two skills of time passing, whole hours and hours and minutes:
+ * within each, both ends of `passing` never fall.
  */
 export const CLOCK_LADDER: readonly ClockStep[] = [
 	{ minutes: 60, asks: [read], passing: [0, 0], step: 1 },
-	{ minutes: 60, asks: [read], passing: [0, 0], step: 1 },
+	{ minutes: 60, asks: [read, later], passing: [60, 120], step: 60 },
 	{ minutes: 30, asks: [read], passing: [0, 0], step: 1 },
 	{ minutes: 15, asks: [read], passing: [0, 0], step: 1 },
-	{ minutes: 15, asks: [read], passing: [0, 0], step: 1 },
-	{ minutes: 5, asks: [read, later], passing: [60, 120], step: 60 },
+	{ minutes: 15, asks: [read, later], passing: [60, 180], step: 60 },
 	{ minutes: 5, asks: [read, later], passing: [60, 180], step: 60 },
+	{ minutes: 5, asks: [read, later], passing: [60, 240], step: 60 },
 	{ minutes: 1, asks: [read, later], passing: [20, 175], step: 5, hour: 'within' },
 	{ minutes: 1, asks: [later], passing: [20, 235], step: 5, hour: 'across' },
 	{ minutes: 1, asks: [later, earlier], passing: [20, 295], step: 5 }

@@ -599,6 +599,28 @@ describe('difficulty mapping', () => {
 		expect(problems).toEqual([]);
 	});
 
+	// A higher difficulty is only harder if its kind's ladder asks something else there: two equal
+	// steps once made a tern's Long Trip ask the same clocks on easy and medium, medium hitting harder.
+	it('every kind: no difficulty asks the very puzzles of the one below it', () => {
+		const same: string[] = [];
+		for (const kind of ALL_PUZZLE_KINDS) {
+			const { minDifficulty, maxDifficulty } = getGenerator(kind);
+			for (let d = minDifficulty + 1; d <= maxDifficulty; d++) {
+				// Two steps that ask alike draw the same puzzles from the same seed, whatever their
+				// tables say about bands they never use.
+				const draw = (at: number) => {
+					const rng = new Rng(900 + d);
+					return Array.from(
+						{ length: 50 },
+						() => getGenerator(kind).generate(rng, at).prompt
+					).join();
+				};
+				if (draw(d) === draw(d - 1)) same.push(`${kind}: ${d - 1} asks what ${d} asks`);
+			}
+		}
+		expect(same).toEqual([]);
+	});
+
 	it('any tier, any attack up to the eighth: each level is one step harder, and hard never passes the top', () => {
 		const problems: string[] = [];
 		for (let tier = 1; tier <= 5; tier++) {
