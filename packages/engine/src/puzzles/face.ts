@@ -101,6 +101,13 @@ export const NUMBERLINE = { on: 0, half: 1 } as const;
 const MAX_LINE_GAPS = 10;
 const MAX_LINE_STRETCHES = 2;
 
+/**
+ * The furthest a number line reaches: the end of the longest line any step
+ * of its ladder draws (`puzzle-kinds.test.ts`). So no line, and no hint
+ * counted along one, is longer than the panel was measured with.
+ */
+export const MAX_LINE_TOP = 10_000;
+
 /** The Danish money a `kroner` face counts, in its order: coins of 1 to 20 kroner, notes of 50 to 200. */
 export const KRONER = [1, 2, 5, 10, 20, 50, 100, 200] as const;
 
@@ -399,7 +406,7 @@ function faceFits(face: PuzzleFace): boolean {
 			const [from, step, gaps, every, mark, half] = [at(0), at(1), at(2), at(3), at(4), at(5)];
 			if (step < 1 || gaps < 2 || gaps > MAX_LINE_GAPS || every < 1 || gaps % every !== 0)
 				return false;
-			if (gaps / every > MAX_LINE_STRETCHES || from + gaps * step > MAX_FACE_NUMBER) return false;
+			if (gaps / every > MAX_LINE_STRETCHES || from + gaps * step > MAX_LINE_TOP) return false;
 			// Halfway between two marks, a whole number; on a mark, one with no number written on it.
 			if (half === NUMBERLINE.half) return mark < gaps && step % 2 === 0;
 			return half === NUMBERLINE.on && mark >= 1 && mark < gaps && mark % every !== 0;

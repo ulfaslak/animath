@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_BIG_UNITS, MAX_DOUBLED, UNITS, UNIT_PAIRS, puzzleFace } from '../src/puzzles/face.js';
+import {
+	MAX_BIG_UNITS,
+	MAX_DOUBLED,
+	MAX_LINE_TOP,
+	UNITS,
+	UNIT_PAIRS,
+	puzzleFace
+} from '../src/puzzles/face.js';
 import { BALANCE_LADDER } from '../src/puzzles/generators/balance.js';
 import { BARCHART, BARCHART_LADDER } from '../src/puzzles/generators/barchart.js';
 import { CLOCK, CLOCK_LADDER } from '../src/puzzles/generators/clock.js';
@@ -122,6 +129,11 @@ describe('the ladders climb', () => {
 				if (step.half === below.half && before.has(line(f))) repeated.push(`d${d}: ${line(f)}`);
 		}
 		expect(repeated).toEqual([]);
+		// A face reaches no further than the ladder's longest line (`faceFits`).
+		const ends = NUMBERLINE_LADDER.flatMap((step) =>
+			step.forms.map((f) => f.from[1] + f.gaps * f.step)
+		);
+		expect(Math.max(...ends)).toBe(MAX_LINE_TOP);
 	});
 
 	it('thermometer: 0° and above to 4, across 0 from 5, how far from 0 and how much it changes never falling in each', () => {
