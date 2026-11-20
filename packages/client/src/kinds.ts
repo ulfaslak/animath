@@ -3,10 +3,12 @@ import {
 	facePrompt,
 	faceTopic,
 	getAnimal,
+	isPictureKind,
 	isWordedKind,
 	puzzleDifficulty,
 	puzzleTopics,
 	type PuzzleFace,
+	type PuzzleKind,
 	type PuzzleTopic
 } from '@mathgame/engine';
 import { language, t } from './copy';
@@ -52,6 +54,8 @@ export function kindWord(topic: PuzzleTopic): string {
 			return t('battle.kinds.balance');
 		case 'clock':
 			return t('battle.kinds.clock');
+		case 'units':
+			return t('battle.kinds.units');
 	}
 }
 
@@ -99,14 +103,27 @@ export function kindGlyph(topic: PuzzleTopic): string {
 			return '□';
 		case 'clock':
 			return '3:00';
+		// A kind of words: the sign of a unit on a ruler.
+		case 'units':
+			return 'cm';
 	}
+}
+
+/**
+ * Whether a kind's question has the whole battle panel, as the preview's
+ * page too: a picture's, and a sum in words (`units`: "2 hours and 35
+ * minutes = ? minutes"), too long for the card beside the party list. A
+ * short question in words ("Double 8 = ?") has that card, as a sum does.
+ */
+export function wholePanel(kind: PuzzleKind): boolean {
+	return isPictureKind(kind) || kind === 'units';
 }
 
 /**
  * A puzzle as a thought bubble over a player near a battle shows it: a sum
  * as the prompt the engine writes ("7 × 8 = ?"), and a puzzle with words or
  * a picture, which no bubble has room for, as its kind's sign and a "?"
- * ("×2 ?", "÷2 ?", "3:00 ?"). Never a word.
+ * ("×2 ?", "÷2 ?", "3:00 ?", "cm ?"). Never a word.
  */
 export function thoughtSum(face: PuzzleFace): string {
 	if (!isWordedKind(face.kind)) return facePrompt(face);

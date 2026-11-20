@@ -1,7 +1,7 @@
 import { ITEMS, type ItemId } from '../items/catalog.js';
 import { STARTERS } from '../party/starters.js';
 import { generatePuzzle } from '../puzzles/registry.js';
-import { PICTURE_KINDS, type Puzzle, type PuzzleKind } from '../puzzles/types.js';
+import type { Puzzle, PuzzleKind } from '../puzzles/types.js';
 import type { Rng } from '../rng.js';
 import { FIRST_LAND, LAND_IDS, isLandId, type LandId } from './ids.js';
 
@@ -216,8 +216,18 @@ export const LANDS: readonly LandSpec[] = [
 			sled: 89
 		},
 		currency: 'ice-dollars',
-		// The Arctic's own kinds (#191 step 2): a taste of what waits there.
-		travelKinds: [...PICTURE_KINDS, 'balance'],
+		// The Arctic's own kinds (#191 step 2): a taste of what waits there. Named one by one,
+		// since a picture kind or a kind of words may be another land's.
+		travelKinds: [
+			'thermometer',
+			'kroner',
+			'fraction',
+			'shape',
+			'barchart',
+			'clock',
+			'balance',
+			'units'
+		],
 		look: 'warm-hat'
 	}
 ];

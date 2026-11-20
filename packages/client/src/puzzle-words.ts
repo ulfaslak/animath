@@ -1,4 +1,16 @@
-import { BARCHART, CLOCK, DOUBLE, SHAPE, THERMOMETER, type PuzzleFace } from '@mathgame/engine';
+import {
+	BARCHART,
+	CLOCK,
+	DOUBLE,
+	SHAPE,
+	THERMOMETER,
+	UNITS,
+	UNIT_PAIRS,
+	isWordedKind,
+	type Puzzle,
+	type PuzzleFace,
+	type UnitId
+} from '@mathgame/engine';
 import { t } from './copy';
 
 /**
@@ -86,11 +98,28 @@ export function questionParts(face: PuzzleFace): QuestionPart[] | null {
 }
 
 /**
+ * The prompt in the puzzle's big type: a worded one in words (`wordedPrompt`),
+ * a sum as the engine writes it. A worded kind whose face this page cannot
+ * read (a newer build's way of asking, at the same `PROTOCOL_VERSION` by
+ * mistake) is a "?" alone, never its face written out ("units(0, 10, 3, 0)").
+ * A picture puzzle's question is its words and its picture (`questionParts`).
+ */
+export function shownPrompt(
+	puzzle: Pick<Puzzle, 'kind' | 'prompt'>,
+	face: PuzzleFace | null
+): string {
+	const worded = face ? wordedPrompt(face) : null;
+	if (worded !== null) return worded;
+	return isWordedKind(puzzle.kind) ? '?' : puzzle.prompt;
+}
+
+/**
  * The prompt of a puzzle with words and no picture, in the language on
- * screen, shown as a sum's prompt is: "Double 8 = ?", "Half of 14 = ?".
- * Null for a face of another kind.
+ * screen, shown as a sum's prompt is: "Double 8 = ?", "Half of 14 = ?",
+ * "2 hours = ? minutes" (`wordedSum`). Null for a face of another kind.
  */
 export function wordedPrompt(face: PuzzleFace): string | null {
+	if (face.kind === 'units') return wordedSum(face);
 	if (face.kind !== 'double') return null;
 	const n = face.numbers[1] ?? 0;
 	const text =
@@ -111,6 +140,48 @@ function thermometerText(how: number, a: number, b: number): string {
 		default:
 			return t('puzzle.ask.thermometer.fell', { start, end: signed(b) });
 	}
+}
+
+/**
+ * A kind of words (`units`, #191's measuring) as the sum a kid reads, in
+ * the language on screen: "2 hours = ? minutes", "2 m 35 cm = ? cm",
+ * "130 minutes = 2 hours and ? minutes". Time's units are words and join
+ * with "and" ("1 hour and 20 minutes"); the others are signs and stand side
+ * by side, as a ruler writes them ("2 m 35 cm"). A number and its unit stay
+ * on one line, and so do "?" and the unit it asks for. Null for a face of
+ * another kind.
+ */
+export function wordedSum(face: PuzzleFace): string | null {
+	if (face.kind !== 'units') return null;
+	const [how, index, a, b] = face.numbers as number[];
+	const pair = UNIT_PAIRS[index!];
+	if (!pair) return null;
+	const words = pair.quantity === 'time';
+	const want = t(`puzzle.units.asked.${how === UNITS.back ? pair.big : pair.small}`);
+	const sum =
+		how === UNITS.mixed
+			? t(words ? 'puzzle.units.mixedWords' : 'puzzle.units.mixed', {
+					have: amount(a!, pair.big),
+					more: amount(b!, pair.small),
+					want
+				})
+			: how === UNITS.rest
+				? t(words ? 'puzzle.units.restWords' : 'puzzle.units.rest', {
+						have: amount(a!, pair.small),
+						more: amount(b!, pair.big),
+						want
+					})
+				: t('puzzle.units.plain', {
+						have: amount(a!, how === UNITS.back ? pair.small : pair.big),
+						want
+					});
+	// The question mark stays with the unit it asks for: "? minutes".
+	return sum.replace('? ', '?\u00a0');
+}
+
+/** A number and its unit, kept on one line: "2 hours", "35 cm". */
+function amount(count: number, unit: UnitId): string {
+	return t(`puzzle.units.count.${unit}`, { count }).replace(' ', '\u00a0');
 }
 
 /** How long passes on a clock: "2 hours", "45 minutes", "1 hour and 20 minutes". */

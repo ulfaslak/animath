@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Rng } from '../src/rng.js';
-import { facePrompt, puzzleFace, type PuzzleFace } from '../src/puzzles/face.js';
+import { UNITS, facePrompt, puzzleFace, type PuzzleFace } from '../src/puzzles/face.js';
 import { DOUBLE, DOUBLE_LADDER, numbersOf } from '../src/puzzles/generators/double.js';
 import { puzzleHint, type HintToken, type PuzzleHint } from '../src/puzzles/hint.js';
 import { generatePuzzle, getGenerator } from '../src/puzzles/registry.js';
@@ -256,6 +256,25 @@ describe('puzzleHint', () => {
 			check('sub', Math.max(a, b), Math.min(a, b), Math.max(a, b) - Math.min(a, b));
 		}
 		expect(bad.slice(0, 20)).toEqual([]);
+	});
+
+	it('writes in how many small units make a big one, and has none for one whole big unit', () => {
+		const tokens = (numbers: number[]) => {
+			const hint = puzzleHint({ kind: 'units', numbers });
+			return hint?.form === 'equation' ? hint.tokens.join(' ') : hint;
+		};
+		// 3 m = ? cm; 2 hours and 35 minutes = ? minutes; 1 hour and 20 minutes; 360 minutes = ? hours;
+		// 130 minutes = 2 hours and ? minutes; 70 minutes = 1 hour and ? minutes.
+		expect(tokens([UNITS.whole, 6, 3, 0])).toBe('? = 3 × 100');
+		expect(tokens([UNITS.mixed, 2, 2, 35])).toBe('? = ( 2 × 60 ) + 35');
+		expect(tokens([UNITS.mixed, 2, 1, 20])).toBe('? = 60 + 20');
+		expect(tokens([UNITS.back, 2, 360, 0])).toBe('? = 360 ÷ 60');
+		expect(tokens([UNITS.rest, 2, 130, 2])).toBe('? = 130 − ( 2 × 60 )');
+		expect(tokens([UNITS.rest, 2, 70, 1])).toBe('? = 70 − 60');
+		// 1 hour = ? minutes: 1 × 60 changes nothing; nor does 60 ÷ 60, nor 100 ÷ 100.
+		expect(tokens([UNITS.whole, 2, 1, 0])).toBeNull();
+		expect(tokens([UNITS.back, 2, 60, 0])).toBeNull();
+		expect(tokens([UNITS.back, 6, 100, 0])).toBeNull();
 	});
 
 	it('holds for every number doubling and halving can show, and each has a hint', () => {

@@ -53,11 +53,13 @@ export {
 	MAX_BAR_LINES,
 	MAX_FACE_NUMBER,
 	THERMOMETER,
+	UNITS,
+	UNIT_PAIRS,
 	facePrompt,
 	puzzleFace,
 	readPuzzleFace
 } from './puzzles/face.js';
-export type { PuzzleFace } from './puzzles/face.js';
+export type { PuzzleFace, UnitId, UnitPair } from './puzzles/face.js';
 export { puzzleHint } from './puzzles/hint.js';
 export type { HintToken, PuzzleHint } from './puzzles/hint.js';
 export { BARCHART } from './puzzles/generators/barchart.js';

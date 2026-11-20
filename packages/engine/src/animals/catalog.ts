@@ -755,8 +755,8 @@ export const ANIMALS: readonly AnimalSpec[] = [
 	// lists only its own pole's biomes. HP and powers are about 2 to 2.3 times a
 	// Nordland animal's of its tier,
 	// so a fight takes as many hits; the catch rates are Nordland's. The weakest
-	// attack asks a sum, and the stronger ones the Arctic's picture kinds and the
-	// balance, never a times table, a pattern, a missing number or a root.
+	// attack asks a sum, and the stronger ones the Arctic's picture kinds, the
+	// balance and units, never a times table, a pattern, a missing number or a root.
 	{
 		id: 'arctic-fox',
 		tier: 1,
@@ -911,7 +911,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		attacks: [
 			{ id: 'plunge', kinds: ['add', 'sub'], power: 13 },
 			{ id: 'head-peck', kinds: ['fraction'], power: 18 },
-			{ id: 'long-trip', kinds: ['clock'], power: 25 }
+			{ id: 'long-trip', kinds: ['units'], power: 25 }
 		]
 	},
 	{
@@ -925,7 +925,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'water',
 		attacks: [
 			{ id: 'paddle', kinds: ['add'], power: 12 },
-			{ id: 'deep-dive', kinds: ['thermometer'], power: 18 },
+			{ id: 'deep-dive', kinds: ['units'], power: 18 },
 			{ id: 'orange-crown', kinds: ['shape'], power: 24 }
 		]
 	},
@@ -1084,7 +1084,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		attacks: [
 			{ id: 'trumpet', kinds: ['add', 'sub'], power: 17 },
 			{ id: 'orange-ears', kinds: ['kroner'], power: 23 },
-			{ id: 'deep-dive', kinds: ['thermometer'], power: 27 }
+			{ id: 'deep-dive', kinds: ['units'], power: 27 }
 		]
 	},
 	{
@@ -1117,7 +1117,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'rocks',
 		attacks: [
 			{ id: 'sky-watch', kinds: ['add', 'sub'], power: 21 },
-			{ id: 'fast-dive', kinds: ['clock'], power: 31 },
+			{ id: 'fast-dive', kinds: ['units'], power: 31 },
 			{ id: 'talon-strike', kinds: ['fraction'], power: 40 }
 		]
 	},
@@ -1133,7 +1133,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		attacks: [
 			{ id: 'huddle', kinds: ['add', 'sub'], power: 21 },
 			{ id: 'toboggan', kinds: ['clock'], power: 29 },
-			{ id: 'egg-guard', kinds: ['thermometer'], power: 36 }
+			{ id: 'egg-guard', kinds: ['units'], power: 36 }
 		]
 	},
 	{
@@ -1339,7 +1339,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'water',
 		attacks: [
 			{ id: 'pinch', kinds: ['add', 'sub'], power: 17 },
-			{ id: 'long-legs', kinds: ['fraction'], power: 22 },
+			{ id: 'long-legs', kinds: ['units'], power: 22 },
 			{ id: 'shell-shove', kinds: ['barchart'], power: 26 }
 		]
 	},
@@ -1356,7 +1356,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		attacks: [
 			{ id: 'trill', kinds: ['add'], power: 16 },
 			{ id: 'ice-saw', kinds: ['shape'], power: 22 },
-			{ id: 'long-dive', kinds: ['clock'], power: 27 }
+			{ id: 'long-dive', kinds: ['units'], power: 27 }
 		]
 	},
 	{
@@ -1399,7 +1399,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'water',
 		attacks: [
 			{ id: 'spout', kinds: ['add'], power: 22 },
-			{ id: 'big-gulp', kinds: ['fraction'], power: 30 },
+			{ id: 'big-gulp', kinds: ['units'], power: 30 },
 			{ id: 'tail-splash', kinds: ['barchart'], power: 38 }
 		]
 	},
@@ -1461,7 +1461,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		attacks: [
 			{ id: 'ice-break', kinds: ['add'], power: 25 },
 			{ id: 'long-song', kinds: ['barchart'], power: 35 },
-			{ id: 'hundred-years', kinds: ['clock'], power: 48 }
+			{ id: 'hundred-years', kinds: ['units'], power: 48 }
 		]
 	},
 	{
@@ -1506,7 +1506,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		attacks: [
 			{ id: 'snort', kinds: ['sub'], power: 24 },
 			{ id: 'trunk-roar', kinds: ['kroner'], power: 34 },
-			{ id: 'belly-slam', kinds: ['barchart'], power: 45 }
+			{ id: 'belly-slam', kinds: ['units'], power: 45 }
 		]
 	},
 	{
@@ -1521,7 +1521,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'water',
 		attacks: [
 			{ id: 'krill-gulp', kinds: ['add', 'sub'], power: 25 },
-			{ id: 'deep-rumble', kinds: ['fraction'], power: 36 },
+			{ id: 'deep-rumble', kinds: ['units'], power: 36 },
 			{ id: 'giant-spout', kinds: ['barchart'], power: 46 },
 			{ id: 'big-blue', kinds: ['clock'], power: 53 }
 		]

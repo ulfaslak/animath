@@ -1,4 +1,4 @@
-import { KRONER, THERMOMETER, type PuzzleFace } from './face.js';
+import { KRONER, THERMOMETER, UNITS, UNIT_PAIRS, type PuzzleFace } from './face.js';
 import { DOUBLE } from './generators/double.js';
 
 /**
@@ -66,6 +66,8 @@ export function puzzleHint(face: PuzzleFace): PuzzleHint | null {
 				: equation(['?', '=', '(', at(2), '÷', at(1), ')', '×', at(0)]);
 		case 'shape':
 			return shapeHint(at(0), at(1), at(2), at(3), at(4), at(5));
+		case 'units':
+			return unitsHint(at(0), at(1), at(2), at(3));
 		case 'barchart':
 		case 'clock':
 			return null;
@@ -316,6 +318,32 @@ function thermometerHint(how: number, a: number, b: number): PuzzleHint | null {
 		case THERMOMETER.fell:
 			if (a > 0 && b < 0) return same([a, '+', -b]);
 			return a < 0 ? same([-b, '−', -a]) : same([a, '−', b]);
+		default:
+			return null;
+	}
+}
+
+/**
+ * Units: the sum behind the conversion, with how many small units make a big
+ * one written in ("2 hours and 35 minutes = ? minutes" is (2 × 60) + 35,
+ * "360 minutes = ? hours" is 360 ÷ 60, "130 minutes = 2 hours and ?
+ * minutes" is 130 − (2 × 60)). One whole big unit has none: "1 hour = ?
+ * minutes" would be 1 × 60, a step that changes nothing.
+ */
+function unitsHint(how: number, pair: number, a: number, b: number): PuzzleHint | null {
+	const per = UNIT_PAIRS[pair]?.per;
+	if (per === undefined) return null;
+	const big = (n: number): HintToken[] => (n > 1 ? ['(', n, '×', per, ')'] : [per]);
+	switch (how) {
+		case UNITS.whole:
+			return a > 1 ? same([a, '×', per]) : null;
+		case UNITS.mixed:
+			return same([...big(a), '+', b]);
+		case UNITS.back:
+			// "60 minutes = ? hours": 60 ÷ 60 is a step that changes nothing.
+			return a > per ? same([a, '÷', per]) : null;
+		case UNITS.rest:
+			return same([a, '−', ...big(b)]);
 		default:
 			return null;
 	}

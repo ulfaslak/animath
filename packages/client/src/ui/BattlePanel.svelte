@@ -8,7 +8,6 @@
 		catchProbability,
 		getAnimal,
 		hitSpan,
-		isPictureKind,
 		puzzleDifficulty,
 		puzzleTopic,
 		puzzleTopics,
@@ -27,7 +26,7 @@
 	import { t } from '../copy';
 	import { rowKey, unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
-	import { kindList } from '../kinds';
+	import { kindList, wholePanel } from '../kinds';
 	import { messageWords, whose, words } from '../lines';
 	import { animalWords, nameOf, speciesName } from '../names';
 	import { battle } from '../state/battle.svelte';
@@ -426,12 +425,12 @@
 {/if}
 
 <!-- `solo`: a puzzle of the kid's own with the number pad beside it, which a short screen gives the whole panel.
-     `wide`: a puzzle with a picture, which has the whole panel on every screen, a friendly match's other player's too. -->
+     `wide`: a puzzle with a picture, or in words, which has the whole panel on every screen, a friendly match's other player's too. -->
 <div
 	class="panel"
 	class:listing={battle.screen === 'party'}
 	class:solo={!!battle.puzzle && touch.on && !(vs && battle.turn === 'opponent')}
-	class:wide={!!battle.puzzle && isPictureKind(battle.puzzle.kind)}
+	class:wide={!!battle.puzzle && wholePanel(battle.puzzle.kind)}
 >
 	{#if battle.screen === 'party'}
 		<div class="card actions party">
@@ -713,7 +712,8 @@
 	}
 	/*
 	 * A puzzle with a picture has the whole panel, on every screen: the
-	 * picture, its question and the answer side by side need the room, and
+	 * picture, its question and the answer side by side need the room (a sum
+	 * in words, "2 hours and 35 minutes = ? minutes", the width), and
 	 * the menu beside them would only be dimmed. It comes back when the turn
 	 * has played, as `solo`'s does.
 	 */

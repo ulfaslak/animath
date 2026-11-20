@@ -3,6 +3,7 @@ import { ANIMALS } from '../src/animals/catalog.js';
 import { ATTACK_LEVELS, type AttackLevel } from '../src/animals/types.js';
 import { attackDamage } from '../src/battle/damage.js';
 import { Rng } from '../src/rng.js';
+import { UNIT_PAIRS } from '../src/puzzles/face.js';
 import { healingDifficulty, puzzleDifficulty } from '../src/puzzles/difficulty.js';
 import {
 	ADDEND_LADDER,
@@ -64,10 +65,12 @@ function solve(prompt: string): number {
 }
 
 /**
- * A picture kind's prompt (`thermometer(0, 3, 5)`), solved from its numbers
- * as the kid reads the picture and the words: a thermometer counted along,
- * money added up coin by coin, a shape's squares and fence pieces counted
- * cell by cell, a clock's hands turned. Null for any other prompt.
+ * A picture kind's prompt (`thermometer(0, 3, 5)`), or a kind of words'
+ * (`units(0, 6, 3, 0)`), solved from its numbers as the kid reads the
+ * picture and the words: a thermometer counted along, money added up coin
+ * by coin, a shape's squares and fence pieces counted cell by cell, a
+ * clock's hands turned, units counted out one big unit at a time. Null for
+ * any other prompt.
  */
 function solvePicture(prompt: string): number | null {
 	const m = prompt.match(/^([a-z]+)\((-?\d+(?:, -?\d+)*)\)$/);
@@ -138,6 +141,26 @@ function solvePicture(prompt: string): number | null {
 			if (how === 2) return v[i]! + v[j]!;
 			return v.reduce((s, x) => s + x, 0);
 		}
+		case 'units': {
+			// The facts a kid learns by heart, by name, and units counted out one big one at a time.
+			const pair = UNIT_PAIRS[at(1)]!;
+			const per = UNIT_FACTS[`${pair.big}-${pair.small}`]!;
+			const [how, a, b] = [at(0), at(2), at(3)];
+			if (how === 0 || how === 1) {
+				let small = how === 1 ? b : 0;
+				for (let k = 0; k < a; k++) small += per;
+				return small;
+			}
+			// Back, or what is left over: take a big unit's worth away until less than one is left.
+			let left = a;
+			let big = 0;
+			while (left >= per) {
+				left -= per;
+				big++;
+			}
+			if (how === 2) return left === 0 ? big : NaN;
+			return big === b ? left : NaN;
+		}
 		case 'double': {
 			// Double: the number counted on by itself. Half: the number that, counted on by itself, makes it.
 			const [how, shown] = [at(0), at(1)];
@@ -159,6 +182,20 @@ function solvePicture(prompt: string): number | null {
 	}
 	throw new Error(`unknown picture kind ${prompt}`);
 }
+
+/** How many of the small unit make one of the big, as a kid learns it: by name, not from the generator. */
+const UNIT_FACTS: Record<string, number> = {
+	'week-day': 7,
+	'day-hour': 24,
+	'hour-minute': 60,
+	'minute-second': 60,
+	'year-month': 12,
+	'km-m': 1000,
+	'm-cm': 100,
+	'cm-mm': 10,
+	'kg-g': 1000,
+	'l-dl': 10
+};
 
 /** "8 + □ = 5 + 6", solved by trying every box from 1 up until both sides weigh the same. */
 function solveBalance(prompt: string): number {

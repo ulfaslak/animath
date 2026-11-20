@@ -11,7 +11,7 @@
 	import { HINT_KEY, shownAnswer } from '../input/answer';
 	import HintView from './HintView.svelte';
 	import WandIcon from './WandIcon.svelte';
-	import { questionParts, questionText, wordedPrompt } from '../puzzle-words';
+	import { questionParts, questionText, shownPrompt, wordedPrompt } from '../puzzle-words';
 	import PuzzlePicture from './pictures/PuzzlePicture.svelte';
 	import { unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
@@ -44,7 +44,9 @@
 	 * face: the picture on the left, filling the card's height, and its
 	 * question in words beside it, picked here in the language on screen
 	 * (`puzzle-words.ts`), over the answer. A puzzle with words and no
-	 * picture ("Double 8 = ?") is worded the same way and shown as a sum is. A clock's answer is a time: the
+	 * picture is worded the same way, in the sum's place: "Double 8 = ?" as a
+	 * sum is shown, and a sum in words (`units`, "2 hours = ? minutes") a size
+	 * smaller, breaking at its "=" first. A clock's answer is a time: the
 	 * box shows "--:--" until a digit is typed, and the pad has a colon.
 	 *
 	 * A puzzle with a hint (the engine's `puzzleHint` of its face) has a
@@ -90,7 +92,9 @@
 	const parts = $derived(face && pictured ? questionParts(face) : null);
 	/** The prompt in very large type: a sum's as the engine writes it, a worded one's in words. */
 	const worded = $derived(face ? wordedPrompt(face) : null);
-	const prompt = $derived(worded ?? puzzle.prompt);
+	const prompt = $derived(shownPrompt(puzzle, face));
+	/** A sum in words (`units`), set as its two sides: "2 hours and 35 minutes", "= ? minutes". */
+	const sides = $derived(face?.kind === 'units' && worded ? worded.split(' = ') : null);
 	const form = $derived(answerForm(puzzle.kind));
 	/** The puzzle's hint, for the kid answering it; none for a puzzle only watched. */
 	const hint = $derived(face && !watch ? puzzleHint(face) : null);
@@ -111,6 +115,7 @@
 	class="puzzle-panel"
 	class:with-pad={touch.on && !watch}
 	class:pictured
+	class:sides={sides !== null}
 	class:hinted={shownHint !== null}
 >
 	{#if face && pictured}
@@ -135,8 +140,18 @@
 				<HintView hint={shownHint} numbers={face.numbers} />
 			</div>
 		{:else}
-			<div class="puzzle-prompt" class:long={prompt.length > 11} class:worded={worded !== null}>
-				{prompt}
+			<div
+				class="puzzle-prompt"
+				class:long={prompt.length > 11}
+				class:worded={worded !== null}
+				class:sides={sides !== null}
+			>
+				{#if sides}
+					<!-- Each side in a box of its own, so a long sum breaks at its "=" first. -->
+					<span class="side">{sides[0]}</span> <span class="side">= {sides[1]}</span>
+				{:else}
+					{prompt}
+				{/if}
 			</div>
 		{/if}
 		{#if shownHint && shownHint.form !== 'gaps'}
@@ -414,6 +429,36 @@
 	}
 	.with-pad .puzzle-prompt.long {
 		font-size: clamp(32px, 4.5vh, 40px);
+	}
+	/*
+	 * A sum in words ("2 hours and 35 minutes = ? minutes") is long: a size
+	 * smaller. It breaks at its "=" first, and a side too wide for a line
+	 * breaks evenly between its words, never inside one.
+	 */
+	.puzzle-prompt.sides,
+	.with-pad .puzzle-prompt.sides {
+		font-size: clamp(28px, 5vh, 44px);
+		line-height: 1.2;
+		max-width: 20em;
+		overflow-wrap: normal;
+	}
+	.puzzle-prompt.sides .side {
+		display: inline-block;
+		text-wrap: balance;
+	}
+	/*
+	 * On a phone held sideways the card is 220 px tall: a sum in words is a
+	 * size smaller again, so the longest ("245 seconds = 4 minutes and ?
+	 * seconds") takes two lines beside the pad, and the reminder goes, as a
+	 * picture's does (the pad's OK says how to answer).
+	 */
+	@media (max-height: 560px) {
+		.puzzle-panel .puzzle-prompt.sides {
+			font-size: 22px;
+		}
+		.with-pad.sides .foot .keys {
+			display: none;
+		}
 	}
 	.answer {
 		min-width: 4em;

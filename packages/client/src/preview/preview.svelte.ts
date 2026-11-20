@@ -3,6 +3,7 @@ import {
 	MAX_DIFFICULTY,
 	MIN_DIFFICULTY,
 	PICTURE_KINDS,
+	isPictureKind,
 	Rng,
 	answerForm,
 	checkAnswer,
@@ -26,13 +27,12 @@ import { answerKey } from '../input/answer';
  * puzzle; ← → the difficulty, ↑ ↓ the kind; Escape another puzzle.
  */
 
-/** The kinds in the order ↑ ↓ goes through them: the picture kinds, the balance, then the sums. */
+/** The kinds in the order ↑ ↓ goes through them: the picture kinds, the balance, units, then the sums. */
 export const PREVIEW_KINDS: readonly PuzzleKind[] = [
 	...PICTURE_KINDS,
 	'balance',
-	...ALL_PUZZLE_KINDS.filter(
-		(k) => k !== 'balance' && !(PICTURE_KINDS as readonly string[]).includes(k)
-	)
+	'units',
+	...ALL_PUZZLE_KINDS.filter((k) => k !== 'balance' && k !== 'units' && !isPictureKind(k))
 ];
 
 class PreviewView {

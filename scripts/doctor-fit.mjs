@@ -29,7 +29,8 @@
  *
  * The worst cases: three bears named with twelve W's (the widest name), a
  * tired one among them, beside a hurt rabbit; the longest heal prompt (a
- * bear's sequence); the paraglider's price (the priciest tool); balances and
+ * bear's sequence) and the longest sums in words (units), which must break
+ * only between words; the paraglider's price (the priciest tool); balances and
  * rewards of four and five digits (a hand-over of 999 bears brings 29,970);
  * each beat after a right answer, when the doctor's lines are longest; and
  * the tabs' own sides with every line they can show at once.
@@ -193,6 +194,9 @@ const STATES = {
 	'heal-barchart': heal('barchart(2, 1, 0, 2, 4, 3, 10, 10, 10, 0)', 13, 'barchart', 3),
 	'heal-clock': { ...heal('clock(0, 11, 30, 0, 0)', 690, 'clock', 3), input: '11:30' },
 	'heal-balance': heal('21 + □ = 23 + 20', 22, 'balance', 3),
+	// The longest measuring sums a heal asks (a tier-5 animal heals at 8): "3 minutter og 55 sekunder = ? sekunder".
+	'heal-units': heal('units(1, 3, 3, 55)', 235, 'units', 8),
+	'heal-units-hours': heal('units(1, 2, 4, 59)', 299, 'units', 8),
 	// The hints: a pattern's jumps over it, the longest line a sum's hint writes, a picture's.
 	'heal-hint-seq': hinted(heal('13, 39, 117, 351, ?', 1053)),
 	'heal-hint-div': hinted(heal('1620 ÷ 18 = ?', 90)),
@@ -308,6 +312,8 @@ const STATES = {
 	},
 	'ask-puzzle': ask('1620 ÷ 18 = ?', 90),
 	'ask-picture': ask('barchart(2, 1, 0, 2, 4, 3, 10, 10, 10, 0)', 13, 'barchart', 3),
+	// The druid's tip asks at 8, so its longest sum in words is a heal's, with the story over it.
+	'ask-units': ask('units(1, 3, 3, 55)', 235, 'units', 8),
 	'ask-correct': right(ask('1620 ÷ 18 = ?', 90)),
 	// Met two ways and big: a line for the sea, one for the ice, and the far line.
 	'ask-told-shark': told('greenland-shark', 'arctic'),
@@ -537,6 +543,31 @@ function measure(safe) {
 			pieces.push({ el, r: rect(el) });
 			for (const r of lineRects(el))
 				if (!inside(r, box)) out.push(`words ${name(el)} leave the side (${past(r, box)})`);
+		}
+		// A sum in words (units) breaks only at a plain space, never inside an amount ("55 / sekunder") or a word.
+		for (const el of side.querySelectorAll('.puzzle-prompt.worded')) {
+			if (!shown(el)) continue;
+			const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+			let before = '';
+			let top = null;
+			for (let node = walk.nextNode(); node; node = walk.nextNode()) {
+				for (let i = 0; i < node.data.length; i++) {
+					const range = document.createRange();
+					range.setStart(node, i);
+					range.setEnd(node, i + 1);
+					const r = range.getClientRects()[0];
+					if (!r || node.data[i].trim() === '') {
+						before = node.data[i];
+						continue;
+					}
+					if (top !== null && r.top > top + 2 && before !== ' ')
+						out.push(
+							`the sum in words breaks inside an amount, before "${node.data.slice(i, i + 12)}"`
+						);
+					top = r.top;
+					before = node.data[i];
+				}
+			}
 		}
 		for (const el of side.querySelectorAll(
 			'.answer, .back, .hint-button, .pad, .choice, .ware > :first-child'

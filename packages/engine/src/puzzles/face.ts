@@ -42,6 +42,12 @@ import { isPictureKind, type Puzzle, type PuzzleKind } from './types.js';
  *   - `clock`: `[how, h, m, dh, dm]`: the clock shows `h`:`m` (1 to 12,
  *     0 to 59); what time it is (`how` 0), `dh` hours and `dm` minutes
  *     later (1), or that long before (2).
+ * - `units`, a kind of words with no picture: `[how, pair, a, b]`, of the
+ *   pair of units `UNIT_PAIRS[pair]` and `how` one of `UNITS`: `a` big
+ *   units in small ones ("3 m = ? cm"), `a` big and `b` small in small
+ *   ones ("2 m 35 cm = ? cm"), `a` small in big ones ("300 cm = ? m"), or
+ *   `a` small as `b` big and how many small ("130 minutes = 2 hours and
+ *   ? minutes").
  */
 export interface PuzzleFace {
 	kind: PuzzleKind;
@@ -66,7 +72,8 @@ export const FACE_NUMBERS: Readonly<Record<PuzzleKind, number>> = {
 	shape: 6,
 	barchart: 10,
 	clock: 5,
-	balance: 4
+	balance: 4,
+	units: 4
 };
 
 /**
@@ -91,9 +98,77 @@ const BAR_SCALES = [1, 2, 5, 10] as const;
 export const MAX_BARS = 5;
 export const MAX_BAR_LINES = 10;
 
+/**
+ * The most big units a `units` face holds, shown ("12 m 75 cm"), turned back
+ * ("84 days = ? weeks") or left over: the most any step of the ladder asks,
+ * which `puzzle-kinds.test.ts` pins. So no face is wider than the panel was
+ * measured with.
+ */
+export const MAX_BIG_UNITS = 12;
+
+/** The biggest number doubled or halved: the most any step of doubling's ladder shows (`puzzle-kinds.test.ts`). */
+export const MAX_DOUBLED = 999;
+
 /** The longest side of a shape drawn in squares, and of one with its lengths written on. */
 const MAX_GRID_SIDE = 10;
 const MAX_SHAPE_SIDE = 30;
+
+/**
+ * What a `units` face's first number says: a whole number of big units in
+ * small ones (`whole`), big and small units together in small ones
+ * (`mixed`), small units in big ones (`back`), or small units as big ones
+ * and what is left over (`rest`). Never renumbered, and a new one bumps
+ * `PROTOCOL_VERSION`: a page of the version before cannot read its faces.
+ */
+export const UNITS = { whole: 0, mixed: 1, back: 2, rest: 3 } as const;
+
+/** The units a measuring puzzle asks about, by id: the client words each one. */
+export type UnitId =
+	| 'week'
+	| 'day'
+	| 'hour'
+	| 'minute'
+	| 'second'
+	| 'year'
+	| 'month'
+	| 'km'
+	| 'm'
+	| 'cm'
+	| 'mm'
+	| 'kg'
+	| 'g'
+	| 'l'
+	| 'dl';
+
+/**
+ * A big unit and a small one of the same thing, and how many small ones
+ * make a big one (`per`). Time's units are words ("2 hours"), the others
+ * the signs a kid's ruler, scales and jug show ("2 m", "3 kg", "4 dl").
+ */
+export interface UnitPair {
+	big: UnitId;
+	small: UnitId;
+	per: number;
+	quantity: 'time' | 'length' | 'weight' | 'volume';
+}
+
+/**
+ * The pairs a `units` face names, by its second number: never reordered,
+ * only added to, and each one added bumps `PROTOCOL_VERSION`, since a page
+ * of the version before cannot read a face that names it.
+ */
+export const UNIT_PAIRS: readonly UnitPair[] = [
+	{ big: 'week', small: 'day', per: 7, quantity: 'time' },
+	{ big: 'day', small: 'hour', per: 24, quantity: 'time' },
+	{ big: 'hour', small: 'minute', per: 60, quantity: 'time' },
+	{ big: 'minute', small: 'second', per: 60, quantity: 'time' },
+	{ big: 'year', small: 'month', per: 12, quantity: 'time' },
+	{ big: 'km', small: 'm', per: 1000, quantity: 'length' },
+	{ big: 'm', small: 'cm', per: 100, quantity: 'length' },
+	{ big: 'cm', small: 'mm', per: 10, quantity: 'length' },
+	{ big: 'kg', small: 'g', per: 1000, quantity: 'weight' },
+	{ big: 'l', small: 'dl', per: 10, quantity: 'volume' }
+];
 
 /**
  * The balance's forms, by `form`: the box stands for the number missing, and
@@ -110,7 +185,7 @@ const BALANCE_FORMS: readonly ((a: number, b: number, c: number) => string)[] = 
 /**
  * The prompt a face is written as: "7 × 8 = ?", "7 + ? = 12", "2, 4, 8, 16, ?",
  * "√144 = ?", "8 + □ = 5 + 6", and a picture kind's or a worded kind's
- * numbers as they are, "thermometer(0, 3, 5)", "double(0, 8)". Every puzzle's prompt is made here, the
+ * numbers as they are, "thermometer(0, 3, 5)", "double(0, 8)", "units(0, 6, 3, 0)". Every puzzle's prompt is made here, the
  * generators' and the doctor's alike, so a face read back from a prompt
  * (`puzzleFace`) is written again the same.
  */
@@ -140,6 +215,7 @@ export function facePrompt(face: PuzzleFace): string {
 		case 'shape':
 		case 'barchart':
 		case 'clock':
+		case 'units':
 			return `${face.kind}(${face.numbers.join(', ')})`;
 	}
 }
@@ -230,7 +306,7 @@ function faceFits(face: PuzzleFace): boolean {
 		}
 		case 'double': {
 			const [how, shown] = [at(0), at(1)];
-			if (shown < 1) return false;
+			if (shown < 1 || shown > MAX_DOUBLED) return false;
 			if (how === DOUBLE.double) return true;
 			return how === DOUBLE.half && shown % 2 === 0;
 		}
@@ -303,6 +379,19 @@ function faceFits(face: PuzzleFace): boolean {
 			if (h < 1 || h > 12 || m > 59) return false;
 			if (how === 0) return dh === 0 && dm === 0;
 			return (how === 1 || how === 2) && dh <= 12 && dm <= 59 && dh + dm > 0;
+		}
+		case 'units': {
+			const [how, pair, a, b] = [at(0), at(1), at(2), at(3)];
+			const per = UNIT_PAIRS[pair]?.per;
+			if (per === undefined || a < 1) return false;
+			if (how === UNITS.whole) return b === 0 && a <= MAX_BIG_UNITS;
+			// The small units added are fewer than make a big one: "2 m 35 cm", never "2 m 135 cm".
+			if (how === UNITS.mixed) return b >= 1 && b < per && a <= MAX_BIG_UNITS;
+			if (how === UNITS.back) return b === 0 && a % per === 0 && a / per <= MAX_BIG_UNITS;
+			// What is left over is at least one small unit and fewer than a big one.
+			if (how === UNITS.rest)
+				return b >= 1 && b <= MAX_BIG_UNITS && a - b * per >= 1 && a - b * per < per;
+			return false;
 		}
 		default:
 			return true;
