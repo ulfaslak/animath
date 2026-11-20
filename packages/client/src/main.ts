@@ -203,6 +203,11 @@ const accountController = new AccountController({
 	passwordChanged: () => {
 		pauseController.close();
 		hud.accountNotice('newPassword');
+	},
+	gateStepsAside: () => {
+		const passing = gated;
+		gated = null;
+		if (passing && title.open) continueGame(passing.saved, passing.name);
 	}
 });
 // A page that plays no account asks which accounts this browser is the own of, so the
@@ -287,8 +292,16 @@ function continueOrGate(saved: SavedGame, name?: string): void {
 		gateWait = { saved, name, timer: setTimeout(settleGate, GATE_WAIT_MS) };
 		return;
 	}
-	if (gateShuts()) accountController.openGate(name ?? saved.name ?? '');
+	if (gateShuts()) shutGate(saved, name);
 	else continueGame(saved, name);
+}
+
+/** The game the gate stands before, for the gate to let through when the server cannot make the account. */
+let gated: { saved: SavedGame; name?: string } | null = null;
+
+function shutGate(saved: SavedGame, name?: string): void {
+	gated = { saved, name };
+	accountController.openGate(name ?? saved.name ?? '');
 }
 
 /** The server's first word came, or the wait ran out: Continue goes on, or the gate shuts. */
@@ -299,7 +312,7 @@ function settleGate(): void {
 	gateWait = null;
 	// The kid has moved on meanwhile (another screen, a card): nothing to carry on.
 	if (!title.open || title.screen !== 'menu' || account.card !== null) return;
-	if (gateShuts()) accountController.openGate(waiting.name ?? waiting.saved.name ?? '');
+	if (gateShuts()) shutGate(waiting.saved, waiting.name);
 	else continueGame(waiting.saved, waiting.name);
 }
 

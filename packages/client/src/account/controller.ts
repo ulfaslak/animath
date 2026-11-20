@@ -93,6 +93,12 @@ export interface AccountHooks {
 	forgetWelcome?(): void;
 	/** A new password was picked: the card is gone, and the game says so. */
 	passwordChanged?(): void;
+	/**
+	 * The gate could not make the account because the server is busy or away
+	 * (too many tries from one school's network, no connection): the card is
+	 * gone, and the game goes on as a guest. The gate asks again next time.
+	 */
+	gateStepsAside?(): void;
 }
 
 /** Keys that change what a box holds without typing a letter. */
@@ -141,10 +147,13 @@ export class AccountController {
 	/**
 	 * Continue on the title, for a guest's game: it goes on only as an
 	 * account's, so the card asks for a password first, the game's name
-	 * (`name`) in its box. Back is the title again.
+	 * (`name`) in its box. Back is the title again. When the game's name is an
+	 * account this browser is the own of, the kid has that account already:
+	 * the card logs in to it by the name alone instead of calling it taken.
 	 */
 	openGate(name: string): void {
-		this.open('register', 'gate', name);
+		const own = name !== '' && account.homeNames.some((n) => nameKey(n) === nameKey(name));
+		this.open(own ? 'login' : 'register', 'gate', name);
 	}
 
 	/**
@@ -486,11 +495,21 @@ export class AccountController {
 			case 'bad-password':
 				return this.refuse({ kind: 'password', reason: result.reason });
 			case 'too-many':
+				if (this.stepAside()) return;
 				return this.refuse({ kind: 'too-many', minutes: minutes(result.retryAfter) });
 			case 'refused':
 			case 'offline':
+				if (this.stepAside()) return;
 				return this.refuse({ kind: 'offline' });
 		}
+	}
+
+	/** At the gate, a server that cannot make the account now lets the game go on as a guest's. */
+	private stepAside(): boolean {
+		if (account.from !== 'gate' || !this.hooks.gateStepsAside) return false;
+		this.close();
+		this.hooks.gateStepsAside();
+		return true;
 	}
 
 	private async logIn(): Promise<void> {

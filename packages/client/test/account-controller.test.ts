@@ -116,7 +116,8 @@ function setup(playerName: string | null = 'Ida', currentSave?: () => SaveWrite 
 			restartNames.push(name ?? null);
 		},
 		forgetWelcome: () => welcomeSteps.push('forgetWelcome'),
-		passwordChanged: () => events.push('passwordChanged')
+		passwordChanged: () => events.push('passwordChanged'),
+		gateStepsAside: () => events.push('gateStepsAside')
 	});
 	const press = (...names: string[]) => {
 		let last = key('');
@@ -799,6 +800,49 @@ describe('the password gate', () => {
 		});
 		expect(currentAccount(store)).toEqual({ name: 'Pip' });
 		expect(restarts).toEqual(['saved']);
+	});
+
+	it.each([
+		[
+			'too many tries from one network',
+			{ status: 429, json: { error: 'too many tries', retryAfter: 900 } }
+		],
+		['a server that is away', { status: 503, json: { error: 'accounts are off' } }]
+	])('steps aside for %s: the card goes and the game goes on as a guest', async (_, answer) => {
+		server({ '/api/account/register': answer });
+		const { store, controller, events, press, quiet } = setup(null);
+		store.set(KEYS.save, saveText(9, 'Pip'));
+		controller.openGate('Pip');
+		account.passwordDraft = 'secret';
+		quiet();
+		press('Enter');
+		await answered();
+		expect(account.card).toBeNull();
+		expect(events).toContain('gateStepsAside');
+		expect(currentAccount(store)).toBeNull();
+	});
+
+	it('the same refusal from the title’s own "make an account" is said on the card, as before', async () => {
+		server({
+			'/api/account/register': { status: 429, json: { error: 'too many tries', retryAfter: 900 } }
+		});
+		const { controller, events, press, quiet } = setup(null);
+		controller.openRegister('title');
+		account.nameDraft = 'Pip';
+		account.passwordDraft = 'secret';
+		quiet();
+		press('Enter');
+		await answered();
+		expect(account.problem).toEqual({ kind: 'too-many', minutes: 15 });
+		expect(events).not.toContain('gateStepsAside');
+	});
+
+	it('a game named for an account this browser is the own of opens that account’s login, by the name alone', () => {
+		account.homeNames = ['Pip'];
+		const { controller } = setup(null);
+		controller.openGate('pip');
+		expect([account.card, account.from, account.nameDraft]).toEqual(['login', 'gate', 'pip']);
+		expect(loginByNameAlone()).toBe(true);
 	});
 });
 
