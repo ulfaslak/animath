@@ -1,5 +1,7 @@
 import { mount } from 'svelte';
 import { flags } from '../flags';
+import { press } from '../input/press';
+import { watchTaps } from '../input/taps';
 import { watchInput } from '../input/touch.svelte';
 import PuzzlePreview from './PuzzlePreview.svelte';
 import { preview } from './preview.svelte';
@@ -17,6 +19,12 @@ preview.next();
 
 watchInput(window);
 document.addEventListener('gesturestart', (e) => e.preventDefault());
+// A tap on a button with a key (the card's Hint) presses it, as in the game: one screen here.
+watchTaps(
+	window,
+	() => 0,
+	(key) => press(key)
+);
 
 window.addEventListener('keydown', (e) => {
 	if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;

@@ -876,3 +876,9 @@ Three new guards each passed their own negative control and were still easy to f
 Found by Phase 2.5's cold review, which planted each case. Fixed in the same PR, and each case replayed as a negative control that now fails. Category: **a guard tested only against the one failure it was built for**. When writing a check, list the ways a wrong input could pass it (a failure for another reason, a near-miss of the pattern, a vacuous match) and plant each one, not only the motivating bug. Applied: CLAUDE.md's negative-control step points to `scripts/negctl.sh`, which now refuses a test that fails with the fix in place.
 
 Codified: `scripts/negctl.sh` (a baseline run first), `scripts/check-learned.mjs` (names specific enough to be guards), `handlers.test.ts` (what a handler takes again at `travelled`).
+
+### 2026-11-20 — puzzle hints (feat/puzzle-hints) — `pkill -f vitest` run as the shared user `[learned]`
+
+- **A stale test run was stopped by name, not by its id.** Every agent on this machine runs as the same user, so `pkill -f vitest` would stop any other agent's test run too. Stop your own with its task id, or `kill` the pids you started.
+
+Codified: [[ENVIRONMENT_NOTES]] § This machine is shared with the lawcel project (every agent runs as the same user).
