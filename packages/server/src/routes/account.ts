@@ -45,7 +45,7 @@ import {
 import { acceptWelcome, welcomeState } from '../welcome.js';
 
 /**
- * Optional accounts: a name (the character's) and a password, a session
+ * Accounts: a name (the character's) and a password, a session
  * cookie, and the account's save.
  *
  *   POST /api/account/register  { name, password, save? } → 201 { user: { name } } + cookie
