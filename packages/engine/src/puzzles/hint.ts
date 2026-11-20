@@ -15,7 +15,8 @@ export type HintToken = number | '+' | '−' | '×' | '÷' | '=' | '?' | '□' |
  * - `equation`: a sum the answer makes true, in easier parts:
  *   "? = (10 × 8) + (3 × 8)" for 13 × 8, "? = 12 − 7" for 7 + ? = 12,
  *   "□ = (5 + 6) − 8" for 8 + □ = 5 + 6. The unknown stands where the
- *   answer goes, and the other side is never a bare number.
+ *   answer goes, and the other side is never a bare number, nor the answer
+ *   beside a step worth nothing (no 0, no 10 − 10, no × 1).
  * - `gaps`: a number pattern's jumps, how much each number is more than the
  *   one before ("+3 +5 +7" over 1, 4, 9, 16): the next jump is the puzzle.
  * - `dots`: a sum small enough to count, `a` dots and `b` more, or `a` dots

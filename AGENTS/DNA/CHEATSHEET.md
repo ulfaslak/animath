@@ -339,7 +339,7 @@ Who comes out depends on who leads your party (§ Your party). With a rabbit in 
 
 - **Hint, or H, on any puzzle that can be broken down** (battle, friendly match, the druid): the button with the wand beside Back. The hint comes up in blue under the sum and stays until you answer or put the puzzle away; the next puzzle, even after a miss, starts without it, but a token sum the druid asks again ("Try again") keeps it. Free, every time, and it changes nothing: the hit, the catch and the count are as without it.
 - **What you get** ([[PRODUCT]] §4 "Puzzles", "Hints"): 8 + 7 → ? = 8 + 2 + 5; 83 + 132 → ? = 100 + (80 + 30) + (3 + 2); 52 − 7 → ? = 52 − 2 − 5; 8 × 13 → ? = (8 × 10) + (8 × 3); 56 ÷ 7 → 7 × ? = 56; 7 + ? = 12 → ? = 12 − 7; a pattern's jumps written over its numbers; dots to count on a sum to 10.
-- **No hint, no button**: bar charts, clocks, and sums with nothing easier in them (10 + 7, 20 − 10).
+- **No hint, no button**: bar charts, clocks, and sums with nothing easier in them (10 + 7, 16 − 10, 20 − 10, 100 × 7), and a thermometer that starts or ends at 0°.
 - **The other player's puzzle** in a friendly match never shows one, and they never see yours.
 
 ## Your party
