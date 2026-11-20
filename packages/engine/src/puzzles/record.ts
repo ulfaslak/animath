@@ -50,8 +50,9 @@ export const MAX_TOPIC_BONUS = 1.6;
  * a step of a ladder never mixes the answers to two different puzzles: a
  * save's counts of an earlier version start over, and a later version's are
  * kept as they are and not counted on (`byDifficultyOwner`). Goes up by one
- * whenever a kind's puzzles at some difficulty change; `record.test.ts` pins
- * every kind's ladder and says when.
+ * whenever some kind's puzzles at some difficulty change, once however many
+ * kinds change together; `record.test.ts` pins every kind's ladder at each
+ * version and says when.
  */
 export const LADDER_VERSION = 1;
 
