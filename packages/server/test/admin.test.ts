@@ -155,26 +155,28 @@ describe('list', () => {
 });
 
 describe('clear-home', () => {
-	it('forgets the account’s own browser: the next browser it is logged in on takes it', async () => {
+	it('forgets the account’s own browser and logs every browser out: the next one it logs in on alone takes it', async () => {
 		const name = freshName();
 		const token = await register(name);
 		const [before] = await db.select().from(users).where(eq(users.name, name));
 		expect(before!.homeHash).not.toBeNull();
 		expect(await clearAccountHome(name.toLowerCase())).toEqual([
-			`${name} has no own browser now.`,
-			'The next browser it is logged in on becomes its own.'
+			`${name} has no own browser now, and every browser logged in to it is logged out.`,
+			'The next browser it logs in on, alone, becomes its own.'
 		]);
 		const [after] = await db.select().from(users).where(eq(users.name, name));
 		expect(after!.homeHash).toBeNull();
+		expect(await me(token)).toEqual({ user: null });
 		expect((await listAll()).find((line) => line.startsWith(`${name}\t`))).toMatch(
 			/\tno own browser yet/
 		);
-		// This browser has no home key: it gets one, and is the account's own now.
-		expect(await me(token)).toEqual({ user: { name, home: true } });
-		expect(await clearAccountHome(name)).toEqual([
-			`${name} has no own browser now.`,
-			'The next browser it is logged in on becomes its own.'
-		]);
+		// A password login, the only browser logged in: its own now.
+		const login = await post('/login', { name, password: 'secret' });
+		expect(login.status).toBe(200);
+		const fresh = /animath_session=([^;]+)/.exec(login.headers.get('set-cookie')!)![1]!;
+		expect(await me(fresh)).toEqual({ user: { name, home: false } });
+		const [claimed] = await db.select().from(users).where(eq(users.name, name));
+		expect(claimed!.homeHash).not.toBeNull();
 		await expect(clearAccountHome(freshName())).rejects.toThrow(AdminError);
 	});
 });

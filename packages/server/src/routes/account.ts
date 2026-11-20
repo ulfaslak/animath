@@ -199,16 +199,23 @@ export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 
 	/**
 	 * After a login, and at `/me`: an account with no home yet (one made before
-	 * homes) takes this browser; the browser's home key goes with the answer
-	 * again, to keep it alive. True when this browser is the account's home.
+	 * homes, or after `clear-home`) takes this browser when its session
+	 * (`token`) is the account's only live one (`claimHome`); the browser's
+	 * home key goes with the answer again, to keep it alive. True when this
+	 * browser is the account's home.
 	 */
-	async function settleHome(c: Context, userId: string, stored: string | null): Promise<boolean> {
+	async function settleHome(
+		c: Context,
+		userId: string,
+		stored: string | null,
+		token: string
+	): Promise<boolean> {
 		if (stored !== null) {
 			keepHomeKey(c, cookie);
-			return isHome(stored, homeKey(c));
+			return isHome(stored, homeKey(c, cookie));
 		}
-		const key = homeKeyOrNew(c);
-		const home = await claimHome(db, userId, key);
+		const key = await homeKeyOrNew(c, cookie);
+		const home = await claimHome(db, userId, key, token);
 		if (home) sendHomeKey(c, key, cookie);
 		else keepHomeKey(c, cookie);
 		return home;
@@ -281,7 +288,7 @@ export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 			// key still decides a race between two registrations.
 			if (await findUser(key)) return c.json({ error: 'name taken' }, 409);
 			// The browser it is made in is its home.
-			const home = homeKeyOrNew(c);
+			const home = await homeKeyOrNew(c, cookie);
 			const created = await createAccount({
 				name: named.name,
 				nameKey: key,
@@ -323,7 +330,7 @@ export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 			if (atHome) {
 				// The name alone, only in the account's own browser: its key is 256 bits, so
 				// there is nothing to guess and no password's hash to spend time on.
-				if (!user || !isHome(user.homeHash, homeKey(c))) {
+				if (!user || !isHome(user.homeHash, homeKey(c, cookie))) {
 					return c.json({ error: 'not home' }, 401);
 				}
 			} else {
@@ -336,8 +343,9 @@ export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 			}
 			limit.loginFailuresPerNameFromIp.refund(pair);
 			limit.loginFailuresPerName.refund(key);
-			await logIn(c, await createSession(db, user.id));
-			await settleHome(c, user.id, user.homeHash);
+			const token = await createSession(db, user.id);
+			await logIn(c, token);
+			await settleHome(c, user.id, user.homeHash, token);
 			return c.json({ user: { name: user.name } });
 		})
 		.post('/logout', tooBig(LOGIN_MAX_BYTES), async (c) => {
@@ -366,19 +374,21 @@ export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 		.get('/me', async (c) => {
 			const user = await currentUser(c, cookie);
 			if (!user) return c.json({ user: null });
-			const home = await settleHome(c, user.id, await homeHashFor(user.id));
+			const token = sessionToken(c);
+			const home =
+				token !== undefined && (await settleHome(c, user.id, await homeHashFor(user.id), token));
 			return c.json({ user: { name: user.name, home } });
 		})
 		.get('/home', async (c) => {
 			// The answer names accounts for a secret: no cache keeps it.
 			c.header('Cache-Control', 'no-store');
-			return c.json({ names: await homeNames(homeKey(c)) });
+			return c.json({ names: await homeNames(homeKey(c, cookie)) });
 		})
 		.post('/password', requireSession, tooBig(LOGIN_MAX_BYTES), async (c) => {
 			const byIp = limit.loginPerIp.hit(rateKey(clientIp(c)));
 			if (!byIp.ok) return tooMany(c, byIp);
 			const user = c.get('user');
-			if (!isHome(await homeHashFor(user.id), homeKey(c))) {
+			if (!isHome(await homeHashFor(user.id), homeKey(c, cookie))) {
 				return c.json({ error: 'not home' }, 403);
 			}
 			const body = await readJson(c);
@@ -453,7 +463,7 @@ export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 			// Only a live link costs a slow hash.
 			const state = await welcomeState(body.token);
 			if (state.kind !== 'live') return welcomeGone(c, state.kind);
-			const home = homeKeyOrNew(c);
+			const home = await homeKeyOrNew(c, cookie);
 			const result = await acceptWelcome(
 				body.token,
 				await hashPassword(password.password),

@@ -1119,6 +1119,14 @@ describe('production', () => {
 		expect(res.status).toBe(201);
 		expect(res.headers.get('set-cookie')).toMatch(/; Secure/);
 	});
+
+	it('names the home cookie with the __Secure- prefix, which only an HTTPS answer can set', async () => {
+		const prod = createApp({ production: true, limits: NO_LIMITS });
+		const res = await new Browser(prod).register(freshName());
+		const home = res.headers.getSetCookie().find((set) => set.startsWith('__Secure-animath_home='));
+		expect(home).toMatch(/; Secure/);
+		expect(res.headers.getSetCookie().some((set) => set.startsWith(`${HOME_COOKIE}=`))).toBe(false);
+	});
 });
 
 describe('sessionUser, for code outside these routes (the WebSocket upgrade)', () => {
@@ -1371,22 +1379,55 @@ describe('the account’s own browser', () => {
 		expect(await home.me()).toEqual({ user: { name, home: true } });
 	});
 
-	it('an account made before homes takes the first browser it is logged in on, and keeps it', async () => {
-		const { browser: first, name } = await homeless();
-		const second = new Browser();
-		second.cookie = await createSession(db, (await userRow(name))!.id);
-		second.account = name;
-		expect(await first.me()).toEqual({ user: { name, home: true } });
-		expect(first.home).toMatch(/^[A-Za-z0-9_-]{43}$/);
-		// The second browser, logged in all along, finds the home taken.
-		expect(await second.me()).toEqual({ user: { name, home: false } });
-		expect(second.home).toBeNull();
-		expect((await userRow(name))!.homeHash).toBe(sha256(first.home!));
-		// A browser that already holds a key (another account's home) uses it.
-		const { browser: shared, name: other } = await account();
-		const { name: late } = await homeless();
-		expect((await shared.login(late)).status).toBe(200);
-		expect(await homeNamesOf(shared)).toEqual({ names: [other, late] });
+	it('an account made before homes takes a browser only while it is logged in there alone', async () => {
+		const { browser: only, name } = await homeless();
+		expect(await only.me()).toEqual({ user: { name, home: true } });
+		expect(only.home).toMatch(/^[A-Za-z0-9_-]{43}$/);
+		expect((await userRow(name))!.homeHash).toBe(sha256(only.home!));
+		// A second browser logged in later finds the home taken.
+		const later = new Browser();
+		expect((await later.login(name)).status).toBe(200);
+		expect(await later.me()).toEqual({ user: { name, home: false } });
+		expect(later.home).toBeNull();
+	});
+
+	it('an account logged in on two devices before homes lets neither take it: a stale school computer takes nothing', async () => {
+		const { browser: laptop, name } = await homeless();
+		const school = new Browser();
+		school.cookie = await createSession(db, (await userRow(name))!.id);
+		school.account = name;
+		expect(await school.me()).toEqual({ user: { name, home: false } });
+		expect(await laptop.me()).toEqual({ user: { name, home: false } });
+		expect((await userRow(name))!.homeHash).toBeNull();
+		// Nor does a password login beside them.
+		const third = new Browser();
+		expect((await third.login(name)).status).toBe(200);
+		expect(await third.me()).toEqual({ user: { name, home: false } });
+		// Neither can pick a new password.
+		const tried = await school.request('POST', '/password', { password: 'stolen' }, school.named());
+		expect(tried.status).toBe(403);
+		// Once the laptop is the only one logged in, it takes it at its next start.
+		expect((await school.logout()).status).toBe(200);
+		expect((await third.logout()).status).toBe(200);
+		expect(await laptop.me()).toEqual({ user: { name, home: true } });
+	});
+
+	it('binds only a key the server made: a key planted in the browser homes nobody', async () => {
+		const planted = 'P'.repeat(43);
+		const browser = new Browser();
+		browser.home = planted;
+		const name = freshName();
+		expect((await browser.register(name)).status).toBe(201);
+		expect(browser.home).not.toBe(planted);
+		expect((await userRow(name))!.homeHash).toBe(sha256(browser.home!));
+		const attacker = new Browser();
+		attacker.home = planted;
+		expect((await loginAtHome(attacker, name)).status).toBe(401);
+		// A key some account already has is the browser's own: a sibling's account shares it.
+		const key = browser.home;
+		const sibling = freshName();
+		expect((await browser.register(sibling)).status).toBe(201);
+		expect(browser.home).toBe(key);
 	});
 
 	it('is where the password can be changed: others are logged out, this browser stays in', async () => {

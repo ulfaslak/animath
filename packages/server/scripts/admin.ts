@@ -18,7 +18,7 @@ import { SAVE_MAX_BYTES } from '../src/save.js';
 //   admin reset-password <name> [<new password> | --stdin]   (a made-up one when none is given;
 //                                                    --stdin reads it, and never says it back)
 //   admin delete-account <name> [--yes]            (says what it would delete without --yes)
-//   admin clear-home <name>                        (the next browser it is logged in on is its own)
+//   admin clear-home <name>                        (logs it out everywhere; the next browser it logs in on, alone, is its own)
 //   admin export-local-save <player id> [--from anonymous|account|account:<name>] [--out <folder>]
 //   admin import-save [--name <name>] [--origin <address>] < save.json
 //   admin errors [--since 7d|24h|90m|<date>|<time>] [--new] [--json]

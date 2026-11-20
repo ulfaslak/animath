@@ -111,19 +111,18 @@ export async function deleteAccount(typedName: string, confirmed: boolean): Prom
 }
 
 /**
- * The account's own browser (`home.ts`) is forgotten: the next browser it is
- * logged in on becomes its own, where its name alone logs in. For a kid with
- * a new tablet, or one whose old browser was cleared.
+ * The account's own browser (`home.ts`) is forgotten, and every browser
+ * logged in to it is logged out: the next browser it logs in on, alone,
+ * becomes its own, where its name alone logs in. For a kid with a new
+ * tablet, or one whose old browser was cleared.
  */
 export async function clearAccountHome(typedName: string): Promise<string[]> {
 	const user = await findUser(keyOf(typedName));
 	if (!user) throw new AdminError(`No account is called "${typedName}".`);
 	await clearHome(user.id);
 	return [
-		user.homeHash === null
-			? `${user.name} had no own browser yet.`
-			: `${user.name} has no own browser now.`,
-		'The next browser it is logged in on becomes its own.'
+		`${user.name} has no own browser now, and every browser logged in to it is logged out.`,
+		'The next browser it logs in on, alone, becomes its own.'
 	];
 }
 
