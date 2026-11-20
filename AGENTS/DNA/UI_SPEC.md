@@ -308,19 +308,18 @@ Escape in explore opens it, but not up in the air with the paraglider, where Esc
   ┌──────────────────────────────────────────────────────────────┐
   │ My puzzles                        312 solved in all ( Back ) │
   │ ┌──────────────────────────────────────────────────────────┐ │
-  │ │ [+]  adding         ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒  212 right of 230 │ │
-  │ │ [×]  times tables   ▓▓▓▓▓▓▓▓▓▒▒            74 right of 90 │ │
-  │ │ [÷]  sharing        ▓▒                       4 right of 9 │ │
-  │ │ [√]  square roots                          Not tried yet  │ │
+  │ │ [+]  adding         ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓      212 solved │ │
+  │ │ [×]  times tables   ▓▓▓▓▓▓▓                    74 solved │ │
+  │ │ [÷]  sharing        ▓                           4 solved │ │
+  │ │ [√]  square roots                         Not solved yet │ │
   │ │   … every topic there is; the list scrolls …             │ │
   │ └──────────────────────────────────────────────────────────┘ │
-  │  Each bar is the puzzles you tried. The green part is the   │
-  │                 ones you got right.                          │
+  │  The longer the bar, the more of that kind you have solved.  │
   │                   ↑ ↓ choose · Esc back                      │
   └──────────────────────────────────────────────────────────────┘
   ```
 
-  A row for every topic there is, the most tried first (in the topics' own order when two were tried as often), then the ones never tried, faded, saying "Not tried yet". Each row: the topic's chip, as the battle's preview card draws it (`TopicChips`), its word ("sharing"), a bar, and "4 right of 9". Every bar is measured against the most-tried topic's, so the topic tried most fills its track and one tried a tenth as often a tenth of it: the bar, amber, is how many were tried, and its green part from the left how many were right. Under the rows a line says what the bars mean. Nothing on the page says what a topic is worth in a battle. Up and down light one row after another, keeping it in view and stopping at the ends; a tap lights one; Escape or Back goes back to the list on its row. At 1024×768 ten rows show, every row's bar track the same length; a phone held sideways tightens them and shows four.
+  A row for every topic there is, the most solved first (in the topics' own order when two were solved as often), then the ones never solved, faded, saying "Not solved yet" whether they were tried or not. Each row: the topic's chip, as the battle's preview card draws it (`TopicChips`), its word ("sharing"), a green bar, and "4 solved". Every bar is measured against the most-solved topic's, so the topic solved most fills its track and one solved a tenth as often a tenth of it. Under the rows a line says what the bars mean. Nothing on the page says how many puzzles were tried or missed ([[DECISIONS]] § Gameplay), nor what a topic is worth in a battle. Up and down light one row after another, keeping it in view and stopping at the ends; a tap lights one; Escape or Back goes back to the list on its row. At 1024×768 ten rows show, every row's bar track the same length; a phone held sideways tightens them and shows four.
 - The key reminder at the bottom follows the screen (none with the touch controls on, where every row is plainly a button): "↑ ↓ choose · Enter pick · Esc close" ("↑ ↓ choose · ← → or Enter change the language · Esc close" on the Language row, "↑ ↓ choose · ← → or Enter sound off or on · Esc close" on the Sound row), "↑ ↓ choose · Enter pick · Esc back", "Enter save · Esc back", "↑ ↓ choose · Enter go · Esc back" on Who's here, on the Worlds screen "0–9 type · ↑ ↓ choose · Enter pick · Esc back", in the animal book "↑ ↓ ← → choose · Esc back", and on My puzzles "↑ ↓ choose · Esc back".
 - It holds at 1024×768 with eight cards, a card of 120 animals and a 12-character name, in either language. A card's name too long for its line breaks where its language hyphenates it (*Kæmpestorm-fugl*, the page's `lang` being the game's), never after any letter.
 

@@ -2628,9 +2628,9 @@ about:
   blue-whale: 'It is blue-grey with pale spots. It is the biggest animal that has ever lived!'
   leopard-seal: 'It has spots like a leopard and a big wide mouth. It sings long songs under water.'
 puzzles:
-  # "My puzzles": every kind of puzzle the kid has answered, with how many they
-  # tried and got right. The pause menu's row (on the menu's title line, beside
-  # the animal book) and the page's own title.
+  # "My puzzles": every kind of puzzle, with how many of it the kid has
+  # solved. Never how many they tried or missed. The pause menu's row (on the
+  # menu's title line, beside the animal book) and the page's own title.
   title: My puzzles
   # Beside the page's title, and in the panel while its row is lit: every
   # puzzle solved, the count the HUD shows.
@@ -2638,12 +2638,12 @@ puzzles:
     one: '{count} solved in all'
     other: '{count} solved in all'
   # The panel beside the row while it is lit.
-  help: Every puzzle you answer is counted here, kind by kind.
-  # A kind's row: how many of it were answered right, of how many tried.
-  row: '{right} right of {tried}'
-  # A kind's row when none of it has been answered yet.
-  never: Not tried yet
+  help: Every puzzle you solve is counted here, kind by kind.
+  # A kind's row: how many of it were solved.
+  row: '{right} solved'
+  # A kind's row when none of it has been solved yet, tried or not.
+  never: Not solved yet
   # Under the rows: what the bars mean. Never what a kind is worth in a battle.
-  caption: Each bar is the puzzles you tried. The green part is the ones you got right.
+  caption: The longer the bar, the more of that kind you have solved.
   # The key reminder under the page.
   keys: ↑ ↓ choose · Esc back
