@@ -17,6 +17,7 @@ import {
 } from '@mathgame/engine';
 import { levelPitch } from '../audio/cues';
 import { sfx } from '../audio/sfx.svelte';
+import { bringsHint } from '../hint';
 import { answerKey } from '../input/answer';
 import { isShortcut, keyName } from '../input/keyboard';
 import { isMashKey, PickGuard } from '../input/pick-guard';
@@ -329,6 +330,7 @@ export class BattleController {
 				battle.puzzle = null;
 				battle.judged = null;
 				battle.input = '';
+				battle.hinted = false;
 				battle.line = line('battle.whatNow', { animal: front });
 				this.guard.show();
 				battle.screen = 'actions';
@@ -339,6 +341,7 @@ export class BattleController {
 				battle.puzzle = null;
 				battle.judged = null;
 				battle.input = '';
+				battle.hinted = false;
 				this.openParty(true);
 				battle.line = line('battle.switch.whoIsNext', { animal: front });
 				break;
@@ -350,6 +353,7 @@ export class BattleController {
 				battle.puzzle = state.phase.puzzle;
 				battle.input = '';
 				battle.judged = null;
+				battle.hinted = false;
 				battle.line = line('battle.tries', {
 					animal: front,
 					attack: { speciesId: front.speciesId, attackIndex }
@@ -363,6 +367,7 @@ export class BattleController {
 				battle.puzzle = state.phase.puzzle;
 				battle.input = '';
 				battle.judged = null;
+				battle.hinted = false;
 				battle.line = line('battle.run.tries', { animal: front });
 				battle.screen = 'puzzle';
 				break;
@@ -516,6 +521,10 @@ export class BattleController {
 			battle.puzzle ? answerForm(battle.puzzle.kind) : 'number'
 		);
 		battle.input = typed.input;
+		if (bringsHint(typed, battle.puzzle, battle.hinted)) {
+			battle.hinted = true;
+			sfx.play('hint');
+		}
 		if (typed.submit) this.send({ type: 'answer', input: typed.input });
 		return typed.handled;
 	}

@@ -32,6 +32,7 @@ import {
 	menuKey,
 	pickedMenu
 } from '../battle/menu';
+import { bringsHint } from '../hint';
 import { answerKey } from '../input/answer';
 import { isShortcut, keyName } from '../input/keyboard';
 import { isMashKey, PickGuard } from '../input/pick-guard';
@@ -539,6 +540,10 @@ export class MatchController implements MatchHooks {
 					battle.puzzle ? answerForm(battle.puzzle.kind) : 'number'
 				);
 				battle.input = typed.input;
+				if (bringsHint(typed, battle.puzzle, battle.hinted)) {
+					battle.hinted = true;
+					sfx.play('hint');
+				}
 				if (typed.submit) this.sendPlay({ type: 'answer', input: typed.input });
 				return typed.handled;
 			}
@@ -932,6 +937,7 @@ export class MatchController implements MatchHooks {
 		battle.puzzle = null;
 		battle.judged = null;
 		battle.input = '';
+		battle.hinted = false;
 		battle.hit = null;
 		battle.turn = null;
 		battle.cursor = 0;
@@ -991,6 +997,7 @@ export class MatchController implements MatchHooks {
 				battle.puzzle = null;
 				battle.judged = null;
 				battle.input = '';
+				battle.hinted = false;
 				if (phase.side === you) {
 					const rows = actionCount(getAnimal(front.speciesId).attacks.length, MATCH_MOVES);
 					battle.cursor = Math.min(battle.cursor, rows - 1);
@@ -1008,6 +1015,7 @@ export class MatchController implements MatchHooks {
 				battle.puzzle = null;
 				battle.judged = null;
 				battle.input = '';
+				battle.hinted = false;
 				if (phase.side === you) {
 					battle.turn = 'player';
 					this.openParty(true);
@@ -1022,6 +1030,7 @@ export class MatchController implements MatchHooks {
 				battle.puzzle = phase.puzzle;
 				battle.judged = null;
 				battle.input = '';
+				battle.hinted = false;
 				if (phase.side === you) {
 					const spec = getAnimal(front.speciesId);
 					const picked = pickedMenu(
@@ -1132,6 +1141,7 @@ export class MatchController implements MatchHooks {
 		battle.puzzle = null;
 		battle.judged = null;
 		battle.input = '';
+		battle.hinted = false;
 		battle.hit = null;
 		battle.line = null;
 		// The two animals as the match left them: a tired one lies down again.

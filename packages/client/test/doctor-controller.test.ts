@@ -17,6 +17,7 @@ import { sfx } from '../src/audio/sfx.svelte';
 import { LocalAuthority } from '../src/authority/local';
 import { DoctorController } from '../src/doctor/controller';
 import { doctorWords } from '../src/doctor/lines';
+import { hintOf } from '../src/hint';
 import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
 import { optionKey, rowKey, tabKey } from '../src/input/press';
 import { doctor, doctorTabs, kindGoing, kindPicked, tabRows } from '../src/state/doctor.svelte';
@@ -154,6 +155,13 @@ describe("the doctor's card", () => {
 		expect(doctor.line).toMatchObject({ say: 'letsHelp', animal: { speciesId: 'squirrel' } });
 		const first = doctor.puzzle!;
 		const right = t.answer();
+		// H brings the hint up, and types and sends nothing; the next puzzle comes without it.
+		const sent = t.sent.length;
+		t.press('h');
+		expect(hintOf(first), first.prompt).not.toBeNull();
+		expect(doctor.hinted).toBe(true);
+		expect(doctor.input).toBe('');
+		expect(t.sent.length).toBe(sent);
 		t.press(...String(right + 1), 'Enter');
 		expect(doctor.judged).toEqual({ correct: false });
 		expect(t.cues.at(-1)).toBe('wrong'); // a soft bonk with "Not quite!"
@@ -165,6 +173,7 @@ describe("the doctor's card", () => {
 		expect(doctor.judged).toBeNull();
 		expect(doctor.input).toBe('');
 		expect(doctor.puzzle).not.toBe(first);
+		expect(doctor.hinted).toBe(false);
 		expect(doctorWords(doctor.line!)).not.toContain(String(right));
 	});
 
@@ -707,12 +716,14 @@ describe('helping animals home', () => {
 		expect(doctor.puzzle?.prompt).toBe('5 + 4 = ?');
 		expect(doctor.line).toEqual({ say: 'homeCount' });
 
-		t.press('8', 'Enter');
+		t.press('h', '8', 'Enter');
 		t.run(1.3);
 		expect(doctor.screen).toBe('puzzle');
 		expect(doctor.line).toEqual({ say: 'tryAgain' });
 		expect(doctor.puzzle?.prompt).toBe('5 + 4 = ?');
 		expect(doctor.input).toBe('');
+		// The same sum again: its hint stays up.
+		expect(doctor.hinted).toBe(true);
 		expect(t.saved()).toEqual({ tokens: 5, items: [], party: ['a', 'b', 'c'] });
 
 		t.cues.length = 0;

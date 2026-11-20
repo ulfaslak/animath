@@ -161,6 +161,8 @@ const told = (speciesId, land, party = TEAM) => ({
 	find: { kind: 'reveal' },
 	line: { say: 'told', speciesId, land }
 });
+/** The puzzle with its hint up (H, or the Hint button): the hint between the sum and the answer. */
+const hinted = (s) => ({ ...s, hinted: true });
 const right = (s, reward = {}) => ({ ...s, screen: 'busy', judged: { correct: true }, ...reward });
 const wrong = (s, line) => ({ ...s, screen: 'busy', judged: { correct: false }, line });
 
@@ -191,6 +193,12 @@ const STATES = {
 	'heal-barchart': heal('barchart(2, 1, 0, 2, 4, 3, 10, 10, 10, 0)', 13, 'barchart', 3),
 	'heal-clock': { ...heal('clock(0, 11, 30, 0, 0)', 690, 'clock', 3), input: '11:30' },
 	'heal-balance': heal('21 + □ = 23 + 20', 22, 'balance', 3),
+	// The hints: a pattern's jumps over it, the longest line a sum's hint writes, a picture's.
+	'heal-hint-seq': hinted(heal('13, 39, 117, 351, ?', 1053)),
+	'heal-hint-div': hinted(heal('1620 ÷ 18 = ?', 90)),
+	'heal-hint-kroner': hinted(heal('kroner(0, 0, 1, 1, 2, 1, 0, 0, 0, 0, 0)', 47, 'kroner', 3)),
+	'heal-hint-balance': hinted(heal('21 + □ = 23 + 20', 22, 'balance', 3)),
+	'heal-hint-correct': right(hinted(heal('1620 ÷ 18 = ?', 90))),
 	'heal-picture-miss': wrong(heal('barchart(2, 1, 0, 2, 4, 3, 10, 10, 10, 0)', 13, 'barchart', 3), {
 		say: 'notQuite'
 	}),
@@ -261,6 +269,9 @@ const STATES = {
 	'home-sum': handOver(1264, 90),
 	'home-sum-small': handOver(64, 90),
 	'home-sum-big': handOver(12640, 29970),
+	// Five places each: the longest hint a token sum has.
+	'home-hint-big': hinted(handOver(12640, 29970)),
+	'home-hint-correct': right(hinted(handOver(12640, 29970))),
 	'home-miss': wrong({ ...handOver(1264, 90), input: '1' }, { say: 'tryAgain' }),
 	'home-correct': right(handOver(1264, 90)),
 	'home-goodbye': right(handOver(1264, 90), {
@@ -340,6 +351,7 @@ const STATES = {
 	'shop-sum': buy(64),
 	'shop-sum-rich': buy(1264),
 	'shop-sum-richer': buy(31234),
+	'shop-hint': hinted(buy(31234)),
 	'shop-miss': wrong({ ...buy(64), input: '3' }, { say: 'tryAgain' }),
 	'shop-correct': right(buy(64)),
 	'shop-bought': right(buy(64), {
@@ -377,6 +389,7 @@ function show(state) {
 		puzzle: null,
 		input: '',
 		judged: null,
+		hinted: false,
 		screen: 'busy',
 		healed: null,
 		leaving: null,
@@ -485,7 +498,9 @@ function measure(safe) {
 		}
 	}
 	// Every button whole, in its card and the safe area, and nothing over it.
-	for (const b of card.querySelectorAll('.back, .pad .key, .tab, .choice, .footer .row')) {
+	for (const b of card.querySelectorAll(
+		'.back, .hint-button, .pad .key, .tab, .choice, .footer .row'
+	)) {
 		if (!shown(b)) continue;
 		const r = rect(b);
 		const box = rect(b.closest('.card'));
@@ -516,14 +531,16 @@ function measure(safe) {
 		const box = rect(side);
 		const pieces = [];
 		const words =
-			'.story, .puzzle-prompt, .judgement, .keys, :scope > .soft, :scope > .detail, :scope > .tally, :scope > .question, .price, .ware-name, .ware .detail';
+			'.story, .puzzle-prompt, .hint, .judgement, .keys, :scope > .soft, :scope > .detail, :scope > .tally, :scope > .question, .price, .ware-name, .ware .detail';
 		for (const el of side.querySelectorAll(words)) {
 			if (!shown(el)) continue;
 			pieces.push({ el, r: rect(el) });
 			for (const r of lineRects(el))
 				if (!inside(r, box)) out.push(`words ${name(el)} leave the side (${past(r, box)})`);
 		}
-		for (const el of side.querySelectorAll('.answer, .back, .pad, .choice, .ware > :first-child')) {
+		for (const el of side.querySelectorAll(
+			'.answer, .back, .hint-button, .pad, .choice, .ware > :first-child'
+		)) {
 			if (shown(el)) pieces.push({ el, r: rect(el) });
 		}
 		for (let i = 0; i < pieces.length; i++)
