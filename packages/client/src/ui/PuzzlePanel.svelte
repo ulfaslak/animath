@@ -111,6 +111,7 @@
 	class="puzzle-panel"
 	class:with-pad={touch.on && !watch}
 	class:pictured
+	class:worded={worded !== null}
 	class:hinted={shownHint !== null}
 >
 	{#if face && pictured}
@@ -428,6 +429,20 @@
 	.puzzle-prompt.worded .side {
 		display: inline-block;
 		text-wrap: balance;
+	}
+	/*
+	 * On a phone held sideways the card is 220 px tall: a sum in words is a
+	 * size smaller again, so the longest ("245 seconds = 4 minutes and ?
+	 * seconds") takes two lines beside the pad, and the reminder goes, as a
+	 * picture's does (the pad's OK says how to answer).
+	 */
+	@media (max-height: 560px) {
+		.puzzle-panel .puzzle-prompt.worded {
+			font-size: 22px;
+		}
+		.with-pad.worded .foot .keys {
+			display: none;
+		}
 	}
 	.answer {
 		min-width: 4em;
