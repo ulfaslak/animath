@@ -24,7 +24,11 @@ describe('a measuring puzzle in words', () => {
 			[[whole, 0, 1, 0], '1 week = ? days', '1 uge = ? dage'],
 			[[whole, 2, 2, 0], '2 hours = ? minutes', '2 timer = ? minutter'],
 			[[whole, 6, 3, 0], '3 m = ? cm', '3 m = ? cm'],
-			[[mixed, 2, 1, 20], '1 hour and 20 minutes = ? minutes', '1 time og 20 minutter = ? minutter'],
+			[
+				[mixed, 2, 1, 20],
+				'1 hour and 20 minutes = ? minutes',
+				'1 time og 20 minutter = ? minutter'
+			],
 			[[mixed, 6, 2, 35], '2 m 35 cm = ? cm', '2 m 35 cm = ? cm'],
 			[[mixed, 4, 2, 1], '2 years and 1 month = ? months', '2 år og 1 måned = ? måneder'],
 			[[back, 8, 3000, 0], '3000 g = ? kg', '3000 g = ? kg'],

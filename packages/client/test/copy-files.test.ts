@@ -254,7 +254,9 @@ describe('copy files', () => {
 	it('every unit a measuring puzzle names has its words, with a number and as the answer is asked in', () => {
 		const units = new Set(UNIT_PAIRS.flatMap((p) => [p.big, p.small]));
 		const missing = [...units].flatMap((unit) =>
-			[`puzzle.units.count.${unit}`, `puzzle.units.asked.${unit}`].filter((key) => !english.has(key))
+			[`puzzle.units.count.${unit}`, `puzzle.units.asked.${unit}`].filter(
+				(key) => !english.has(key)
+			)
 		);
 		expect(missing).toEqual([]);
 	});
