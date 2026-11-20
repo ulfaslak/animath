@@ -337,7 +337,9 @@ describe('healing, for every species', () => {
 							input,
 							correct: false,
 							answer: puzzle.answer,
-							topic: puzzleTopic(puzzle)
+							topic: puzzleTopic(puzzle),
+							kind: puzzle.kind,
+							difficulty: puzzle.difficulty
 						});
 						expect(checkAnswer(puzzle, input)).toBe(false);
 						expect(s.events[1]).toMatchObject({ type: 'puzzle-shown', partyIndex: 0 });
@@ -357,7 +359,9 @@ describe('healing, for every species', () => {
 							input: right,
 							correct: true,
 							answer: puzzle.answer,
-							topic: puzzleTopic(puzzle)
+							topic: puzzleTopic(puzzle),
+							kind: puzzle.kind,
+							difficulty: puzzle.difficulty
 						},
 						{
 							type: 'healed',
@@ -413,7 +417,9 @@ describe('healing, for every species', () => {
 					input,
 					correct,
 					answer: puzzle.answer,
-					topic: puzzleTopic(puzzle)
+					topic: puzzleTopic(puzzle),
+					kind: puzzle.kind,
+					difficulty: puzzle.difficulty
 				});
 				expect(s.state.party[0]!.hp).toBe(correct ? getAnimal('wolf').maxHp : 0);
 				if (correct) {
@@ -660,7 +666,14 @@ describe('helping animals home', () => {
 			const input = wrong(puzzle.answer);
 			const s = apply(state, { type: 'answer', input }, 2);
 			expect(s.events).toEqual([
-				{ type: 'answer-judged', input, correct: false, answer: puzzle.answer, topic: 'add' }
+				{
+					type: 'answer-judged',
+					input,
+					correct: false,
+					answer: puzzle.answer,
+					topic: 'add',
+					kind: 'add'
+				}
 			]);
 			expect(trading(s.state)).toEqual(trading(state));
 			expect(s.state.party).toEqual(party);
@@ -669,7 +682,14 @@ describe('helping animals home', () => {
 		}
 		const s = apply(state, { type: 'answer', input: '13' }, 2);
 		expect(s.events).toEqual([
-			{ type: 'answer-judged', input: '13', correct: true, answer: 13, topic: 'add' },
+			{
+				type: 'answer-judged',
+				input: '13',
+				correct: true,
+				answer: 13,
+				topic: 'add',
+				kind: 'add'
+			},
 			{
 				type: 'went-home',
 				animals: [
@@ -886,6 +906,16 @@ describe('buying', () => {
 		expect(s.events).toEqual([
 			{ type: 'purchase-shown', itemId: 'axe', price: 8, puzzle: phase.puzzle }
 		]);
+		// A token sum is the kid's own tokens, not a step of a ladder: judged with no difficulty.
+		const paid = apply(s.state, { type: 'answer', input: '13' }, 1);
+		expect(paid.events[0]).toStrictEqual({
+			type: 'answer-judged',
+			input: '13',
+			correct: true,
+			answer: 13,
+			topic: 'sub',
+			kind: 'sub'
+		});
 	});
 
 	it('buyRefusal says exactly what buy does: every item, shop, owned set and balance round the price', () => {
@@ -1215,7 +1245,9 @@ describe('flying from the druid (#191)', () => {
 					input,
 					correct: true,
 					answer: fare.puzzle.answer,
-					topic: puzzleTopic(fare.puzzle)
+					topic: puzzleTopic(fare.puzzle),
+					kind: fare.puzzle.kind,
+					difficulty: fare.puzzle.difficulty
 				},
 				{ type: 'flew', land: 'arctic' },
 				{ type: 'ended' }
@@ -1722,7 +1754,9 @@ describe('asking the druid about an animal', () => {
 							input: answerText(puzzle),
 							correct: true,
 							answer: puzzle.answer,
-							topic: puzzleTopic(puzzle)
+							topic: puzzleTopic(puzzle),
+							kind: puzzle.kind,
+							difficulty: puzzle.difficulty
 						},
 						{ type: 'revealed', speciesId: spec.id }
 					]);

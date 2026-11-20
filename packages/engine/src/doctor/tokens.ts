@@ -36,8 +36,9 @@ export function homeTokens(animals: readonly AnimalInstance[]): number {
  * The sum a token transaction asks: `balance + change` when tokens come in,
  * `balance − |change|` when they go out, from the real numbers. `change` is
  * never 0, and never takes the balance below 0. Its difficulty is the
- * addition band of its bigger number (the scale the kid meets in battle), for
- * the record: the numbers are what they are.
+ * addition band of its bigger number (the scale the kid meets in battle), so
+ * a saved visit's puzzle has one: the numbers are what they are, so the
+ * record counts it under its topic alone, at no difficulty.
  */
 export function tokenPuzzle(balance: number, change: number): Puzzle {
 	if (!Number.isSafeInteger(balance) || balance < 0) {
