@@ -4,6 +4,7 @@
 	import ClockFace from './ClockFace.svelte';
 	import FloorFence from './FloorFence.svelte';
 	import FractionBar from './FractionBar.svelte';
+	import IceBlocks from './IceBlocks.svelte';
 	import Money from './Money.svelte';
 	import Thermometer from './Thermometer.svelte';
 
@@ -29,4 +30,6 @@
 	<BarChart numbers={face.numbers} />
 {:else if face.kind === 'clock'}
 	<ClockFace numbers={face.numbers} />
+{:else if face.kind === 'blocks'}
+	<IceBlocks numbers={face.numbers} />
 {/if}

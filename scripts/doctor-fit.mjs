@@ -194,6 +194,9 @@ const STATES = {
 	'heal-barchart': heal('barchart(2, 1, 0, 2, 4, 3, 10, 10, 10, 0)', 13, 'barchart', 3),
 	'heal-clock': { ...heal('clock(0, 11, 30, 0, 0)', 690, 'clock', 3), input: '11:30' },
 	'heal-balance': heal('21 + □ = 23 + 20', 22, 'balance', 3),
+	// Ice blocks: the widest flat layer a heal asks, and the biggest box with its longest question.
+	'heal-blocks': heal('blocks(0, 9, 5, 1)', 45, 'blocks', 4),
+	'heal-blocks-box': heal('blocks(0, 6, 5, 6)', 180, 'blocks', 8),
 	// The longest measuring sums a heal asks (a tier-5 animal heals at 8): "3 minutter og 55 sekunder = ? sekunder".
 	'heal-units': heal('units(1, 3, 3, 55)', 235, 'units', 8),
 	'heal-units-hours': heal('units(1, 2, 4, 59)', 299, 'units', 8),
@@ -202,6 +205,7 @@ const STATES = {
 	'heal-hint-div': hinted(heal('1620 ÷ 18 = ?', 90)),
 	'heal-hint-kroner': hinted(heal('kroner(0, 0, 1, 1, 2, 1, 0, 0, 0, 0, 0)', 47, 'kroner', 3)),
 	'heal-hint-balance': hinted(heal('21 + □ = 23 + 20', 22, 'balance', 3)),
+	'heal-hint-blocks': hinted(heal('blocks(0, 9, 5, 1)', 45, 'blocks', 4)),
 	'heal-hint-correct': right(hinted(heal('1620 ÷ 18 = ?', 90))),
 	'heal-picture-miss': wrong(heal('barchart(2, 1, 0, 2, 4, 3, 10, 10, 10, 0)', 13, 'barchart', 3), {
 		say: 'notQuite'

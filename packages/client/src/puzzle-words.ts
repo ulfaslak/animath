@@ -1,5 +1,6 @@
 import {
 	BARCHART,
+	BLOCKS,
 	CLOCK,
 	DOUBLE,
 	SHAPE,
@@ -91,6 +92,16 @@ export function questionParts(face: PuzzleFace): QuestionPart[] | null {
 							: t('puzzle.ask.clock.earlier', { time })
 				}
 			];
+		}
+		case 'blocks': {
+			const [how, , , n] = [at(0), at(1), at(2), at(3)];
+			const text =
+				how === BLOCKS.high
+					? t('puzzle.ask.blocks.high', { total: n })
+					: n > 1
+						? t('puzzle.ask.blocks.box')
+						: t('puzzle.ask.blocks.count');
+			return [{ text }];
 		}
 		default:
 			return null;

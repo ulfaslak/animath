@@ -54,6 +54,8 @@ export function kindWord(topic: PuzzleTopic): string {
 			return t('battle.kinds.balance');
 		case 'clock':
 			return t('battle.kinds.clock');
+		case 'blocks':
+			return t('battle.kinds.blocks');
 		case 'units':
 			return t('battle.kinds.units');
 	}
@@ -103,6 +105,8 @@ export function kindGlyph(topic: PuzzleTopic): string {
 			return '□';
 		case 'clock':
 			return '3:00';
+		case 'blocks':
+			return '❒';
 		// A kind of words: the sign of a unit on a ruler.
 		case 'units':
 			return 'cm';
