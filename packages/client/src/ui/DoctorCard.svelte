@@ -117,7 +117,7 @@
 	 * tick), and then the puzzle keeps only the sum, the answer and "Correct!"
 	 * (`done`), on every screen. The styles decide the screen; this only says when.
 	 *
-	 * A puzzle with a picture (the Arctic's kinds, #191) has the whole card on
+	 * A puzzle with a picture (the Arctic's kinds, #191, a number line) has the whole card on
 	 * every screen, with a keyboard too, as it has battle's whole panel: beside
 	 * the list, the picture, the question and the pad did not fit a tablet's
 	 * card, and the question ran off it (`pictured`).
