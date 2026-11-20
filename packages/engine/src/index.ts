@@ -47,10 +47,12 @@ export {
 	type TopicRecord
 } from './puzzles/record.js';
 export {
+	BLOCKS,
 	FACE_NUMBERS,
 	KRONER,
 	MAX_BARS,
 	MAX_BAR_LINES,
+	MAX_BLOCKS,
 	MAX_FACE_NUMBER,
 	THERMOMETER,
 	UNITS,

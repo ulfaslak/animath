@@ -80,8 +80,10 @@ import { readFightEvents, readFightView, type FightEvent, type FightView } from 
  * drop from a `match` or a `fight`. A new way a kind asks or a new pair of
  * units (`UNITS`, `UNIT_PAIRS`) bumps it too: a page of the version before
  * cannot read the face, and shows its puzzle as a "?" alone.
+ * Version 16: the Arctic's ice blocks, a puzzle kind a version 15 page
+ * would drop from a `match` or a `fight`.
  */
-export const PROTOCOL_VERSION = 15;
+export const PROTOCOL_VERSION = 16;
 
 /**
  * The most a message may take on the wire, in bytes (the server closes a

@@ -41,7 +41,12 @@ import { isPictureKind, type Puzzle, type PuzzleKind } from './types.js';
  *     (2) or every bar (3);
  *   - `clock`: `[how, h, m, dh, dm]`: the clock shows `h`:`m` (1 to 12,
  *     0 to 59); what time it is (`how` 0), `dh` hours and `dm` minutes
- *     later (1), or that long before (2).
+ *     later (1), or that long before (2);
+ *   - `blocks`: `[how, l, w, n]`, `how` one of `BLOCKS`: a stack of ice
+ *     blocks `l` long, `w` deep and `n` layers high, counted (`how` 0: a
+ *     row when `w` and `n` are 1, a flat layer when `n` is 1, else a box);
+ *     or a box with a bottom layer `l` by `w` holding `n` blocks, how many
+ *     layers high it is (1).
  * - `units`, a kind of words with no picture: `[how, pair, a, b]`, of the
  *   pair of units `UNIT_PAIRS[pair]` and `how` one of `UNITS`: `a` big
  *   units in small ones ("3 m = ? cm"), `a` big and `b` small in small
@@ -72,6 +77,7 @@ export const FACE_NUMBERS: Readonly<Record<PuzzleKind, number>> = {
 	shape: 6,
 	barchart: 10,
 	clock: 5,
+	blocks: 4,
 	balance: 4,
 	units: 4
 };
@@ -105,6 +111,22 @@ export const MAX_BAR_LINES = 10;
  * measured with.
  */
 export const MAX_BIG_UNITS = 12;
+
+/**
+ * What a `blocks` face's first number says: count the ice blocks of the
+ * stack in the picture, or find how many layers high a box is from its
+ * bottom layer and the blocks it holds.
+ */
+export const BLOCKS = { count: 0, high: 1 } as const;
+
+/**
+ * The biggest stack of ice blocks a face holds, so every block's edge stays
+ * countable on a phone: a row or a flat layer up to `long` blocks long, a box
+ * up to `boxLong`, any stack up to `deep` deep and `high` layers, and a box
+ * whose layers are asked up to `layers` of them. The most the ladder asks
+ * (`puzzle-kinds.test.ts` pins it).
+ */
+export const MAX_BLOCKS = { long: 9, boxLong: 6, deep: 5, high: 6, layers: 9 } as const;
 
 /** The biggest number doubled or halved: the most any step of doubling's ladder shows (`puzzle-kinds.test.ts`). */
 export const MAX_DOUBLED = 999;
@@ -215,6 +237,7 @@ export function facePrompt(face: PuzzleFace): string {
 		case 'shape':
 		case 'barchart':
 		case 'clock':
+		case 'blocks':
 		case 'units':
 			return `${face.kind}(${face.numbers.join(', ')})`;
 	}
@@ -379,6 +402,18 @@ function faceFits(face: PuzzleFace): boolean {
 			if (h < 1 || h > 12 || m > 59) return false;
 			if (how === 0) return dh === 0 && dm === 0;
 			return (how === 1 || how === 2) && dh <= 12 && dm <= 59 && dh + dm > 0;
+		}
+		case 'blocks': {
+			const [how, l, w, n] = [at(0), at(1), at(2), at(3)];
+			if (l < 1 || w < 1 || w > MAX_BLOCKS.deep) return false;
+			if (how === BLOCKS.count) {
+				if (n < 1 || n > MAX_BLOCKS.high) return false;
+				return l <= (n === 1 ? MAX_BLOCKS.long : MAX_BLOCKS.boxLong);
+			}
+			if (how !== BLOCKS.high || l < 2 || w < 2 || l > MAX_BLOCKS.boxLong) return false;
+			// A whole number of layers, two or more: one layer is the bottom alone.
+			const layers = n / (l * w);
+			return Number.isInteger(layers) && layers >= 2 && layers <= MAX_BLOCKS.layers;
 		}
 		case 'units': {
 			const [how, pair, a, b] = [at(0), at(1), at(2), at(3)];

@@ -179,6 +179,22 @@ function solvePicture(prompt: string): number | null {
 			for (let k = 0; k < dh * 60 + dm; k++) t = (t + (how === 2 ? 719 : 1)) % 720;
 			return t;
 		}
+		case 'blocks': {
+			// Count the stack block by block. How high: lay layer on layer until the blocks run out.
+			const [how, l, w, n] = [at(0), at(1), at(2), at(3)];
+			if (how === 0) {
+				let count = 0;
+				for (let z = 0; z < n; z++) for (let y = 0; y < w; y++) for (let x = 0; x < l; x++) count++;
+				return count;
+			}
+			let left = n;
+			let layers = 0;
+			while (left > 0) {
+				for (let y = 0; y < w; y++) for (let x = 0; x < l; x++) left--;
+				layers++;
+			}
+			return left === 0 ? layers : NaN;
+		}
 	}
 	throw new Error(`unknown picture kind ${prompt}`);
 }

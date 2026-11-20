@@ -23,7 +23,8 @@ export type PuzzleKind =
  * their question and draws their picture from the face's numbers, so their
  * prompt is the face written out (`facePrompt`), never shown as it is.
  */
-export type PictureKind = 'thermometer' | 'kroner' | 'fraction' | 'shape' | 'barchart' | 'clock';
+export type PictureKind =
+	'thermometer' | 'kroner' | 'fraction' | 'shape' | 'barchart' | 'clock' | 'blocks';
 
 export const PICTURE_KINDS: readonly PictureKind[] = [
 	'thermometer',
@@ -31,7 +32,8 @@ export const PICTURE_KINDS: readonly PictureKind[] = [
 	'fraction',
 	'shape',
 	'barchart',
-	'clock'
+	'clock',
+	'blocks'
 ];
 
 export function isPictureKind(kind: PuzzleKind): kind is PictureKind {
@@ -97,6 +99,7 @@ export type PuzzleTopic =
 	| 'barchart'
 	| 'balance'
 	| 'clock'
+	| 'blocks'
 	| 'units';
 
 export const ALL_PUZZLE_TOPICS: readonly PuzzleTopic[] = [
@@ -117,6 +120,7 @@ export const ALL_PUZZLE_TOPICS: readonly PuzzleTopic[] = [
 	'barchart',
 	'balance',
 	'clock',
+	'blocks',
 	'units'
 ];
 

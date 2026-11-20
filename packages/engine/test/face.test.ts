@@ -90,7 +90,11 @@ describe('a puzzle and its face', () => {
 			[{ kind: 'units', numbers: [0, 6, 3, 0] }, 'units(0, 6, 3, 0)'],
 			[{ kind: 'units', numbers: [1, 2, 1, 20] }, 'units(1, 2, 1, 20)'],
 			[{ kind: 'units', numbers: [2, 8, 3000, 0] }, 'units(2, 8, 3000, 0)'],
-			[{ kind: 'units', numbers: [3, 2, 130, 2] }, 'units(3, 2, 130, 2)']
+			[{ kind: 'units', numbers: [3, 2, 130, 2] }, 'units(3, 2, 130, 2)'],
+			[{ kind: 'blocks', numbers: [0, 4, 1, 1] }, 'blocks(0, 4, 1, 1)'],
+			[{ kind: 'blocks', numbers: [0, 9, 5, 1] }, 'blocks(0, 9, 5, 1)'],
+			[{ kind: 'blocks', numbers: [0, 4, 3, 2] }, 'blocks(0, 4, 3, 2)'],
+			[{ kind: 'blocks', numbers: [1, 6, 5, 270] }, 'blocks(1, 6, 5, 270)']
 		];
 		for (const [face, prompt] of cases) {
 			expect(facePrompt(face)).toBe(prompt);
@@ -194,6 +198,18 @@ describe('a puzzle and its face', () => {
 			['units', 'units(1, 6, 13, 5)'],
 			['units', 'units(2, 2, 780, 0)'],
 			['units', 'units(3, 2, 790, 13)'],
+			// A stack with no blocks, too big to draw, or a box whose layers do not come out whole.
+			['blocks', 'blocks(0, 0, 1, 1)'],
+			['blocks', 'blocks(0, 10, 1, 1)'],
+			['blocks', 'blocks(0, 7, 2, 2)'],
+			['blocks', 'blocks(0, 4, 6, 1)'],
+			['blocks', 'blocks(0, 4, 3, 7)'],
+			['blocks', 'blocks(2, 4, 3, 2)'],
+			['blocks', 'blocks(1, 4, 3, 25)'],
+			['blocks', 'blocks(1, 4, 3, 12)'],
+			['blocks', 'blocks(1, 6, 5, 300)'],
+			['blocks', 'blocks(1, 1, 3, 9)'],
+			['blocks', 'blocks(0, 4, 3)'],
 			// A number bigger than doubling's ladder shows.
 			['double', 'double(0, 1000)'],
 			['double', 'double(1, 1000)'],

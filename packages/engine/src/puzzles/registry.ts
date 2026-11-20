@@ -5,6 +5,7 @@ import { sqrt } from './generators/sqrt.js';
 import { balance } from './generators/balance.js';
 import { double } from './generators/double.js';
 import { barchart } from './generators/barchart.js';
+import { blocks } from './generators/blocks.js';
 import { CLOCK_MINUTES, clock } from './generators/clock.js';
 import { fraction } from './generators/fraction.js';
 import { kroner } from './generators/kroner.js';
@@ -37,6 +38,7 @@ const GENERATORS: Record<PuzzleKind, PuzzleGenerator> = {
 	shape,
 	barchart,
 	clock,
+	blocks,
 	balance,
 	units
 };

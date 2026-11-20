@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Rng } from '../src/rng.js';
-import { UNITS, facePrompt, puzzleFace, type PuzzleFace } from '../src/puzzles/face.js';
+import { BLOCKS, UNITS, facePrompt, puzzleFace, type PuzzleFace } from '../src/puzzles/face.js';
 import { DOUBLE, DOUBLE_LADDER, numbersOf } from '../src/puzzles/generators/double.js';
 import { puzzleHint, type HintToken, type PuzzleHint } from '../src/puzzles/hint.js';
 import { generatePuzzle, getGenerator } from '../src/puzzles/registry.js';
@@ -209,9 +209,12 @@ describe('puzzleHint', () => {
 		expect(bad.slice(0, 20)).toEqual([]);
 		// Every kind with sums has a hint for most puzzles at every difficulty (the fewest at
 		// difficulty 2, where a 10 makes about a third of the sums freebies: 10 + 7, 17 − 10); a
-		// clock and a bar chart ask the kid to read a picture, which no sum makes easier.
+		// clock and a bar chart ask the kid to read a picture, and a row of ice blocks to count
+		// it, which no sum makes easier.
+		const read = (key: string) =>
+			key.startsWith('clock') || key.startsWith('barchart') || key === 'blocks 1';
 		const few = Object.entries(shown).filter(([key, share]) =>
-			key.startsWith('clock') || key.startsWith('barchart') ? share !== 0 : share < 0.6
+			read(key) ? share !== 0 : share < 0.6
 		);
 		expect(few).toEqual([]);
 	});
@@ -275,6 +278,22 @@ describe('puzzleHint', () => {
 		expect(tokens([UNITS.whole, 2, 1, 0])).toBeNull();
 		expect(tokens([UNITS.back, 2, 60, 0])).toBeNull();
 		expect(tokens([UNITS.back, 6, 100, 0])).toBeNull();
+	});
+
+	it("adds up a flat layer of ice blocks row by row, times a box's bottom layer by its layers, and counts a row", () => {
+		const tokens = (numbers: number[]) => {
+			const hint = puzzleHint({ kind: 'blocks', numbers });
+			return hint?.form === 'equation' ? hint.tokens.join(' ') : hint;
+		};
+		// 4 long and 3 deep: three rows of 4, never four of 3; 2 long and 5 deep: two of 5.
+		expect(tokens([BLOCKS.count, 4, 3, 1])).toBe('? = 4 + 4 + 4');
+		expect(tokens([BLOCKS.count, 2, 5, 1])).toBe('? = 5 + 5');
+		expect(tokens([BLOCKS.count, 4, 3, 2])).toBe('? = ( 4 × 3 ) × 2');
+		expect(tokens([BLOCKS.high, 4, 3, 36])).toBe('( 4 × 3 ) × ? = 36');
+		// A row is counted; a wall one block deep is its row, layer on layer.
+		expect(tokens([BLOCKS.count, 5, 1, 1])).toBeNull();
+		expect(tokens([BLOCKS.count, 5, 1, 3])).toBe('? = 5 × 3');
+		expect(tokens([BLOCKS.count, 1, 1, 4])).toBeNull();
 	});
 
 	it('holds for every number doubling and halving can show, and each has a hint', () => {

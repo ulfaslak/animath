@@ -82,6 +82,7 @@ const TOKENS = new Set([
 	'shape',
 	'barchart',
 	'clock',
+	'blocks',
 	'balance',
 	// A kind of words goes by its id too, its numbers beside it, never its words.
 	'units'
