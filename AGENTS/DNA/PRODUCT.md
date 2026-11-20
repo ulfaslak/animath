@@ -10,7 +10,7 @@ The game is called **Animath**. The GitHub repo is `ulfaslak/animath`; the packa
 
 ## 2. Players
 
-- **Kids aged roughly 6–12**. Reading level: short words, big text. The puzzle ladder spans from single-digit addition to what a strong kid of 11–12 does in their head, such as 18 × 13, 945 ÷ 5 and √4900, and never needs paper (§4 "Puzzles").
+- **Kids aged roughly 6–12**. Reading level: short words, big text. The puzzle ladder spans from single-digit addition to what a strong kid of 11–12 does in their head, such as 18 × 13, 945 ÷ 5 and √4900, and never needs paper except in adding and taking away, which keep their bands (§4 "Puzzles").
 - **Devices**: a laptop or desktop browser with a keyboard, or a tablet held sideways, played with fingers alone (touch controls, [[UI_SPEC]] § Pointer and touch). A mouse works every menu too. Phones are not a target, though a phone held sideways plays, and the explore screen, the battle's screen (wild battles and friendly matches alike), the druid's card and the animal book are laid out for one.
 - **No login needed to start.** Open the link and you are in. The game is saved in the browser as you play, so a reload, or coming back another day, picks up where you left off. Coming back to a game played without an account asks once for a secret password before it goes on, so every game a kid returns to is kept on the server and can come to another tablet or computer (§4 "Saving"). On their own tablet or computer a kid logs in with just their name.
 
