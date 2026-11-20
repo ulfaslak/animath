@@ -1,0 +1,70 @@
+import { Rng, UNITS, generatePuzzle, puzzleFace, type PuzzleFace } from '@mathgame/engine';
+import { afterEach, describe, expect, it } from 'vitest';
+import { language } from '../src/copy';
+import { wordedSum } from '../src/puzzle-words';
+
+/**
+ * A measuring puzzle (`units`) is a sum in words the client writes from its
+ * face, in the language on screen ([[DECISIONS]] § Copy and languages): the
+ * engine sends numbers, and the words are picked when they are shown.
+ */
+
+afterEach(() => language.set('en'));
+
+/** The sum as it reads, its no-break spaces as plain ones. */
+function sum(numbers: number[]): string | null {
+	return wordedSum({ kind: 'units', numbers })?.replace(/ /g, ' ') ?? null;
+}
+
+describe('a measuring puzzle in words', () => {
+	it('reads as a sum in English and in Danish, time in words and the rest in signs', () => {
+		const { whole, mixed, back, rest } = UNITS;
+		// Pairs by their place in `UNIT_PAIRS`: 0 week-day, 2 hour-minute, 4 year-month, 6 m-cm, 8 kg-g.
+		const cases: [number[], string, string][] = [
+			[[whole, 0, 1, 0], '1 week = ? days', '1 uge = ? dage'],
+			[[whole, 2, 2, 0], '2 hours = ? minutes', '2 timer = ? minutter'],
+			[[whole, 6, 3, 0], '3 m = ? cm', '3 m = ? cm'],
+			[[mixed, 2, 1, 20], '1 hour and 20 minutes = ? minutes', '1 time og 20 minutter = ? minutter'],
+			[[mixed, 6, 2, 35], '2 m 35 cm = ? cm', '2 m 35 cm = ? cm'],
+			[[mixed, 4, 2, 1], '2 years and 1 month = ? months', '2 år og 1 måned = ? måneder'],
+			[[back, 8, 3000, 0], '3000 g = ? kg', '3000 g = ? kg'],
+			[[back, 0, 14, 0], '14 days = ? weeks', '14 dage = ? uger'],
+			[
+				[rest, 2, 130, 2],
+				'130 minutes = 2 hours and ? minutes',
+				'130 minutter = 2 timer og ? minutter'
+			],
+			[[rest, 6, 250, 2], '250 cm = 2 m ? cm', '250 cm = 2 m ? cm']
+		];
+		for (const [numbers, en, da] of cases) {
+			language.set('en');
+			expect(sum(numbers), en).toBe(en);
+			language.set('da');
+			expect(sum(numbers), da).toBe(da);
+		}
+	});
+
+	it('keeps each number with its unit, and the question mark with the unit it asks for', () => {
+		const text = wordedSum({ kind: 'units', numbers: [UNITS.mixed, 2, 1, 20] })!;
+		expect(text).toBe('1 hour and 20 minutes = ? minutes');
+	});
+
+	it('words every measuring puzzle the game asks, and nothing of another kind', () => {
+		for (let d = 1; d <= 10; d++) {
+			const rng = new Rng(d);
+			for (let i = 0; i < 100; i++) {
+				const face = puzzleFace(generatePuzzle(rng, d, ['units']))!;
+				for (const lang of ['en', 'da'] as const) {
+					language.set(lang);
+					const text = wordedSum(face);
+					// One question mark, and no key or placeholder showing in place of a word.
+					expect(text, JSON.stringify(face)).toMatch(/^[^?]*\?[^?]*$/);
+					expect(text).not.toMatch(/puzzle\.|\{|\}/);
+				}
+			}
+		}
+		const sumFace: PuzzleFace = { kind: 'add', numbers: [2, 3] };
+		expect(wordedSum(sumFace)).toBeNull();
+		expect(wordedSum({ kind: 'units', numbers: [0, 99, 1, 0] })).toBeNull();
+	});
+});
