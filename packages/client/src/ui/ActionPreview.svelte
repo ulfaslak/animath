@@ -201,9 +201,11 @@
 	}
 	/*
 	 * A short screen (a phone held sideways): the card is 220 px tall. An
-	 * attack keeps its name, chips, badge, level picker and "That would tire
-	 * it out!" over Go!, and leaves out the sentence that says them again in
-	 * words; another move keeps its sentence, which is most of what it says.
+	 * attack keeps its chips, level picker and "That would tire it out!" over
+	 * Go!, and leaves out its name and badge, which the lit tile beside it
+	 * shows (with its level), and the sentence that says it all again in
+	 * words: a name beside five chips would take a line more than the card
+	 * has. Another move keeps its sentence, which is most of what it says.
 	 */
 	@media (max-height: 560px) {
 		.preview,
@@ -213,6 +215,8 @@
 		.title {
 			font-size: 22px;
 		}
+		.head:not(.move) .title,
+		.head:not(.move) .badge,
 		.retold {
 			display: none;
 		}
