@@ -1477,9 +1477,14 @@
 	.puzzle:global([data-fit~='least']) :global(.answer) {
 		font-size: 32px;
 	}
-	/* A sum in words (units) keeps the battle's size, smaller than a sum of numbers, with the pad or without: its least, 28 px. */
+	/*
+	 * A sum in words (units) keeps the battle's size, smaller than a sum of
+	 * numbers, with the pad or without; its least is a phone's in a battle,
+	 * 22 px, which three lines of Danish with the story and the Hint button
+	 * over it need at 1024×768.
+	 */
 	.puzzle:global([data-fit~='least']) :global(.puzzle-prompt.sides) {
-		font-size: 28px;
+		font-size: 22px;
 	}
 	.puzzle:global([data-fit~='least']) .question {
 		font-size: 17px;
