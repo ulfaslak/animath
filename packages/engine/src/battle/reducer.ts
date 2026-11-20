@@ -218,7 +218,15 @@ function answer(state: BattleState, seed: number, input: string): BattleStep {
 
 	const correct = checkAnswer(puzzle, input);
 	const topic = puzzleTopic(puzzle);
-	draft.events.push({ type: 'answer-judged', input, correct, answer: puzzle.answer, topic });
+	draft.events.push({
+		type: 'answer-judged',
+		input,
+		correct,
+		answer: puzzle.answer,
+		topic,
+		kind: puzzle.kind,
+		difficulty: puzzle.difficulty
+	});
 
 	if (correct) {
 		const hit = landHit(spec, attackIndex, level, draft.opponent, bonusOf(state.bonus, topic));
@@ -291,7 +299,15 @@ function answerEscape(state: BattleState, seed: number, input: string): BattleSt
 	const draft = Draft.from(state, seed);
 	const correct = checkAnswer(puzzle, input);
 	const topic = puzzleTopic(puzzle);
-	draft.events.push({ type: 'answer-judged', input, correct, answer: puzzle.answer, topic });
+	draft.events.push({
+		type: 'answer-judged',
+		input,
+		correct,
+		answer: puzzle.answer,
+		topic,
+		kind: puzzle.kind,
+		difficulty: puzzle.difficulty
+	});
 	if (correct) {
 		draft.events.push({ type: 'fled' });
 		draft.end('fled');

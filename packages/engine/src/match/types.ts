@@ -144,6 +144,13 @@ export type MatchEvent =
 			 * under. Missing from a server from before topics: not recorded.
 			 */
 			topic?: PuzzleTopic;
+			/**
+			 * The puzzle's kind and difficulty: the step of whose ladder the record
+			 * counts it at. Missing from a server from before them: counted under
+			 * its topic alone.
+			 */
+			kind?: PuzzleKind;
+			difficulty?: number;
 	  }
 	| {
 			type: 'hit';
