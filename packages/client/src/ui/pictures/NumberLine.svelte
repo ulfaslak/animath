@@ -27,7 +27,17 @@
 	/** The narrowest slot the line lies across in: 18 px numbers and marks 22 px apart. */
 	const WIDE = 240;
 	let width = $state(0);
-	const across = $derived(width === 0 || width >= WIDE);
+	/**
+	 * A line that stood up for a puzzle stays up until the next one: the pad
+	 * goes once the answer is in, and the slot it leaves would lay the line
+	 * down in front of the kid as they read "Correct!".
+	 */
+	const puzzle = $derived(numbers.join(','));
+	let stoodFor = $state<string | null>(null);
+	$effect(() => {
+		if (width > 0 && width < WIDE) stoodFor = puzzle;
+	});
+	const across = $derived(width >= WIDE && stoodFor !== puzzle);
 
 	// Lying across: the line runs wide of the edges by half a five-digit number, so the
 	// numbers at its ends stay whole, and the arrow comes down onto it from above.
@@ -49,8 +59,11 @@
 	}
 </script>
 
+<!-- Nothing until the slot is measured, so a line never shows the wrong way round for a frame. -->
 <div class="number-line" bind:clientWidth={width}>
-	{#if across}
+	{#if width === 0}
+		<!-- Measuring. -->
+	{:else if across}
 		<svg viewBox="0 0 320 116" class="picture" aria-hidden="true">
 			<line x1={LEFT} x2={RIGHT} y1={ROW} y2={ROW} class="line" />
 			{#each marks as k (k)}
