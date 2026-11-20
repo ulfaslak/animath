@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { UNIT_PAIRS, puzzleFace } from '../src/puzzles/face.js';
+import { UNITS, UNIT_PAIRS, puzzleFace } from '../src/puzzles/face.js';
 import { BALANCE_LADDER } from '../src/puzzles/generators/balance.js';
 import { BARCHART_LADDER } from '../src/puzzles/generators/barchart.js';
 import { CLOCK_LADDER } from '../src/puzzles/generators/clock.js';
@@ -33,6 +33,16 @@ function climbs(rows: readonly Band[], from = 1, to = rows.length): string[] {
 		const [plo, phi] = rows[d - 2]!;
 		if (lo < plo || hi < phi) bad.push(`d${d}: [${lo}, ${hi}] after [${plo}, ${phi}]`);
 		if (lo > hi) bad.push(`d${d}: [${lo}, ${hi}] is empty`);
+	}
+	return bad;
+}
+
+/** A band, row by row, never narrower than the row before: a step only makes room for more. */
+function narrows(rows: readonly Band[]): string[] {
+	const bad: string[] = [];
+	for (let i = 1; i < rows.length; i++) {
+		const [[plo, phi], [lo, hi]] = [rows[i - 1]!, rows[i]!];
+		if (hi - lo < phi - plo) bad.push(`row ${i + 1}: [${lo}, ${hi}] after [${plo}, ${phi}]`);
 	}
 	return bad;
 }
@@ -146,7 +156,7 @@ describe('the ladders climb', () => {
 			expect(climbs(BALANCE_LADDER.map((s) => s[band])), band).toEqual([]);
 	});
 
-	it('units: whole conversions from 3, mixed amounts at 7, back to big units at 9, what is left over at 10, each skill climbing', () => {
+	it('units: whole conversions from 3, back at 6, mixed amounts at 7, time back at 9, what is left over at 10, each skill climbing', () => {
 		expect(getGenerator('units').minDifficulty).toBe(UNITS_MIN_DIFFICULTY);
 		expect(UNITS_MIN_DIFFICULTY).toBe(3);
 		expect(UNITS_LADDER).toHaveLength(10 - UNITS_MIN_DIFFICULTY + 1);
@@ -154,7 +164,16 @@ describe('the ladders climb', () => {
 		const at = (d: number) => UNITS_LADDER[d - UNITS_MIN_DIFFICULTY]!;
 		expect(
 			[3, 4, 5, 6, 7, 8, 9, 10].map((d) => asks.filter((a) => at(d)[a] !== undefined).join('+'))
-		).toEqual(['whole', 'whole', 'whole', 'whole', 'mixed', 'mixed', 'mixed+back', 'back+rest']);
+		).toEqual([
+			'whole',
+			'whole',
+			'whole',
+			'whole+back',
+			'mixed',
+			'mixed',
+			'mixed+back',
+			'back+rest'
+		]);
 		// Within a skill (what is asked, of which pair), over the difficulties it is asked at.
 		const bad: string[] = [];
 		for (const ask of asks) {
@@ -168,11 +187,13 @@ describe('the ladders climb', () => {
 				const span = rows.map((r) => r.d);
 				if (span.some((d, i) => i > 0 && d !== span[i - 1]! + 1))
 					bad.push(`${ask} ${name} skips a difficulty: ${span}`);
-				bad.push(...climbs(rows.map((r) => r.skill.big)).map((b) => `${ask} ${name} big ${b}`));
-				if (ask === 'mixed' || ask === 'rest')
-					bad.push(
-						...climbs(rows.map((r) => r.skill.small!)).map((b) => `${ask} ${name} small ${b}`)
-					);
+				const bands = (of: 'big' | 'small') => rows.map((r) => r.skill[of]!);
+				bad.push(...climbs(bands('big')).map((b) => `${ask} ${name} big ${b}`));
+				bad.push(...narrows(bands('big')).map((b) => `${ask} ${name} big ${b}`));
+				if (ask === 'mixed' || ask === 'rest') {
+					bad.push(...climbs(bands('small')).map((b) => `${ask} ${name} small ${b}`));
+					bad.push(...narrows(bands('small')).map((b) => `${ask} ${name} small ${b}`));
+				}
 			}
 		}
 		expect(bad).toEqual([]);
@@ -328,6 +349,38 @@ describe('what each kind promises a kid', () => {
 				const big = how === 0 || how === 1 ? a! : how === 2 ? answer! : b!;
 				if (![10, 100, 1000].includes(per) && big > 12) bad.push(`d${d}: ${[how, pair, a, b]}`);
 				if (answer! < 1) bad.push(`d${d}: ${[how, pair, a, b]} → ${answer}`);
+			}
+		}
+		expect(bad.slice(0, 20)).toEqual([]);
+	});
+
+	it('units: a harder step never asks an easier puzzle, as the puzzles come', () => {
+		// How many big units a puzzle is about: the number shown, or the answer back.
+		const bigOf = ([how, , a, b, answer]: number[]) =>
+			how === UNITS.whole || how === UNITS.mixed ? a! : how === UNITS.back ? answer! : b!;
+		const fewest = new Map<number, { d: number; big: number }>();
+		const bad: string[] = [];
+		for (let d = UNITS_MIN_DIFFICULTY; d <= 10; d++) {
+			const here = new Map<number, number>();
+			for (const face of faces('units', d)) {
+				const [how, pair] = face;
+				here.set(pair!, Math.min(here.get(pair!) ?? Infinity, bigOf(face)));
+				// Turned back or split, a unit of 10, 100 or 1000 small ones is only its digits
+				// read ("500 cm = ? m", "7585 g = 7 kg ? g"): easier than a mixed amount, so
+				// asked only where whole units are, at 6.
+				const tens = [10, 100, 1000].includes(UNIT_PAIRS[pair!]!.per);
+				if (tens && (how === UNITS.back || how === UNITS.rest) && d > 6)
+					bad.push(`d${d}: ${face.slice(0, 4)} reads off digits`);
+			}
+			// A pair's fewest big units never fall from the last step that asked it: no
+			// "1 week and 1 day = ? days" (8) at 7 after "3 weeks = ? days" (21) at 6.
+			for (const [pair, big] of here) {
+				const before = fewest.get(pair);
+				if (before && big < before.big)
+					bad.push(
+						`d${d}: ${UNIT_PAIRS[pair]!.big} from ${big}, after ${before.big} at d${before.d}`
+					);
+				fewest.set(pair, { d, big });
 			}
 		}
 		expect(bad.slice(0, 20)).toEqual([]);

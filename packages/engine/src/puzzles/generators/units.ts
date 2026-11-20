@@ -40,10 +40,14 @@ export const UNITS_MIN_DIFFICULTY = 3;
 /**
  * Index = difficulty − `UNITS_MIN_DIFFICULTY`. Whole conversions first, the
  * facts a kid of 8 knows (a week, an hour, a metre), then a kilo and a litre
- * at 9 and every pair at 6; mixed amounts at 7 and 8 (age 10); back from
- * small units to big at 9, with bigger mixed ones; and at 10 bigger ones
- * back and what is left over. Within a skill (a pair and what is asked) no
- * band's end ever falls (`puzzle-kinds.test.ts`).
+ * at 5 and every pair at 6, where a unit of 10, 100 or 1000 small ones is
+ * also turned back ("300 cm = ? m"): further up that is only reading digits.
+ * Mixed amounts at 7 and 8 (age 10); at 9 bigger ones, and time turned back
+ * ("360 minutes = ? hours"); at 10 bigger ones back and what is left over,
+ * in time alone, where each is a sum in the head. Within a skill (a pair and
+ * what is asked) no band's end ever falls and no band narrows, and a pair's
+ * fewest big units never fall from one step to the next
+ * (`puzzle-kinds.test.ts`).
  */
 export const UNITS_LADDER: readonly UnitsStep[] = [
 	// 3
@@ -80,39 +84,44 @@ export const UNITS_LADDER: readonly UnitsStep[] = [
 		whole: [
 			{ pair: 'week-day', big: [3, 8] },
 			{ pair: 'hour-minute', big: [2, 5] },
-			{ pair: 'm-cm', big: [3, 9] },
+			{ pair: 'm-cm', big: [3, 10] },
 			{ pair: 'day-hour', big: [2, 4] },
 			{ pair: 'year-month', big: [2, 5] },
 			{ pair: 'kg-g', big: [2, 9] },
-			{ pair: 'l-dl', big: [2, 9] },
+			{ pair: 'l-dl', big: [2, 10] },
 			{ pair: 'minute-second', big: [1, 3] },
 			{ pair: 'cm-mm', big: [2, 9] },
 			{ pair: 'km-m', big: [1, 5] }
+		],
+		back: [
+			{ pair: 'm-cm', big: [2, 9] },
+			{ pair: 'kg-g', big: [2, 9] },
+			{ pair: 'l-dl', big: [2, 9] },
+			{ pair: 'cm-mm', big: [2, 9] },
+			{ pair: 'km-m', big: [2, 9] }
 		]
 	},
 	// 7
 	{
 		mixed: [
-			{ pair: 'week-day', big: [1, 4], small: [1, 6] },
-			{ pair: 'hour-minute', big: [1, 2], small: [5, 55], every: 5 },
-			{ pair: 'm-cm', big: [1, 5], small: [5, 95], every: 5 },
-			{ pair: 'year-month', big: [1, 3], small: [1, 11] },
-			{ pair: 'kg-g', big: [1, 5], small: [50, 950], every: 50 },
-			{ pair: 'l-dl', big: [1, 5], small: [1, 9] }
+			{ pair: 'week-day', big: [3, 6], small: [1, 6] },
+			{ pair: 'hour-minute', big: [2, 3], small: [5, 55], every: 5 },
+			{ pair: 'm-cm', big: [3, 6], small: [5, 95], every: 5 },
+			{ pair: 'year-month', big: [2, 4], small: [1, 11] },
+			{ pair: 'kg-g', big: [2, 6], small: [50, 950], every: 50 }
 		]
 	},
 	// 8
 	{
 		mixed: [
-			{ pair: 'week-day', big: [2, 8], small: [1, 6] },
-			{ pair: 'hour-minute', big: [1, 4], small: [5, 59] },
-			{ pair: 'm-cm', big: [2, 9], small: [5, 99] },
-			{ pair: 'year-month', big: [1, 5], small: [1, 11] },
+			{ pair: 'week-day', big: [3, 8], small: [1, 6] },
+			{ pair: 'hour-minute', big: [2, 4], small: [5, 59] },
+			{ pair: 'm-cm', big: [3, 9], small: [5, 99] },
+			{ pair: 'year-month', big: [2, 5], small: [1, 11] },
 			{ pair: 'kg-g', big: [2, 9], small: [50, 995], every: 5 },
-			{ pair: 'l-dl', big: [2, 9], small: [1, 9] },
-			{ pair: 'day-hour', big: [1, 3], small: [1, 23] },
+			{ pair: 'day-hour', big: [2, 3], small: [1, 23] },
 			{ pair: 'minute-second', big: [1, 3], small: [5, 55], every: 5 },
-			{ pair: 'km-m', big: [1, 5], small: [50, 950], every: 50 }
+			{ pair: 'km-m', big: [2, 5], small: [50, 950], every: 50 }
 		]
 	},
 	// 9
@@ -120,21 +129,17 @@ export const UNITS_LADDER: readonly UnitsStep[] = [
 		mixed: [
 			{ pair: 'week-day', big: [3, 9], small: [1, 6] },
 			{ pair: 'hour-minute', big: [2, 5], small: [5, 59] },
-			{ pair: 'm-cm', big: [3, 9], small: [5, 99] },
+			{ pair: 'm-cm', big: [3, 12], small: [5, 99] },
 			{ pair: 'day-hour', big: [2, 4], small: [1, 23] },
-			{ pair: 'kg-g', big: [3, 9], small: [50, 995], every: 5 }
+			{ pair: 'kg-g', big: [3, 10], small: [50, 995], every: 5 },
+			{ pair: 'minute-second', big: [2, 4], small: [5, 59] }
 		],
 		back: [
-			{ pair: 'week-day', big: [2, 9] },
+			{ pair: 'week-day', big: [3, 9] },
 			{ pair: 'hour-minute', big: [2, 6] },
-			{ pair: 'm-cm', big: [2, 9] },
 			{ pair: 'day-hour', big: [2, 5] },
 			{ pair: 'year-month', big: [2, 6] },
-			{ pair: 'kg-g', big: [2, 9] },
-			{ pair: 'l-dl', big: [2, 9] },
-			{ pair: 'minute-second', big: [2, 6] },
-			{ pair: 'cm-mm', big: [2, 9] },
-			{ pair: 'km-m', big: [2, 9] }
+			{ pair: 'minute-second', big: [2, 6] }
 		]
 	},
 	// 10
@@ -142,23 +147,16 @@ export const UNITS_LADDER: readonly UnitsStep[] = [
 		back: [
 			{ pair: 'week-day', big: [5, 12] },
 			{ pair: 'hour-minute', big: [3, 9] },
-			{ pair: 'm-cm', big: [5, 20] },
 			{ pair: 'day-hour', big: [3, 7] },
 			{ pair: 'year-month', big: [3, 10] },
-			{ pair: 'kg-g', big: [5, 20] },
-			{ pair: 'l-dl', big: [5, 20] },
-			{ pair: 'minute-second', big: [3, 10] },
-			{ pair: 'cm-mm', big: [5, 20] },
-			{ pair: 'km-m', big: [5, 20] }
+			{ pair: 'minute-second', big: [3, 10] }
 		],
 		rest: [
-			{ pair: 'week-day', big: [1, 8], small: [1, 6] },
-			{ pair: 'hour-minute', big: [1, 4], small: [5, 59] },
-			{ pair: 'm-cm', big: [1, 9], small: [5, 99] },
-			{ pair: 'day-hour', big: [1, 3], small: [1, 23] },
-			{ pair: 'year-month', big: [1, 5], small: [1, 11] },
-			{ pair: 'kg-g', big: [1, 9], small: [50, 995], every: 5 },
-			{ pair: 'minute-second', big: [1, 4], small: [5, 59] }
+			{ pair: 'week-day', big: [3, 8], small: [1, 6] },
+			{ pair: 'hour-minute', big: [2, 4], small: [5, 59] },
+			{ pair: 'day-hour', big: [2, 3], small: [1, 23] },
+			{ pair: 'year-month', big: [2, 5], small: [1, 11] },
+			{ pair: 'minute-second', big: [2, 4], small: [5, 59] }
 		]
 	}
 ];
