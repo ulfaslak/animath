@@ -308,7 +308,7 @@ describe('the ladders climb', () => {
 		expect(bad).toEqual([]);
 	});
 
-	it('ice blocks: a row at 1, a flat layer at 2–4, a box at 5–9, how high at 9–10, each form climbing', () => {
+	it('ice blocks: a row at 1, a flat layer at 2–4, a box at 5–8, how high at 9–10, each form climbing', () => {
 		// A form is what the stack is: a row, a flat layer, a box, or a box whose layers are asked.
 		const form = (f: BlocksForm) =>
 			f.how === 'high' ? 'high' : f.h[1] > 1 ? 'box' : f.w[1] > 1 ? 'flat' : 'row';
@@ -321,7 +321,7 @@ describe('the ladders climb', () => {
 			'box',
 			'box',
 			'box',
-			'box high',
+			'high',
 			'high'
 		]);
 		for (const name of ['row', 'flat', 'box', 'high']) {
@@ -329,6 +329,15 @@ describe('the ladders climb', () => {
 			for (const side of ['l', 'w', 'h'] as const)
 				expect(climbs(steps.map((f) => f[side])), `${name} ${side}`).toEqual([]);
 		}
+		// A harder step never asks only what the step below could: each form reaches past the one below.
+		const inside = (a: BlocksForm, b: BlocksForm) =>
+			(['l', 'w', 'h'] as const).every((s) => a[s][0] >= b[s][0] && a[s][1] <= b[s][1]);
+		const repeats: string[] = [];
+		for (let d = 2; d <= 10; d++)
+			for (const f of BLOCKS_LADDER[d - 1]!)
+				for (const below of BLOCKS_LADDER[d - 2]!)
+					if (form(f) === form(below) && inside(f, below)) repeats.push(`${d}: ${form(f)}`);
+		expect(repeats).toEqual([]);
 	});
 
 	it('clock: reading finer marks first, then time passing, longer and longer', () => {
