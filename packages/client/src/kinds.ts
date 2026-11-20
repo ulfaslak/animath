@@ -3,7 +3,7 @@ import {
 	facePrompt,
 	faceTopic,
 	getAnimal,
-	isPictureKind,
+	isWrittenOut,
 	puzzleDifficulty,
 	puzzleTopics,
 	type PuzzleFace,
@@ -48,6 +48,8 @@ export function kindWord(topic: PuzzleTopic): string {
 			return t('battle.kinds.balance');
 		case 'clock':
 			return t('battle.kinds.clock');
+		case 'units':
+			return t('battle.kinds.units');
 	}
 }
 
@@ -90,17 +92,20 @@ export function kindGlyph(topic: PuzzleTopic): string {
 			return '□';
 		case 'clock':
 			return '3:00';
+		// A kind of words: the sign of a unit on a ruler.
+		case 'units':
+			return 'cm';
 	}
 }
 
 /**
  * A puzzle as a thought bubble over a player near a battle shows it: a sum
  * as the prompt the engine writes ("7 × 8 = ?"), and a puzzle with a
- * picture, which no bubble has room to draw, as its kind's sign and a "?"
- * ("½ ?", "3:00 ?"). Never a word.
+ * picture, which no bubble has room to draw, or in words, as its kind's
+ * sign and a "?" ("½ ?", "3:00 ?", "cm ?"). Never a word.
  */
 export function thoughtSum(face: PuzzleFace): string {
-	if (!isPictureKind(face.kind)) return facePrompt(face);
+	if (!isWrittenOut(face.kind)) return facePrompt(face);
 	return `${kindGlyph(faceTopic(face))} ?`;
 }
 

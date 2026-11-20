@@ -8,7 +8,7 @@
 	} from '@mathgame/engine';
 	import { t } from '../copy';
 	import { shownAnswer } from '../input/answer';
-	import { questionParts, questionText } from '../puzzle-words';
+	import { questionParts, questionText, wordedSum } from '../puzzle-words';
 	import PuzzlePicture from './pictures/PuzzlePicture.svelte';
 	import { unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
@@ -42,6 +42,8 @@
 	 * question in words beside it, picked here in the language on screen
 	 * (`puzzle-words.ts`), over the answer. A clock's answer is a time: the
 	 * box shows "--:--" until a digit is typed, and the pad has a colon.
+	 * A puzzle of words with no picture (`units`) is a sum in words, "2 hours
+	 * = ? minutes", in the sum's place, a size smaller and wrapped evenly.
 	 */
 	let {
 		puzzle,
@@ -74,6 +76,8 @@
 	const face = $derived(puzzleFace(puzzle));
 	const pictured = $derived(face !== null && isPictureKind(face.kind));
 	const parts = $derived(face && pictured ? questionParts(face) : null);
+	const worded = $derived(face ? wordedSum(face) : null);
+	const sum = $derived(worded ?? puzzle.prompt);
 	const form = $derived(answerForm(puzzle.kind));
 	const reminder = $derived(
 		form === 'time'
@@ -105,7 +109,9 @@
 				>
 			</div>
 		{:else}
-			<div class="puzzle-prompt" class:long={puzzle.prompt.length > 11}>{puzzle.prompt}</div>
+			<div class="puzzle-prompt" class:long={sum.length > 11} class:worded={worded !== null}>
+				{sum}
+			</div>
 		{/if}
 		<div
 			class="answer"
@@ -338,6 +344,14 @@
 	}
 	.with-pad .puzzle-prompt.long {
 		font-size: clamp(32px, 4.5vh, 40px);
+	}
+	/* A sum in words ("2 hours and 35 minutes = ? minutes") is long: a size smaller, wrapped evenly. */
+	.puzzle-prompt.worded,
+	.with-pad .puzzle-prompt.worded {
+		font-size: clamp(28px, 5vh, 44px);
+		line-height: 1.2;
+		max-width: 16em;
+		text-wrap: balance;
 	}
 	.answer {
 		min-width: 4em;

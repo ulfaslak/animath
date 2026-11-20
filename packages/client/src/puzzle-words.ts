@@ -1,4 +1,13 @@
-import { BARCHART, CLOCK, SHAPE, THERMOMETER, type PuzzleFace } from '@mathgame/engine';
+import {
+	BARCHART,
+	CLOCK,
+	SHAPE,
+	THERMOMETER,
+	UNITS,
+	UNIT_PAIRS,
+	type PuzzleFace,
+	type UnitId
+} from '@mathgame/engine';
 import { t } from './copy';
 
 /**
@@ -97,6 +106,47 @@ function thermometerText(how: number, a: number, b: number): string {
 		default:
 			return t('puzzle.ask.thermometer.fell', { start, end: signed(b) });
 	}
+}
+
+/**
+ * A kind of words (`units`, #191's measuring) as the sum a kid reads, in
+ * the language on screen: "2 hours = ? minutes", "2 m 35 cm = ? cm",
+ * "130 minutes = 2 hours and ? minutes". Time's units are words and join
+ * with "and" ("1 hour and 20 minutes"); the others are signs and stand side
+ * by side, as a ruler writes them ("2 m 35 cm"). A number and its unit stay
+ * on one line. Null for a face of another kind.
+ */
+export function wordedSum(face: PuzzleFace): string | null {
+	if (face.kind !== 'units') return null;
+	const [how, index, a, b] = face.numbers as number[];
+	const pair = UNIT_PAIRS[index!];
+	if (!pair) return null;
+	const words = pair.quantity === 'time';
+	const want = t(`puzzle.units.asked.${how === UNITS.back ? pair.big : pair.small}`);
+	const sum =
+		how === UNITS.mixed
+			? t(words ? 'puzzle.units.mixedWords' : 'puzzle.units.mixed', {
+					have: amount(a!, pair.big),
+					more: amount(b!, pair.small),
+					want
+				})
+			: how === UNITS.rest
+				? t(words ? 'puzzle.units.restWords' : 'puzzle.units.rest', {
+						have: amount(a!, pair.small),
+						more: amount(b!, pair.big),
+						want
+					})
+				: t('puzzle.units.plain', {
+						have: amount(a!, how === UNITS.back ? pair.small : pair.big),
+						want
+					});
+	// The question mark stays with the unit it asks for: "? minutes".
+	return sum.replace('? ', '?\u00a0');
+}
+
+/** A number and its unit, kept on one line: "2 hours", "35 cm". */
+function amount(count: number, unit: UnitId): string {
+	return t(`puzzle.units.count.${unit}`, { count }).replace(' ', '\u00a0');
 }
 
 /** How long passes on a clock: "2 hours", "45 minutes", "1 hour and 20 minutes". */

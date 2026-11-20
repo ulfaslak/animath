@@ -1301,6 +1301,58 @@ puzzle:
         one: '{count} minut'
         other: '{count} minutter'
       both: '{hours} og {minutes}'
+  units:
+    plain: '{have} = ? {want}'
+    mixed: '{have} {more} = ? {want}'
+    rest: '{have} = {more} ? {want}'
+    mixedWords: '{have} og {more} = ? {want}'
+    restWords: '{have} = {more} og ? {want}'
+    count:
+      week:
+        one: '{count} uge'
+        other: '{count} uger'
+      day:
+        one: '{count} dag'
+        other: '{count} dage'
+      hour:
+        one: '{count} time'
+        other: '{count} timer'
+      minute:
+        one: '{count} minut'
+        other: '{count} minutter'
+      second:
+        one: '{count} sekund'
+        other: '{count} sekunder'
+      year:
+        one: '{count} år'
+        other: '{count} år'
+      month:
+        one: '{count} måned'
+        other: '{count} måneder'
+      km: '{count} km'
+      m: '{count} m'
+      cm: '{count} cm'
+      mm: '{count} mm'
+      kg: '{count} kg'
+      g: '{count} g'
+      l: '{count} l'
+      dl: '{count} dl'
+    asked:
+      week: uger
+      day: dage
+      hour: timer
+      minute: minutter
+      second: sekunder
+      year: år
+      month: måneder
+      km: km
+      m: m
+      cm: cm
+      mm: mm
+      kg: kg
+      g: g
+      l: l
+      dl: dl
   picture:
     kr: kr.
     missing: '?'
@@ -1440,6 +1492,7 @@ battle:
     barchart: søjlediagrammer
     balance: ligevægt
     clock: klokken
+    units: enheder
   level:
     easy: let
     medium: mellem

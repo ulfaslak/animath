@@ -81,7 +81,9 @@ const TOKENS = new Set([
 	'shape',
 	'barchart',
 	'clock',
-	'balance'
+	'balance',
+	// A kind of words goes by its id too, its numbers beside it, never its words.
+	'units'
 ]);
 
 /** What must hold of every view and events a fight sends, whatever the battle. */

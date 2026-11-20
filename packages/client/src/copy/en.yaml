@@ -1324,6 +1324,64 @@ puzzle:
         one: '{count} minute'
         other: '{count} minutes'
       both: '{hours} and {minutes}'
+  # A measuring puzzle (the Arctic's units), written as a sum: "2 hours = ? minutes".
+  # {have} is a number and its unit, {more} a second number and unit ("35 cm" in
+  # "2 m 35 cm = ? cm"), and {want} the unit the answer is in, after the question mark.
+  units:
+    plain: '{have} = ? {want}'
+    mixed: '{have} {more} = ? {want}'
+    rest: '{have} = {more} ? {want}'
+    # The same, of time's units, which are words: "1 hour and 20 minutes = ? minutes".
+    mixedWords: '{have} and {more} = ? {want}'
+    restWords: '{have} = {more} and ? {want}'
+    # Each unit with its number: "1 hour", "2 hours", "35 cm".
+    count:
+      week:
+        one: '{count} week'
+        other: '{count} weeks'
+      day:
+        one: '{count} day'
+        other: '{count} days'
+      hour:
+        one: '{count} hour'
+        other: '{count} hours'
+      minute:
+        one: '{count} minute'
+        other: '{count} minutes'
+      second:
+        one: '{count} second'
+        other: '{count} seconds'
+      year:
+        one: '{count} year'
+        other: '{count} years'
+      month:
+        one: '{count} month'
+        other: '{count} months'
+      km: '{count} km'
+      m: '{count} m'
+      cm: '{count} cm'
+      mm: '{count} mm'
+      kg: '{count} kg'
+      g: '{count} g'
+      l: '{count} l'
+      dl: '{count} dl'
+    # Each unit as the answer is asked in, after the question mark: "? minutes".
+    asked:
+      week: weeks
+      day: days
+      hour: hours
+      minute: minutes
+      second: seconds
+      year: years
+      month: months
+      km: km
+      m: m
+      cm: cm
+      mm: mm
+      kg: kg
+      g: g
+      l: l
+      dl: dl
   # The picture's own words: the kroner sign on a coin or a note, and a missing side's mark.
   picture:
     kr: kr
@@ -1560,6 +1618,7 @@ battle:
     barchart: bar charts
     balance: balancing
     clock: telling the time
+    units: units
   # An attack's three levels: the level picker's buttons, and the word on each attack's tile.
   level:
     easy: easy

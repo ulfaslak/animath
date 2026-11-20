@@ -6,7 +6,16 @@ import type { Rng } from '../rng.js';
  * [[ARCHITECTURE]]'s `registry.ts` row.
  */
 export type PuzzleKind =
-	'add' | 'sub' | 'mul' | 'div' | 'missing' | 'sequence' | 'sqrt' | PictureKind | 'balance';
+	| 'add'
+	| 'sub'
+	| 'mul'
+	| 'div'
+	| 'missing'
+	| 'sequence'
+	| 'sqrt'
+	| PictureKind
+	| 'balance'
+	| WordedKind;
 
 /**
  * The kinds the puzzle panel draws a picture for (#191): the client words
@@ -28,6 +37,24 @@ export function isPictureKind(kind: PuzzleKind): kind is PictureKind {
 	return (PICTURE_KINDS as readonly PuzzleKind[]).includes(kind);
 }
 
+/**
+ * The kinds of words with no picture: a question in words around numbers,
+ * "2 hours = ? minutes", which the client words from the face's numbers in
+ * the language on screen, so their prompt is the face written out too.
+ */
+export type WordedKind = 'units';
+
+export const WORDED_KINDS: readonly WordedKind[] = ['units'];
+
+/**
+ * Whether a kind's prompt is its face written out, never shown as it is: a
+ * picture kind's or a kind of words' (`units(0, 6, 3, 0)`), which the client
+ * words (and draws) from the numbers; a sum's is shown as it is.
+ */
+export function isWrittenOut(kind: PuzzleKind): kind is PictureKind | WordedKind {
+	return isPictureKind(kind) || (WORDED_KINDS as readonly PuzzleKind[]).includes(kind);
+}
+
 export const ALL_PUZZLE_KINDS: readonly PuzzleKind[] = [
 	'add',
 	'sub',
@@ -37,7 +64,8 @@ export const ALL_PUZZLE_KINDS: readonly PuzzleKind[] = [
 	'sequence',
 	'sqrt',
 	...PICTURE_KINDS,
-	'balance'
+	'balance',
+	...WORDED_KINDS
 ];
 
 /**
@@ -68,7 +96,8 @@ export type PuzzleTopic =
 	| 'perimeter'
 	| 'barchart'
 	| 'balance'
-	| 'clock';
+	| 'clock'
+	| 'units';
 
 export const ALL_PUZZLE_TOPICS: readonly PuzzleTopic[] = [
 	'add',
@@ -85,7 +114,8 @@ export const ALL_PUZZLE_TOPICS: readonly PuzzleTopic[] = [
 	'perimeter',
 	'barchart',
 	'balance',
-	'clock'
+	'clock',
+	'units'
 ];
 
 /** Difficulty is an integer scalar. 1 is a first-grader's warm-up, 10 is hard. */

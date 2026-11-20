@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { puzzleFace } from '../src/puzzles/face.js';
+import { UNIT_PAIRS, puzzleFace } from '../src/puzzles/face.js';
 import { BALANCE_LADDER } from '../src/puzzles/generators/balance.js';
 import { BARCHART_LADDER } from '../src/puzzles/generators/barchart.js';
 import { CLOCK_LADDER } from '../src/puzzles/generators/clock.js';
@@ -7,7 +7,13 @@ import { FRACTION_LADDER } from '../src/puzzles/generators/fraction.js';
 import { KRONER_LADDER } from '../src/puzzles/generators/kroner.js';
 import { SHAPE_LADDER } from '../src/puzzles/generators/shape.js';
 import { THERMOMETER_LADDER } from '../src/puzzles/generators/thermometer.js';
-import { getGenerator } from '../src/puzzles/registry.js';
+import {
+	UNITS_LADDER,
+	UNITS_MIN_DIFFICULTY,
+	pairIndex,
+	type UnitsStep
+} from '../src/puzzles/generators/units.js';
+import { generatePuzzle, getGenerator } from '../src/puzzles/registry.js';
 import type { PuzzleKind } from '../src/puzzles/types.js';
 import { Rng } from '../src/rng.js';
 
@@ -140,6 +146,38 @@ describe('the ladders climb', () => {
 			expect(climbs(BALANCE_LADDER.map((s) => s[band])), band).toEqual([]);
 	});
 
+	it('units: whole conversions from 3, mixed amounts at 7, back to big units at 9, what is left over at 10, each skill climbing', () => {
+		expect(getGenerator('units').minDifficulty).toBe(UNITS_MIN_DIFFICULTY);
+		expect(UNITS_MIN_DIFFICULTY).toBe(3);
+		expect(UNITS_LADDER).toHaveLength(10 - UNITS_MIN_DIFFICULTY + 1);
+		const asks = ['whole', 'mixed', 'back', 'rest'] as const;
+		const at = (d: number) => UNITS_LADDER[d - UNITS_MIN_DIFFICULTY]!;
+		expect(
+			[3, 4, 5, 6, 7, 8, 9, 10].map((d) => asks.filter((a) => at(d)[a] !== undefined).join('+'))
+		).toEqual(['whole', 'whole', 'whole', 'whole', 'mixed', 'mixed', 'mixed+back', 'back+rest']);
+		// Within a skill (what is asked, of which pair), over the difficulties it is asked at.
+		const bad: string[] = [];
+		for (const ask of asks) {
+			for (const pair of UNIT_PAIRS) {
+				const name = `${pair.big}-${pair.small}`;
+				const rows: { d: number; skill: NonNullable<UnitsStep[typeof ask]>[number] }[] = [];
+				for (let d = UNITS_MIN_DIFFICULTY; d <= 10; d++) {
+					const skill = at(d)[ask]?.find((s) => s.pair === name);
+					if (skill) rows.push({ d, skill });
+				}
+				const span = rows.map((r) => r.d);
+				if (span.some((d, i) => i > 0 && d !== span[i - 1]! + 1))
+					bad.push(`${ask} ${name} skips a difficulty: ${span}`);
+				bad.push(...climbs(rows.map((r) => r.skill.big)).map((b) => `${ask} ${name} big ${b}`));
+				if (ask === 'mixed' || ask === 'rest')
+					bad.push(
+						...climbs(rows.map((r) => r.skill.small!)).map((b) => `${ask} ${name} small ${b}`)
+					);
+			}
+		}
+		expect(bad).toEqual([]);
+	});
+
 	it('clock: reading finer marks first, then time passing, longer and longer', () => {
 		const marks = CLOCK_LADDER.slice(0, 5).map((s) => s.minutes);
 		expect(marks).toEqual([60, 30, 15, 5, 1]);
@@ -266,6 +304,42 @@ describe('what each kind promises a kid', () => {
 			}
 		}
 		expect(bad.slice(0, 20)).toEqual([]);
+	});
+
+	it('units: every pair it names is one there is, and a small amount is fewer than a big unit holds', () => {
+		for (const step of UNITS_LADDER)
+			for (const skills of [step.whole, step.mixed, step.back, step.rest])
+				for (const skill of skills ?? []) {
+					expect(() => pairIndex(skill.pair), skill.pair).not.toThrow();
+					const per = UNIT_PAIRS[pairIndex(skill.pair)]!.per;
+					if (skill.small) {
+						expect(skill.small[0], skill.pair).toBeGreaterThanOrEqual(1);
+						expect(skill.small[1], skill.pair).toBeLessThan(per);
+					}
+				}
+	});
+
+	it('units: in the head, never on paper: a unit that is not 10, 100 or 1000 small ones is counted out at most 12 times', () => {
+		const bad: string[] = [];
+		for (let d = UNITS_MIN_DIFFICULTY; d <= 10; d++) {
+			for (const [how, pair, a, b, answer] of faces('units', d)) {
+				const per = UNIT_PAIRS[pair!]!.per;
+				// How many big units the kid counts out: the number shown, or the answer back.
+				const big = how === 0 || how === 1 ? a! : how === 2 ? answer! : b!;
+				if (![10, 100, 1000].includes(per) && big > 12) bad.push(`d${d}: ${[how, pair, a, b]}`);
+				if (answer! < 1) bad.push(`d${d}: ${[how, pair, a, b]} → ${answer}`);
+			}
+		}
+		expect(bad.slice(0, 20)).toEqual([]);
+	});
+
+	it('units: below difficulty 3 an attack that asks only units asks the easiest step', () => {
+		const rng = new Rng(9);
+		for (const d of [1, 2]) {
+			const p = generatePuzzle(rng, d, ['units']);
+			expect(p.difficulty).toBe(UNITS_MIN_DIFFICULTY);
+			expect(generatePuzzle(rng, d, ['thermometer', 'units']).kind).toBe('thermometer');
+		}
 	});
 
 	it('clock: the hand on its marks, the new mark at least half the time, and across the hour where it says', () => {

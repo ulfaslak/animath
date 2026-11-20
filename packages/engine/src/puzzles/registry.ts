@@ -9,6 +9,7 @@ import { fraction } from './generators/fraction.js';
 import { kroner } from './generators/kroner.js';
 import { shape } from './generators/shape.js';
 import { thermometer } from './generators/thermometer.js';
+import { units } from './generators/units.js';
 import {
 	ALL_PUZZLE_KINDS,
 	type AnswerForm,
@@ -34,7 +35,8 @@ const GENERATORS: Record<PuzzleKind, PuzzleGenerator> = {
 	shape,
 	barchart,
 	clock,
-	balance
+	balance,
+	units
 };
 
 export function getGenerator(kind: PuzzleKind): PuzzleGenerator {

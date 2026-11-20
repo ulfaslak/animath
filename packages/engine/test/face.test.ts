@@ -82,7 +82,11 @@ describe('a puzzle and its face', () => {
 				{ kind: 'barchart', numbers: [1, 2, 0, 2, 3, 8, 5, 3, 0, 0] },
 				'barchart(1, 2, 0, 2, 3, 8, 5, 3, 0, 0)'
 			],
-			[{ kind: 'clock', numbers: [1, 3, 15, 1, 20] }, 'clock(1, 3, 15, 1, 20)']
+			[{ kind: 'clock', numbers: [1, 3, 15, 1, 20] }, 'clock(1, 3, 15, 1, 20)'],
+			[{ kind: 'units', numbers: [0, 6, 3, 0] }, 'units(0, 6, 3, 0)'],
+			[{ kind: 'units', numbers: [1, 2, 1, 20] }, 'units(1, 2, 1, 20)'],
+			[{ kind: 'units', numbers: [2, 8, 3000, 0] }, 'units(2, 8, 3000, 0)'],
+			[{ kind: 'units', numbers: [3, 2, 130, 2] }, 'units(3, 2, 130, 2)']
 		];
 		for (const [face, prompt] of cases) {
 			expect(facePrompt(face)).toBe(prompt);
@@ -145,6 +149,17 @@ describe('a puzzle and its face', () => {
 			['fraction', 'fraction(2, 4, 8)'],
 			['fraction', 'fraction(1, 7, 14)'],
 			['thermometer', 'thermometer(1, 99, 99)'],
+			// No such pair, no such ask; "2 m 100 cm", "250 cm = ? m", "130 minutes = 3 hours and ? minutes".
+			['units', 'units(0, 10, 3, 0)'],
+			['units', 'units(4, 6, 3, 0)'],
+			['units', 'units(0, 6, 0, 0)'],
+			['units', 'units(0, 6, 3, 5)'],
+			['units', 'units(1, 6, 2, 100)'],
+			['units', 'units(1, 6, 2, 0)'],
+			['units', 'units(2, 6, 250, 0)'],
+			['units', 'units(3, 2, 130, 3)'],
+			['units', 'units(3, 2, 120, 2)'],
+			['units', 'units(0, -6, 3, 0)'],
 			['__proto__' as PuzzleFace['kind'], '1 + 1 = ?'],
 			['constructor' as PuzzleFace['kind'], '1 + 1 = ?']
 		];
@@ -196,7 +211,9 @@ describe('a puzzle and its face', () => {
 			{ kind: 'shape', numbers: [0, 40, 4, 0, 0, 0] },
 			{ kind: 'barchart', numbers: [0, 1, 0, 0, 3, 3, 5, 80, 0, 0] },
 			{ kind: 'clock', numbers: [0, 0, 15, 0, 0] },
-			{ kind: 'balance', numbers: [5, 1, 2, 3] }
+			{ kind: 'balance', numbers: [5, 1, 2, 3] },
+			{ kind: 'units', numbers: [1, 6, 2, 100] },
+			{ kind: 'units', numbers: [0, 6, 3] }
 		]) {
 			expect(readPuzzleFace(junk), JSON.stringify(junk)).toBeNull();
 		}
