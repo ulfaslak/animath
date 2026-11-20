@@ -189,6 +189,14 @@ describe('a puzzle and its face', () => {
 			['units', 'units(3, 2, 130, 3)'],
 			['units', 'units(3, 2, 120, 2)'],
 			['units', 'units(0, -6, 3, 0)'],
+			// More big units than any step asks: "13 m", "13 m 5 cm", "780 minutes = ? hours", "13 hours and 10".
+			['units', 'units(0, 6, 13, 0)'],
+			['units', 'units(1, 6, 13, 5)'],
+			['units', 'units(2, 2, 780, 0)'],
+			['units', 'units(3, 2, 790, 13)'],
+			// A number bigger than doubling's ladder shows.
+			['double', 'double(0, 1000)'],
+			['double', 'double(1, 1000)'],
 			['__proto__' as PuzzleFace['kind'], '1 + 1 = ?'],
 			['constructor' as PuzzleFace['kind'], '1 + 1 = ?']
 		];

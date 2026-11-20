@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { UNITS, UNIT_PAIRS, puzzleFace } from '../src/puzzles/face.js';
+import { MAX_BIG_UNITS, MAX_DOUBLED, UNITS, UNIT_PAIRS, puzzleFace } from '../src/puzzles/face.js';
 import { BALANCE_LADDER } from '../src/puzzles/generators/balance.js';
 import { BARCHART, BARCHART_LADDER } from '../src/puzzles/generators/barchart.js';
 import { CLOCK, CLOCK_LADDER } from '../src/puzzles/generators/clock.js';
@@ -92,6 +92,8 @@ describe('the ladders climb', () => {
 				rows.set(key, [...(rows.get(key) ?? []), f.shown]);
 			}
 		for (const [key, bands] of rows) expect(climbs(bands), key).toEqual([]);
+		// A face takes no number bigger than the ladder shows (`faceFits`).
+		expect(Math.max(...DOUBLE_LADDER.flat().map((f) => f.shown[1]))).toBe(MAX_DOUBLED);
 	});
 
 	it('thermometer: 0° and above to 4, across 0 from 5, how far from 0 and how much it changes never falling in each', () => {
@@ -422,6 +424,13 @@ describe('what each kind promises a kid', () => {
 						expect(skill.small[1], skill.pair).toBeLessThan(per);
 					}
 				}
+		// A face takes no more big units than the ladder asks (`faceFits`).
+		const most = UNITS_LADDER.flatMap((step) =>
+			[step.whole, step.mixed, step.back, step.rest].flatMap((skills) =>
+				(skills ?? []).map((skill) => skill.big[1])
+			)
+		);
+		expect(Math.max(...most)).toBe(MAX_BIG_UNITS);
 	});
 
 	it('units: in the head, never on paper: a unit that is not 10, 100 or 1000 small ones is counted out at most 12 times', () => {

@@ -98,6 +98,17 @@ const BAR_SCALES = [1, 2, 5, 10] as const;
 export const MAX_BARS = 5;
 export const MAX_BAR_LINES = 10;
 
+/**
+ * The most big units a `units` face holds, shown ("12 m 75 cm"), turned back
+ * ("84 days = ? weeks") or left over: the most any step of the ladder asks,
+ * which `puzzle-kinds.test.ts` pins. So no face is wider than the panel was
+ * measured with.
+ */
+export const MAX_BIG_UNITS = 12;
+
+/** The biggest number doubled or halved: the most any step of doubling's ladder shows (`puzzle-kinds.test.ts`). */
+export const MAX_DOUBLED = 999;
+
 /** The longest side of a shape drawn in squares, and of one with its lengths written on. */
 const MAX_GRID_SIDE = 10;
 const MAX_SHAPE_SIDE = 30;
@@ -106,7 +117,8 @@ const MAX_SHAPE_SIDE = 30;
  * What a `units` face's first number says: a whole number of big units in
  * small ones (`whole`), big and small units together in small ones
  * (`mixed`), small units in big ones (`back`), or small units as big ones
- * and what is left over (`rest`).
+ * and what is left over (`rest`). Never renumbered, and a new one bumps
+ * `PROTOCOL_VERSION`: a page of the version before cannot read its faces.
  */
 export const UNITS = { whole: 0, mixed: 1, back: 2, rest: 3 } as const;
 
@@ -140,7 +152,11 @@ export interface UnitPair {
 	quantity: 'time' | 'length' | 'weight' | 'volume';
 }
 
-/** The pairs a `units` face names, by its second number: never reordered, only added to. */
+/**
+ * The pairs a `units` face names, by its second number: never reordered,
+ * only added to, and each one added bumps `PROTOCOL_VERSION`, since a page
+ * of the version before cannot read a face that names it.
+ */
 export const UNIT_PAIRS: readonly UnitPair[] = [
 	{ big: 'week', small: 'day', per: 7, quantity: 'time' },
 	{ big: 'day', small: 'hour', per: 24, quantity: 'time' },
@@ -290,7 +306,7 @@ function faceFits(face: PuzzleFace): boolean {
 		}
 		case 'double': {
 			const [how, shown] = [at(0), at(1)];
-			if (shown < 1) return false;
+			if (shown < 1 || shown > MAX_DOUBLED) return false;
 			if (how === DOUBLE.double) return true;
 			return how === DOUBLE.half && shown % 2 === 0;
 		}
@@ -368,12 +384,13 @@ function faceFits(face: PuzzleFace): boolean {
 			const [how, pair, a, b] = [at(0), at(1), at(2), at(3)];
 			const per = UNIT_PAIRS[pair]?.per;
 			if (per === undefined || a < 1) return false;
-			if (how === UNITS.whole) return b === 0;
+			if (how === UNITS.whole) return b === 0 && a <= MAX_BIG_UNITS;
 			// The small units added are fewer than make a big one: "2 m 35 cm", never "2 m 135 cm".
-			if (how === UNITS.mixed) return b >= 1 && b < per;
-			if (how === UNITS.back) return b === 0 && a % per === 0;
+			if (how === UNITS.mixed) return b >= 1 && b < per && a <= MAX_BIG_UNITS;
+			if (how === UNITS.back) return b === 0 && a % per === 0 && a / per <= MAX_BIG_UNITS;
 			// What is left over is at least one small unit and fewer than a big one.
-			if (how === UNITS.rest) return b >= 1 && a - b * per >= 1 && a - b * per < per;
+			if (how === UNITS.rest)
+				return b >= 1 && b <= MAX_BIG_UNITS && a - b * per >= 1 && a - b * per < per;
 			return false;
 		}
 		default:
