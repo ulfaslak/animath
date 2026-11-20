@@ -276,6 +276,34 @@ describe('pause menu', () => {
 		}
 	});
 
+	it('offers a new password only on the account’s own browser, logged in, while the server can keep it', () => {
+		const accountRows = () =>
+			menuItems().filter(
+				(i) => i === 'makeAccount' || i === 'logIn' || i === 'newPassword' || i === 'logOut'
+			);
+		try {
+			account.name = 'Ida';
+			account.session = 'live';
+			expect(accountRows()).toEqual(['logOut']);
+			account.home = true;
+			expect(accountRows()).toEqual(['newPassword', 'logOut']);
+			expect(lineOf('newPassword')).toEqual(['newPassword', 'logOut']);
+			account.ready = false;
+			expect(accountRows()).toEqual(['logOut']);
+			account.ready = true;
+			account.session = 'ended';
+			expect(accountRows()).toEqual(['logIn', 'logOut']);
+			// A guest has no account to change.
+			account.name = null;
+			account.session = 'unknown';
+			expect(accountRows()).toEqual(['makeAccount', 'logIn']);
+		} finally {
+			account.name = null;
+			account.session = 'unknown';
+			account.home = false;
+		}
+	});
+
 	it("rows side by side (Worlds and Who's here, the account's, Keep playing and Start screen, My puzzles and the book): left and right step between them", () => {
 		const at = (item: MenuItem) => bundles(game.party).length + menuItems().indexOf(item);
 		const lines = MENU_LINES.map((line) => lineOf(line[0]!)).filter(

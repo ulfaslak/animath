@@ -39,12 +39,28 @@ export type LoginResult =
 	| { kind: 'logged-in'; name: string }
 	/** A wrong password, or a name with no account: the server does not say which. */
 	| { kind: 'wrong' }
+	/** A login by name alone, and this browser is not that account's own (or there is no such account). */
+	| { kind: 'not-home' }
 	| { kind: 'too-many'; retryAfter: number }
 	| { kind: 'refused' }
 	| { kind: 'offline' };
 
-/** Who the session cookie belongs to: an account's name, or `null` for nobody. */
-export type WhoResult = { kind: 'user'; name: string | null } | { kind: 'offline' };
+/** A new password picked on the account's own browser. */
+export type PasswordResult =
+	| { kind: 'changed' }
+	| { kind: 'bad-password'; reason: PasswordRefusal }
+	/** This browser is not the account's own. */
+	| { kind: 'not-home' }
+	| { kind: 'logged-out' }
+	| { kind: 'too-many'; retryAfter: number }
+	| { kind: 'refused' }
+	| { kind: 'offline' };
+
+/**
+ * Who the session cookie belongs to: an account's name, or `null` for nobody;
+ * `home`: this browser is that account's own (`home.ts` on the server).
+ */
+export type WhoResult = { kind: 'user'; name: string | null; home: boolean } | { kind: 'offline' };
 
 /** A welcome link that logs nobody in: used up, too old, or no link at all. */
 export type WelcomeGone = 'used' | 'expired' | 'unknown';
@@ -72,6 +88,7 @@ const ERRORS = {
 	badPassword: 'bad password',
 	taken: 'name taken',
 	wrong: 'wrong name or password',
+	notHome: 'not home',
 	tooMany: 'too many tries',
 	notLoggedIn: 'not logged in',
 	noSave: 'no save yet',
@@ -176,8 +193,21 @@ export async function register(
 }
 
 /** Log this browser in to the account `name`. */
-export async function login(name: string, password: string, base = '/api'): Promise<LoginResult> {
-	const res = await post(`${base}/account/login`, { name, password });
+export function login(name: string, password: string, base = '/api'): Promise<LoginResult> {
+	return logInWith({ name, password }, base);
+}
+
+/**
+ * Log this browser in to the account `name` by its name alone, which works
+ * only on the account's own browser (the server knows it by a cookie this
+ * page never sees).
+ */
+export function loginAtHome(name: string, base = '/api'): Promise<LoginResult> {
+	return logInWith({ name, home: true }, base);
+}
+
+async function logInWith(body: unknown, base: string): Promise<LoginResult> {
+	const res = await post(`${base}/account/login`, body);
 	if (!res) return { kind: 'offline' };
 	const error = errorOf(res.body);
 	if (res.status === 200) {
@@ -185,6 +215,7 @@ export async function login(name: string, password: string, base = '/api'): Prom
 		return kept === null ? { kind: 'offline' } : { kind: 'logged-in', name: kept };
 	}
 	if (res.status === 401 && error === ERRORS.wrong) return { kind: 'wrong' };
+	if (res.status === 401 && error === ERRORS.notHome) return { kind: 'not-home' };
 	if (res.status === 429 && error === ERRORS.tooMany) {
 		return { kind: 'too-many', retryAfter: retryAfter(res.body) };
 	}
@@ -281,9 +312,49 @@ export async function whoAmI(base = '/api', timeoutMs?: number): Promise<WhoResu
 		return { kind: 'offline' };
 	}
 	const user = field(res.body, 'user');
-	if (user === null) return { kind: 'user', name: null };
+	if (user === null) return { kind: 'user', name: null, home: false };
 	const name = userName(res.body);
-	return name === null ? { kind: 'offline' } : { kind: 'user', name };
+	return name === null
+		? { kind: 'offline' }
+		: { kind: 'user', name, home: field(user, 'home') === true };
+}
+
+/**
+ * The accounts whose own browser this is, by name (none for most browsers);
+ * null with no answer. Reads only: its answer sends no cookie.
+ */
+export async function homeAccounts(base = '/api', timeoutMs?: number): Promise<string[] | null> {
+	const res = await send(`${base}/account/home`, { cache: 'no-store' }, timeoutMs);
+	const names = res?.status === 200 ? field(res.body, 'names') : undefined;
+	return Array.isArray(names) && names.every((n) => typeof n === 'string') ? names : null;
+}
+
+/**
+ * A new password for `name`'s account, picked on its own browser, where the
+ * page is logged in to it. Every other browser logged in to it is logged out.
+ */
+export async function changePassword(
+	name: string,
+	password: string,
+	base = '/api'
+): Promise<PasswordResult> {
+	const res = await post(`${base}/account/password`, { password }, naming(name));
+	if (!res) return { kind: 'offline' };
+	const error = errorOf(res.body);
+	const reason = field(res.body, 'reason');
+	if (res.status === 200 && isStored(res.body)) return { kind: 'changed' };
+	if (res.status === 400 && error === ERRORS.badPassword && isPasswordRefusal(reason)) {
+		return { kind: 'bad-password', reason };
+	}
+	if (res.status === 403 && error === ERRORS.notHome) return { kind: 'not-home' };
+	if (res.status === 401 && error === ERRORS.notLoggedIn) return { kind: 'logged-out' };
+	if (res.status === 429 && error === ERRORS.tooMany) {
+		return { kind: 'too-many', retryAfter: retryAfter(res.body) };
+	}
+	if (res.status >= 400 && res.status < 500 && error !== undefined) {
+		return refused('a new password', res);
+	}
+	return { kind: 'offline' };
 }
 
 /** `name`'s account's save, for `Autosave` (`accountSaveServer`) and for logging in. */
@@ -321,8 +392,11 @@ export class SessionCheck {
 	constructor(
 		/** The account this page plays. */
 		readonly name: string,
-		/** Told each answer, `offline` included. */
-		private readonly heard: (answer: SessionAnswer) => void = () => {},
+		/**
+		 * Told each answer, `offline` included; `home`: on `live`, this browser
+		 * is the account's own.
+		 */
+		private readonly heard: (answer: SessionAnswer, home: boolean) => void = () => {},
 		private readonly base = '/api'
 	) {
 		this.key = nameKey(name);
@@ -338,7 +412,7 @@ export class SessionCheck {
 						: 'ended';
 			// No answer is asked again next time; a real one stands for the page.
 			if (answer === 'offline') this.answer = null;
-			this.heard(answer);
+			this.heard(answer, answer === 'live' && who.kind === 'user' && who.home);
 			return answer;
 		});
 		return this.answer;
