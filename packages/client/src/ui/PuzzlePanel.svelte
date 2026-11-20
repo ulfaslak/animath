@@ -110,7 +110,13 @@
 			</div>
 		{:else}
 			<div class="puzzle-prompt" class:long={sum.length > 11} class:worded={worded !== null}>
-				{sum}
+				{#if worded}
+					{@const [left, right] = worded.split(' = ')}
+					<!-- Each side in a box of its own, so a long sum breaks at its "=" first. -->
+					<span class="side">{left}</span> <span class="side">= {right}</span>
+				{:else}
+					{sum}
+				{/if}
 			</div>
 		{/if}
 		<div
@@ -345,12 +351,20 @@
 	.with-pad .puzzle-prompt.long {
 		font-size: clamp(32px, 4.5vh, 40px);
 	}
-	/* A sum in words ("2 hours and 35 minutes = ? minutes") is long: a size smaller, wrapped evenly. */
+	/*
+	 * A sum in words ("2 hours and 35 minutes = ? minutes") is long: a size
+	 * smaller. It breaks at its "=" first, and a side too wide for a line
+	 * breaks evenly between its words, never inside one.
+	 */
 	.puzzle-prompt.worded,
 	.with-pad .puzzle-prompt.worded {
 		font-size: clamp(28px, 5vh, 44px);
 		line-height: 1.2;
-		max-width: 16em;
+		max-width: 20em;
+		overflow-wrap: normal;
+	}
+	.puzzle-prompt.worded .side {
+		display: inline-block;
 		text-wrap: balance;
 	}
 	.answer {

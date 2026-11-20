@@ -114,7 +114,8 @@ function thermometerText(how: number, a: number, b: number): string {
  * "130 minutes = 2 hours and ? minutes". Time's units are words and join
  * with "and" ("1 hour and 20 minutes"); the others are signs and stand side
  * by side, as a ruler writes them ("2 m 35 cm"). A number and its unit stay
- * on one line. Null for a face of another kind.
+ * on one line, and so do "?" and the unit it asks for. Null for a face of
+ * another kind.
  */
 export function wordedSum(face: PuzzleFace): string | null {
 	if (face.kind !== 'units') return null;

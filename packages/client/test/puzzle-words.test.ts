@@ -49,8 +49,14 @@ describe('a measuring puzzle in words', () => {
 	});
 
 	it('keeps each number with its unit, and the question mark with the unit it asks for', () => {
-		const text = wordedSum({ kind: 'units', numbers: [UNITS.mixed, 2, 1, 20] })!;
-		expect(text).toBe('1 hour and 20 minutes = ? minutes');
+		const nbsp = (text: string) => text.replace(/_/g, '\u00a0');
+		expect(wordedSum({ kind: 'units', numbers: [UNITS.mixed, 2, 1, 20] })).toBe(
+			nbsp('1_hour and 20_minutes = ?_minutes')
+		);
+		language.set('da');
+		expect(wordedSum({ kind: 'units', numbers: [UNITS.rest, 2, 130, 2] })).toBe(
+			nbsp('130_minutter = 2_timer og ?_minutter')
+		);
 	});
 
 	it('words every measuring puzzle the game asks, and nothing of another kind', () => {

@@ -1394,9 +1394,9 @@
 	 * Without the pad the sum is as big as the screen's height allows, and no
 	 * bigger than the card's width does: on a screen held upright with a
 	 * keyboard (768×1024) its 64 px broke a sum over three lines in half the
-	 * card.
+	 * card. A sum in words (units) keeps the size it has in a battle.
 	 */
-	.puzzle :global(.puzzle-panel:not(.with-pad) .puzzle-prompt) {
+	.puzzle :global(.puzzle-panel:not(.with-pad) .puzzle-prompt:not(.worded)) {
 		/* Safari before 16 knows no container units, and keeps the screen's height alone. */
 		font-size: clamp(40px, 7vh, 64px);
 		font-size: clamp(40px, min(7vh, 12cqi), 64px);
@@ -1455,12 +1455,17 @@
 		display: none;
 	}
 	/* `least`: the sum, the answer and the confirm's question at their smallest. */
-	.puzzle:global([data-fit~='least']) :global(.puzzle-panel:not(.with-pad) .puzzle-prompt) {
+	.puzzle:global([data-fit~='least'])
+		:global(.puzzle-panel:not(.with-pad) .puzzle-prompt:not(.worded)) {
 		font-size: 40px;
 	}
-	.puzzle:global([data-fit~='least']) :global(.with-pad .puzzle-prompt),
+	.puzzle:global([data-fit~='least']) :global(.with-pad .puzzle-prompt:not(.worded)),
 	.puzzle:global([data-fit~='least']) :global(.answer) {
 		font-size: 32px;
+	}
+	/* A sum in words (units) keeps the battle's size, smaller than a sum of numbers, with the pad or without: its least, 28 px. */
+	.puzzle:global([data-fit~='least']) :global(.puzzle-prompt.worded) {
+		font-size: 28px;
 	}
 	.puzzle:global([data-fit~='least']) .question {
 		font-size: 17px;
