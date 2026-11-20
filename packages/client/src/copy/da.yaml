@@ -2233,8 +2233,8 @@ puzzles:
   solved:
     one: '{count} løst i alt'
     other: '{count} løst i alt'
-  help: Hver opgave, du svarer på, bliver talt her, slags for slags.
-  row: '{right} rigtige af {tried}'
-  never: Ikke prøvet endnu
-  caption: Hver bjælke er de opgaver, du har prøvet. Den grønne del er dem, du fik rigtige.
+  help: Hver opgave, du løser, bliver talt her, slags for slags.
+  row: '{right} løst'
+  never: Ikke løst endnu
+  caption: Jo længere bjælken er, jo flere af den slags har du løst.
   keys: ↑ ↓ flyt · Esc tilbage

@@ -128,7 +128,7 @@
 	const bookLit = $derived(items[pause.cursor - cards.length] === 'book');
 	/** The cursor is on "My puzzles"' row: the right side says what the page is. */
 	const puzzlesLit = $derived(items[pause.cursor - cards.length] === 'puzzles');
-	/** "My puzzles"' rows: every topic, the most tried first (`statRows`). */
+	/** "My puzzles"' rows: every topic, the most solved first (`statRows`). */
 	const stats = $derived(statRows(game.puzzles));
 
 	/** The animal book: what the kid has seen, caught and set free, and the kinds on their team now. */
@@ -562,7 +562,7 @@
 			</div>
 			<div class="book-caption">{bookCaption}</div>
 		{:else if pause.screen === 'puzzles'}
-			<!-- "My puzzles", in the menu's place: a row per topic, the most tried first, in a list that scrolls. -->
+			<!-- "My puzzles", in the menu's place: a row per topic, the most solved first, in a list that scrolls. -->
 			<PuzzleStats rows={stats} lit={pause.option} press={optionKey} />
 			<div class="book-caption">{t('puzzles.caption')}</div>
 		{:else}

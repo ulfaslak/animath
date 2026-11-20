@@ -1,27 +1,29 @@
 <script lang="ts" module>
 	import { ALL_PUZZLE_TOPICS, type PuzzleRecord, type PuzzleTopic } from '@mathgame/engine';
 
-	/** One topic on the page: how many were tried and right, from the record. */
+	/**
+	 * One topic on the page: how many the kid solved, from the record. Only
+	 * that: how many were tried, and so how many were missed, stays in the
+	 * record for the game's makers and never reaches the page.
+	 */
 	export interface StatRow {
 		topic: PuzzleTopic;
-		tried: number;
 		right: number;
 	}
 
 	/**
-	 * The page's rows: every topic there is, the ones tried first, most tried
-	 * first (in the topics' own order when two were tried as often), then the
-	 * ones never tried, in the topics' order. A topic a newer build has, which
+	 * The page's rows: every topic there is, the ones solved first, most solved
+	 * first (in the topics' own order when two were solved as often), then the
+	 * ones never solved, in the topics' order. A topic a newer build has, which
 	 * this one cannot name, is not shown.
 	 */
 	export function statRows(record: PuzzleRecord): StatRow[] {
 		const rows = ALL_PUZZLE_TOPICS.map((topic) => ({
 			topic,
-			tried: record[topic]?.tried ?? 0,
 			right: record[topic]?.right ?? 0
 		}));
 		// A stable sort: equal counts keep the topics' order.
-		return rows.sort((a, b) => b.tried - a.tried);
+		return rows.sort((a, b) => b.right - a.right);
 	}
 </script>
 
@@ -33,12 +35,12 @@
 
 	/**
 	 * "My puzzles", in the pause menu's place: one row per topic, its chip
-	 * (the battle's `TopicChips`), its word, a bar and the counts ("4
-	 * right of 9"). Every bar is measured against the most-tried topic, so a
-	 * kind tried far more than another has a far longer bar: the bar is how
-	 * many were tried, its green part how many were right. Topics never tried
-	 * have no bar, and say so. It only shows the record (`game.puzzles`, the
-	 * authority's): nothing on it says what a topic is worth in a battle.
+	 * (the battle's `TopicChips`), its word, a bar and how many were solved
+	 * ("212 solved"). Every bar is measured against the most-solved topic, so a
+	 * kind solved far more than another has a far longer bar. Topics never
+	 * solved have no bar, and say so. It shows only the right answers of the
+	 * record (`game.puzzles`, the authority's): never how many were tried or
+	 * missed, and nothing on it says what a topic is worth in a battle.
 	 * `lit` is the row the arrows are on, kept in view; a tap lights a row
 	 * (`press`).
 	 */
@@ -48,7 +50,7 @@
 		press
 	}: { rows: readonly StatRow[]; lit: number; press: (i: number) => string } = $props();
 
-	const most = $derived(Math.max(1, ...rows.map((r) => r.tried)));
+	const most = $derived(Math.max(1, ...rows.map((r) => r.right)));
 </script>
 
 <div class="stats">
@@ -56,7 +58,7 @@
 		<button
 			type="button"
 			class="stat"
-			class:none={row.tried === 0}
+			class:none={row.right === 0}
 			class:lit={lit === i}
 			data-press={press(i)}
 			{@attach unfocusable}
@@ -66,13 +68,11 @@
 		>
 			<TopicChips topics={[row.topic]} />
 			<span class="word">{kindWord(row.topic)}</span>
-			{#if row.tried > 0}
+			{#if row.right > 0}
 				<span class="bar" aria-hidden="true">
-					<span class="tried" style:width="{(100 * row.tried) / most}%">
-						<span class="right" style:width="{(100 * row.right) / row.tried}%"></span>
-					</span>
+					<span class="right" style:width="{(100 * row.right) / most}%"></span>
 				</span>
-				<span class="count">{t('puzzles.row', { right: row.right, tried: row.tried })}</span>
+				<span class="count">{t('puzzles.row', { right: row.right })}</span>
 			{:else}
 				<span class="bar empty" aria-hidden="true"></span>
 				<span class="count">{t('puzzles.never')}</span>
@@ -113,7 +113,7 @@
 	.stat.lit {
 		outline-color: var(--accent);
 	}
-	/* Never tried: its contents fade, never the ring that says it is lit. */
+	/* Never solved: its contents fade, never the ring that says it is lit. */
 	.stat.none > :global(*) {
 		opacity: 0.5;
 	}
@@ -131,18 +131,12 @@
 	.bar.empty {
 		background: none;
 	}
-	/* How many were tried: a warm bar, its right answers green inside it from the left. */
-	.tried {
+	/* How many were solved: a green bar from the left. */
+	.right {
 		display: block;
 		height: 100%;
 		min-width: 6px;
 		border-radius: 9px;
-		background: var(--warn);
-		overflow: hidden;
-	}
-	.right {
-		display: block;
-		height: 100%;
 		background: var(--good);
 	}
 	.count {
