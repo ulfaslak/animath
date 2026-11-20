@@ -16,6 +16,7 @@ import {
 	type GameEvent
 } from '@mathgame/engine';
 import { sfx } from '../audio/sfx.svelte';
+import { bringsHint } from '../hint';
 import { answerKey } from '../input/answer';
 import { isShortcut, keyName } from '../input/keyboard';
 import { isMashKey, PickGuard } from '../input/pick-guard';
@@ -219,6 +220,7 @@ export class DoctorController {
 	private settle(): void {
 		const state = this.latest;
 		if (!state) return;
+		const asked = doctor.puzzle;
 		doctor.party = state.party.map((a) => ({ ...a }));
 		doctor.tokens = state.tokens;
 		doctor.items = [...state.items];
@@ -312,6 +314,14 @@ export class DoctorController {
 				// `doctor-visit-ended` follows at once and closes the card.
 				break;
 		}
+		// The hint stays up while the same sum does (a token sum asked again after a miss: the
+		// hint is the sum's own); any other puzzle, or none, starts without it.
+		const same =
+			doctor.puzzle !== null &&
+			asked !== null &&
+			doctor.puzzle.kind === asked.kind &&
+			doctor.puzzle.prompt === asked.prompt;
+		if (!same) doctor.hinted = false;
 	}
 
 	private close(): void {
@@ -659,6 +669,10 @@ export class DoctorController {
 			doctor.puzzle ? answerForm(doctor.puzzle.kind) : 'number'
 		);
 		doctor.input = typed.input;
+		if (bringsHint(typed, doctor.puzzle, doctor.hinted)) {
+			doctor.hinted = true;
+			sfx.play('hint');
+		}
 		if (typed.submit) this.send({ type: 'answer', input: typed.input });
 		return typed.handled;
 	}

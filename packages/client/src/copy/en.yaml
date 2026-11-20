@@ -42,6 +42,8 @@ keys:
   enter: Enter
   # The key that challenges the player beside you (match.button).
   challenge: C
+  # The key that shows a puzzle's hint (puzzle.hint).
+  hint: H
 
 # Every species by its engine id: its forms, and its attacks by id.
 species:
@@ -1288,6 +1290,8 @@ puzzle:
   keysTimeTouch: Tap the time, hours then minutes, then OK
   # What a screen reader calls the number pad's colon key, on a clock's puzzle.
   colon: Colon
+  # The wand button under a puzzle that shows its hint: the same sum in easier parts.
+  hint: Hint
   # The question of a puzzle with a picture (the Arctic's kinds). Numbers are
   # filled in from the puzzle; {fraction} is a fraction drawn stacked, and
   # {who} and {other} are the shapes under a bar chart's bars, drawn in the line.

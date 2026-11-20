@@ -168,19 +168,36 @@ describe('puzzleHint', () => {
 			['mul', (a, b) => a * b],
 			['div', (a, b) => (b > 0 && a % b === 0 ? a / b : null)]
 		];
+		const check = (kind: PuzzleKind, a: number, b: number, answer: number | null) => {
+			if (answer === null) return;
+			const face: PuzzleFace = { kind, numbers: [a, b] };
+			const hint = puzzleHint(face);
+			const why = hint && wrong(face, answer, hint);
+			if (why) bad.push(`${facePrompt(face)}: ${why}`);
+		};
+		// Every pair of small numbers, where each rule has its edges (10, 20, a 0 in a place).
 		for (const [kind, solve] of kinds) {
 			const top = kind === 'mul' || kind === 'div' ? 60 : 130;
 			for (let a = 0; a <= top; a++) {
-				for (let b = 0; b <= top; b++) {
-					const answer = solve(a, b);
-					if (answer === null) continue;
-					const face: PuzzleFace = { kind, numbers: [a, b] };
-					const hint = puzzleHint(face);
-					const why = hint && wrong(face, answer, hint);
-					if (why) bad.push(`${facePrompt(face)}: ${why}`);
-				}
+				for (let b = 0; b <= top; b++) check(kind, a, b, solve(a, b));
 			}
 		}
+		// Token sums run to five digits (a hand-over of 999 bears brings 29,970), and their
+		// thousands stay together: round numbers among them, as a price or a balance can be.
+		const rng = new Rng(17);
+		const big = () => (rng.int(0, 3) === 0 ? rng.int(1, 99) * 1000 : rng.int(1000, 99_999));
+		for (let i = 0; i < 4000; i++) {
+			const [a, b] = [big(), rng.int(0, 1) === 0 ? big() : rng.int(1, 999)];
+			check('add', a, b, a + b);
+			check('sub', Math.max(a, b), Math.min(a, b), Math.max(a, b) - Math.min(a, b));
+		}
 		expect(bad.slice(0, 20)).toEqual([]);
+	});
+
+	it('keeps the thousands together, so a token sum is a few parts long', () => {
+		// The druid's longest sum: 12640 + 29970 is the thousands, the hundreds and the tens.
+		const hint = puzzleHint({ kind: 'add', numbers: [12640, 29970] });
+		const pills = hint?.form === 'equation' ? hint.tokens.filter((t) => t === '(').length : 0;
+		expect(pills).toBe(3);
 	});
 });

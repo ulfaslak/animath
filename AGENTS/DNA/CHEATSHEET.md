@@ -71,6 +71,7 @@ Everything a player can do in **today's build**, and how: every key, every hidde
 | 0–9, `:` or `.`       | Clock puzzle | Type the time: at most two digits of hours, `:` or `.` for the colon (once, after one or two digits), then two of minutes; four digits in all without a colon. A minus does nothing. |
 | Backspace             | Puzzle (battle or druid) | Delete the last character.                                                                            |
 | Enter                 | Puzzle (battle or druid) | Answer. Nothing happens until you have typed at least one digit; on a clock, until the time is whole (3:15 or 315, never 3:5). |
+| H                     | Puzzle (battle, friendly match or druid) | Show the puzzle's hint (§ Hints). The same as the Hint button; it types nothing, and a second H does nothing. Only on a puzzle that has a hint. |
 | Enter / Space         | Result card | Back to exploring (quiet moment); the button is dimmed until then. |
 | Battle keys           | Friendly match | As in a battle, with Switch and Leave after the attacks (Leave, then Go!, leaves: the other player wins); on the switch list Left and Right do nothing. Any key on your turn tells the game you are there. |
 | Escape                | Friendly match | "Leave the match?", on your turn's menu and while they think (their turn card's Leave the match is Escape too). Every other key waits while they think. On the switch list it is still Back. |
@@ -101,6 +102,7 @@ Everything below is a click with a mouse or a tap with a finger, and each is the
 | An animal                  | Battle switch list           | Highlights it.                                                                                   |
 | Back                       | Battle switch list           | Escape: back to the menu, on Switch. Not there after a knock-out.                                |
 | Number pad                 | Battle or druid puzzle, touch | The keys: 1–9, 0, − (only as the first character), ⌫ deletes, OK answers (only once a digit is typed; on a clock, a whole time). On a clock the colon key takes the minus key's place. Each key counts as the finger lands. |
+| Hint (with the wand)       | Battle, friendly match or druid puzzle | H: the puzzle's hint comes up and the button goes (§ Hints). Not there on a puzzle with no hint, nor once you answered. |
 | Anywhere                   | Result card                  | Enter (quiet moment; the button is dimmed until then). |
 | "Challenge Bo"             | Explore, beside another player | C: ask them for a friendly match. Greyed (with why under it): nothing.                       |
 | Yes! / No, thanks; Never mind | A friendly match's card   | Enter (Yes!, quiet moment) / Escape. |
@@ -333,6 +335,13 @@ Who comes out depends on who leads your party (§ Your party). With a rabbit in 
 - **It shows only while you explore.** In a battle or at the druid the corner is hidden; the count is already higher when you come back out.
 - **One sum, one puzzle.** Setting a whole group of animals free is one sum, so it counts one, however many go.
 
+## Hints
+
+- **Hint, or H, on any puzzle that can be broken down** (battle, friendly match, the druid): the button with the wand beside Back. The hint comes up in blue under the sum and stays until you answer or put the puzzle away; the next puzzle, even after a miss, starts without it, but a token sum the druid asks again ("Try again") keeps it. Free, every time, and it changes nothing: the hit, the catch and the count are as without it.
+- **What you get** ([[PRODUCT]] §4 "Puzzles", "Hints"): 8 + 7 → ? = 8 + 2 + 5; 83 + 132 → ? = 100 + (80 + 30) + (3 + 2); 52 − 7 → ? = 52 − 2 − 5; 8 × 13 → ? = (8 × 10) + (8 × 3); 56 ÷ 7 → 7 × ? = 56; 7 + ? = 12 → ? = 12 − 7; a pattern's jumps written over its numbers; dots to count on a sum to 10.
+- **No hint, no button**: bar charts, clocks, and sums with nothing easier in them (10 + 7, 20 − 10).
+- **The other player's puzzle** in a friendly match never shows one, and they never see yours.
+
 ## Your party
 
 The cards in the top-left corner are your party, one card per kind, in battle order. You start with the animal you picked on the title, at full HP (a Squirrel 20 of 20, a Rabbit 22 of 22, a Frog 21 of 21), named or not; a throwaway game (`?new`) starts with a Squirrel. Every animal you catch joins your party, with the HP it had when the leash landed, however many you have: behind the others of its kind, or on a new card at the bottom when it is the first of its kind. A card of one animal shows its name and HP; a card of several is a stack, "Rabbit ×4", with how many are ready, how many are tired soon (a fifth of their HP or less left, their bar red) and how many are tired ("2 ready · 1 tired soon · 1 tired", or "All ready", "All tired soon", "All tired"), and a slim bar of all their HP together. The pause menu's rows say the same. A stack opens to a pointer or a tap (§ Touch and mouse); walking closes it. An animal at 0 HP is greyed out with a "tired" tag and sits out battles, and a card whose animals are all tired is greyed too. Healing and setting free: § The druid; a lost battle heals nobody, unless no tent is near (§ Battles). Reloading changes nothing: the party comes back exactly as it was, in the same order, with the same names and the same animal first.
@@ -393,7 +402,7 @@ To meet smaller animals more often, put a smaller animal in front. A lost battle
 - **Two keys held: the newest wins.** Hold Right, then press Up as well, and you walk up. Let go of Up and you walk right again. There is no diagonal movement.
 - **Walking into something turns you to face it** without moving you.
 - **Switching windows stops you.** If you tab away with a key held, or the page is hidden, you stop walking and any queued taps are dropped. So does pressing Ctrl, Cmd or Alt mid-walk; press the arrow again to walk on. A finger on the D-pad lets go the same way: its arrow goes out, and a finger still resting there when you come back walks nothing until lifted and pressed again.
-- **`?puzzle=clock&d=5`: the puzzle preview**. A page of its own, no game behind it: a puzzle of any kind at any difficulty in a card the battle panel's size, the Arctic's kinds (`thermometer`, `kroner`, `fraction`, `shape`, `barchart`, `clock`, `balance`) above all. Type and Enter to answer; Enter or Space again for the next; ← → the difficulty, ↑ ↓ the kind, Escape another puzzle (the arrows on top do the same with a finger). The address follows, so a reload keeps the kind and the difficulty. `?lang=da` and the touch controls work there too.
+- **`?puzzle=clock&d=5`: the puzzle preview**. A page of its own, no game behind it: a puzzle of any kind at any difficulty in a card the battle panel's size, the Arctic's kinds (`thermometer`, `kroner`, `fraction`, `shape`, `barchart`, `clock`, `balance`) above all. Type and Enter to answer; Enter or Space again for the next; ← → the difficulty, ↑ ↓ the kind, Escape another puzzle (the arrows on top do the same with a finger); H, or a tap on Hint, the puzzle's hint. With the touch controls on a phone held sideways the puzzle has the whole card beside the pad, as in a battle. The address follows, so a reload keeps the kind and the difficulty. `?lang=da` and the touch controls work there too.
 - **A clock takes either reading**: for a quarter past three, 3:15, 15:15, 3.15 and 315 are all right.
 - **Letting go always stops you.** A key let go with Shift held down stops the walk too.
 - **Keys don't leak between walking and battling.** An arrow still held down when a battle starts does nothing in the battle until you press it again, and keys pressed in a battle never become steps.

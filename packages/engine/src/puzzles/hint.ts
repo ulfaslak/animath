@@ -79,13 +79,15 @@ function same(tokens: HintToken[]): PuzzleHint {
 
 /**
  * A whole number's places that are not 0, the biggest first, each as much as
- * it is worth: 4507 is 4000, 500 and 7.
+ * it is worth: 4507 is 4000, 500 and 7. The thousands stay together, as the
+ * number is read: 12640 is twelve thousand (12000), 600 and 40, so the
+ * druid's biggest token sums stay a few parts long.
  */
 function places(n: number): number[] {
 	const digits = String(n);
-	return [...digits]
-		.map((d, i) => Number(d) * 10 ** (digits.length - 1 - i))
-		.filter((part) => part > 0);
+	const parts = [...digits].map((d, i) => Number(d) * 10 ** (digits.length - 1 - i));
+	const thousands = parts.filter((p) => p >= 1000).reduce((sum, p) => sum + p, 0);
+	return [thousands, ...parts.filter((p) => p < 1000)].filter((part) => part > 0);
 }
 
 /** The parts joined with a sign, each part of more than one number in a pill. */
@@ -123,9 +125,9 @@ function addHint(a: number, b: number): PuzzleHint | null {
 	return same(joined(parts, '+'));
 }
 
-/** The place a part sits in: 1, 10, 100… */
+/** The place a part sits in: 1, 10, 100, or the thousands (`places`). */
 function unitOf(part: number): number {
-	return 10 ** (String(part).length - 1);
+	return part >= 1000 ? 1000 : 10 ** (String(part).length - 1);
 }
 
 /**
@@ -188,7 +190,8 @@ function mulHint(a: number, b: number): PuzzleHint | null {
 	if (small < 10 && big >= 20) {
 		const tens = unitOf(big);
 		const digit = big / tens;
-		return same(['(', ...(a === big ? [digit, '×', b] : [a, '×', digit]), ')', '×', tens]);
+		const table: HintToken[] = a === big ? [digit, '×', b] : [a, '×', digit];
+		return same(['(', ...table, ')', '×', tens]);
 	}
 	return null;
 }

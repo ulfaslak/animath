@@ -329,3 +329,16 @@ To become `[learned]`: a line in [[DEVELOPMENT]] (or CLAUDE.md § Regardless of 
 - **"Whoever is in front" and "exactly" survived the edit that made them false.** The PR made the escape puzzle depend on the animal in front after a wrong try, and added that sentence to PRODUCT §4, INVARIANTS, CHEATSHEET and `escapePuzzle`'s doc comment, but each still opened with "the same puzzle whoever is in front" or "a wrong answer counts exactly as a missed attack". Same category as 2026-10-31's second item, inside the very paragraph edited this time. Found by the adversarial review. When a change adds an exception, grep the touched paragraphs for the absolutes it breaks ("whoever", "always", "exactly", "never", "the same").
 
 To become `[learned]`: the same line as 2026-10-31's, extended to absolutes in an edited paragraph.
+
+### 2026-11-20 — puzzle hints (feat/puzzle-hints) — a new piece in a fitted card, not taught to the card's fit steps or to its measuring script `[not codified]`
+
+- **The hint overflowed the druid's card.** `PuzzlePanel` gained a hint line, and the battle panel and a phone held sideways had room for it, but the druid's card is fitted by `fit` (`SIDE_STEPS`), whose steps shrink only the pieces they name. The biggest token sum's hint (12640 + 29970, five places each) left the card at 18 sizes: Back was cut and the answer box fell off the bottom. Found only once `scripts/doctor-fit.mjs` was taught a hinted state (`hinted()`) and the Hint button (`.hint-button`), which it did not measure either. Fixed with `--hint-size` in the `small` and `least` steps, a last `hinted` step that drops the story, the thousands kept together in a hint, and the button's key cap in `bare`.
+- **The Hint button pushed two crowded states over the edge** (667×375, Danish, keys: Back and Hint missed sharing a row by a few pixels). The full `doctor-fit.mjs` run found it; the hinted cases alone did not, since the button is gone once the hint is up.
+
+To become `[learned]`: a line in [[DEVELOPMENT]] that a new piece in `PuzzlePanel` or `DoctorCard` adds its states and its selector to `scripts/doctor-fit.mjs` and runs it whole, not only the new cases.
+
+### 2026-11-20 — puzzle hints (feat/puzzle-hints) — screen state cleared on every settle, where the same puzzle comes back `[not codified]`
+
+- **A token sum asked again lost its hint.** The druid's `settle()` clears what a puzzle showed after every beat, and the hint went with the typed answer. But a wrong token sum asks the very same sum again ("Try again"), so the kid who used the hint and still missed lost it just then. Now the hint stays while the kind and prompt on screen stay the same.
+
+To become `[learned]`: a line in CLAUDE.md § Duplicated rosters that a per-puzzle flag is checked against each way a puzzle comes back (a new puzzle after a miss, the same one after a miss, a swap, Escape and back).
