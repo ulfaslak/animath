@@ -1002,7 +1002,7 @@ describe('replay', () => {
 			first: 'b',
 			intents: 42,
 			puzzles: 18,
-			firstPuzzles: ['90 ÷ 6 = ?', '18 − 9 = ?', '8 × 6 = ?'],
+			firstPuzzles: ['90 ÷ 6 = ?', '18 − 9 = ?', 'numberline(700, 10, 10, 5, 4, 0)'],
 			end: { kind: 'ended', winner: 'a', reason: 'all-tired' },
 			turn: 20
 		});

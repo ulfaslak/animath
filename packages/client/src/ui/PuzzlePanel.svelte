@@ -40,7 +40,7 @@
 	 * thinking…") where the key reminder would be, and no number pad, since
 	 * nothing here is typed (what they type stays on their screen).
 	 *
-	 * A puzzle with a picture (the Arctic's kinds, #191) is drawn from its
+	 * A puzzle with a picture (the Arctic's kinds, #191, a number line) is drawn from its
 	 * face: the picture on the left, filling the card's height, and its
 	 * question in words beside it, picked here in the language on screen
 	 * (`puzzle-words.ts`), over the answer. A puzzle with words and no

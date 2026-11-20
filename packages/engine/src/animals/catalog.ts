@@ -32,7 +32,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		realms: ['land'],
 		favours: 'open',
 		attacks: [
-			{ id: 'hop', kinds: ['add'], power: 4 },
+			{ id: 'hop', kinds: ['add', 'numberline'], power: 4 },
 			{ id: 'thump', kinds: ['sub', 'missing'], power: 6 },
 			{ id: 'burrow-bite', kinds: ['sequence'], power: 8 }
 		]
@@ -64,7 +64,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'trees',
 		attacks: [
 			{ id: 'nip', kinds: ['sub', 'missing'], power: 6 },
-			{ id: 'pounce', kinds: ['double', 'mul'], power: 9 },
+			{ id: 'pounce', kinds: ['double', 'mul', 'numberline'], power: 9 },
 			{ id: 'trick', kinds: ['sequence'], power: 12 }
 		]
 	},
@@ -92,7 +92,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		carries: true,
 		attacks: [
 			{ id: 'kick', kinds: ['mul'], power: 8 },
-			{ id: 'antler-charge', kinds: ['div', 'mul'], power: 12 }
+			{ id: 'antler-charge', kinds: ['div', 'mul', 'numberline'], power: 12 }
 		]
 	},
 	{
@@ -158,7 +158,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		attacks: [
 			{ id: 'scamper', kinds: ['add'], power: 4 },
 			{ id: 'seed-stash', kinds: ['add', 'missing'], power: 6 },
-			{ id: 'long-jump', kinds: ['sequence'], power: 8 }
+			{ id: 'long-jump', kinds: ['sequence', 'numberline'], power: 8 }
 		]
 	},
 	{
@@ -171,7 +171,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'water',
 		attacks: [
 			{ id: 'gnaw', kinds: ['sub'], power: 4 },
-			{ id: 'rat-race', kinds: ['add', 'sub'], power: 6 },
+			{ id: 'rat-race', kinds: ['add', 'sub', 'numberline'], power: 6 },
 			{ id: 'tail-swish', kinds: ['sequence', 'missing'], power: 8 }
 		]
 	},
@@ -211,7 +211,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		realms: ['land'],
 		favours: 'rocks',
 		attacks: [
-			{ id: 'sun-dash', kinds: ['add'], power: 4 },
+			{ id: 'sun-dash', kinds: ['add', 'numberline'], power: 4 },
 			{ id: 'tail-trick', kinds: ['sequence'], power: 6 },
 			{ id: 'quick-snap', kinds: ['add', 'sub'], power: 8 }
 		]
@@ -227,7 +227,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		attacks: [
 			{ id: 'puff-up', kinds: ['sequence'], power: 4 },
 			{ id: 'sticky-tongue', kinds: ['add', 'double', 'mul'], power: 5 },
-			{ id: 'big-hop', kinds: ['double', 'mul', 'sequence'], power: 7 }
+			{ id: 'big-hop', kinds: ['double', 'mul', 'sequence', 'numberline'], power: 7 }
 		]
 	},
 	{
@@ -267,7 +267,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'trees',
 		attacks: [
 			{ id: 'bark', kinds: ['add', 'sub'], power: 6 },
-			{ id: 'spring', kinds: ['double', 'mul'], power: 9 },
+			{ id: 'spring', kinds: ['double', 'mul', 'numberline'], power: 9 },
 			{ id: 'white-flash', kinds: ['sequence', 'missing'], power: 11 }
 		]
 	},
@@ -294,7 +294,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		realms: ['land'],
 		favours: 'trees',
 		attacks: [
-			{ id: 'tree-leap', kinds: ['add', 'sub'], power: 6 },
+			{ id: 'tree-leap', kinds: ['add', 'sub', 'numberline'], power: 6 },
 			{ id: 'quick-paws', kinds: ['double', 'mul'], power: 9 },
 			{ id: 'marten-bite', kinds: ['sequence'], power: 12 }
 		]
@@ -308,7 +308,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		realms: ['land'],
 		favours: 'rocks',
 		attacks: [
-			{ id: 'stoat-dance', kinds: ['sequence'], power: 7 },
+			{ id: 'stoat-dance', kinds: ['sequence', 'numberline'], power: 7 },
 			{ id: 'quick-bite', kinds: ['double', 'mul', 'missing'], power: 10 }
 		]
 	},
@@ -322,7 +322,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'rocks',
 		attacks: [
 			{ id: 'hiss', kinds: ['sub', 'missing'], power: 6 },
-			{ id: 'zigzag', kinds: ['sequence'], power: 8 },
+			{ id: 'zigzag', kinds: ['sequence', 'numberline'], power: 8 },
 			{ id: 'strike', kinds: ['double', 'mul'], power: 11 }
 		]
 	},
@@ -440,7 +440,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		realms: ['land', 'air'],
 		favours: 'rocks',
 		attacks: [
-			{ id: 'orange-eyes', kinds: ['sequence', 'mul'], power: 9 },
+			{ id: 'orange-eyes', kinds: ['sequence', 'mul', 'numberline'], power: 9 },
 			{ id: 'night-strike', kinds: ['div', 'sqrt'], power: 13 }
 		]
 	},
@@ -562,7 +562,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		attacks: [
 			{ id: 'pinch', kinds: ['add'], power: 4 },
 			{ id: 'claw-clap', kinds: ['add', 'sub'], power: 6 },
-			{ id: 'crab-walk', kinds: ['sequence'], power: 8 }
+			{ id: 'crab-walk', kinds: ['sequence', 'numberline'], power: 8 }
 		]
 	},
 	{
@@ -601,7 +601,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		realms: ['water'],
 		favours: 'water',
 		attacks: [
-			{ id: 'click', kinds: ['sequence', 'add'], power: 8 },
+			{ id: 'click', kinds: ['sequence', 'add', 'numberline'], power: 8 },
 			{ id: 'leap', kinds: ['div', 'mul'], power: 12 }
 		]
 	},
@@ -644,7 +644,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		realms: ['water'],
 		favours: 'water',
 		attacks: [
-			{ id: 'drift', kinds: ['add'], power: 4 },
+			{ id: 'drift', kinds: ['add', 'numberline'], power: 4 },
 			{ id: 'pulse', kinds: ['sequence'], power: 6 },
 			{ id: 'wobble', kinds: ['add', 'sub'], power: 8 }
 		]
@@ -672,7 +672,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		realms: ['water'],
 		favours: 'water',
 		attacks: [
-			{ id: 'long-strands', kinds: ['sub', 'missing'], power: 6 },
+			{ id: 'long-strands', kinds: ['sub', 'missing', 'numberline'], power: 6 },
 			{ id: 'sting', kinds: ['sequence'], power: 8 },
 			{ id: 'fire-mane', kinds: ['double', 'mul'], power: 11 }
 		]
@@ -688,7 +688,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		attacks: [
 			{ id: 'feeler-tap', kinds: ['add', 'sub'], power: 6 },
 			{ id: 'crusher-claw', kinds: ['double', 'mul'], power: 9 },
-			{ id: 'tail-flip', kinds: ['missing', 'sequence'], power: 11 }
+			{ id: 'tail-flip', kinds: ['missing', 'sequence', 'numberline'], power: 11 }
 		]
 	},
 	{
@@ -716,7 +716,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		realms: ['water'],
 		favours: 'water',
 		attacks: [
-			{ id: 'echo', kinds: ['mul', 'sequence'], power: 8 },
+			{ id: 'echo', kinds: ['mul', 'sequence', 'numberline'], power: 8 },
 			{ id: 'puff-and-dive', kinds: ['div', 'mul'], power: 12 }
 		]
 	},

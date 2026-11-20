@@ -5,10 +5,12 @@
 	import FloorFence from './FloorFence.svelte';
 	import FractionBar from './FractionBar.svelte';
 	import Money from './Money.svelte';
+	import NumberLine from './NumberLine.svelte';
 	import Thermometer from './Thermometer.svelte';
 
 	/**
-	 * The picture of a puzzle with one (the Arctic's kinds, #191), drawn by
+	 * The picture of a puzzle with one (the Arctic's kinds, #191, and the
+	 * number line), drawn by
 	 * the page from the face's numbers alone: no picture ever travels, so a
 	 * friendly match's and a watched battle's are drawn the same way as the
 	 * kid's own. SVG, so it is sharp at any size and its numbers are text in
@@ -29,4 +31,6 @@
 	<BarChart numbers={face.numbers} />
 {:else if face.kind === 'clock'}
 	<ClockFace numbers={face.numbers} />
+{:else if face.kind === 'numberline'}
+	<NumberLine numbers={face.numbers} />
 {/if}

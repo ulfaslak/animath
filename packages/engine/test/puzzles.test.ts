@@ -172,6 +172,20 @@ function solvePicture(prompt: string): number | null {
 			for (let half = 0; half <= shown; half++) if (half + half === shown) return half;
 			throw new Error(`no half of ${prompt}`);
 		}
+		case 'numberline': {
+			// Walk the line from its start, a mark at a time, and half a mark more: the number
+			// that, added to itself, makes a mark.
+			const [from, step, , , mark, half] = [at(0), at(1), at(2), at(3), at(4), at(5)];
+			let value = from;
+			for (let k = 0; k < mark; k++) value += step;
+			if (half === 1) {
+				let halfStep = 0;
+				while (halfStep + halfStep < step) halfStep++;
+				if (halfStep + halfStep !== step) throw new Error(`no half a mark in ${prompt}`);
+				value += halfStep;
+			}
+			return value;
+		}
 		case 'clock': {
 			// Turn the minute hand a minute at a time, round a twelve-hour face.
 			const [how, h, mins, dh, dm] = [at(0), at(1), at(2), at(3), at(4)];

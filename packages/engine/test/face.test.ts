@@ -69,6 +69,12 @@ describe('a puzzle and its face', () => {
 			[{ kind: 'sqrt', numbers: [144] }, '√144 = ?'],
 			[{ kind: 'double', numbers: [0, 8] }, 'double(0, 8)'],
 			[{ kind: 'double', numbers: [1, 70] }, 'double(1, 70)'],
+			[{ kind: 'numberline', numbers: [300, 10, 10, 5, 4, 0] }, 'numberline(300, 10, 10, 5, 4, 0)'],
+			[{ kind: 'numberline', numbers: [200, 20, 10, 5, 7, 1] }, 'numberline(200, 20, 10, 5, 7, 1)'],
+			[
+				{ kind: 'numberline', numbers: [9000, 100, 10, 5, 7, 0] },
+				'numberline(9000, 100, 10, 5, 7, 0)'
+			],
 			[{ kind: 'balance', numbers: [0, 8, 5, 6] }, '8 + □ = 5 + 6'],
 			[{ kind: 'balance', numbers: [1, 30, 25, 12] }, '30 − □ = 25 − 12'],
 			[{ kind: 'balance', numbers: [2, 6, 4, 3] }, '6 × □ = 4 × 3'],
@@ -143,6 +149,25 @@ describe('a puzzle and its face', () => {
 			['double', 'double(0,8)'],
 			['double', 'double(0, 8, 1)'],
 			['double', 'Double 8 = ?'],
+			// The arrow on a number written (the middle, either end), or past the line's end.
+			['numberline', 'numberline(300, 10, 10, 5, 5, 0)'],
+			['numberline', 'numberline(300, 10, 10, 5, 0, 0)'],
+			['numberline', 'numberline(300, 10, 10, 5, 10, 0)'],
+			['numberline', 'numberline(300, 10, 10, 5, 10, 1)'],
+			// Halfway between marks 5 apart is not a whole number; a third place for the arrow.
+			['numberline', 'numberline(300, 5, 10, 5, 4, 1)'],
+			['numberline', 'numberline(300, 10, 10, 5, 4, 2)'],
+			// More numbers written than fit, a line too long, numbers not on its ends.
+			['numberline', 'numberline(0, 1, 10, 2, 3, 0)'],
+			['numberline', 'numberline(0, 1, 12, 6, 3, 0)'],
+			['numberline', 'numberline(0, 1, 10, 3, 4, 0)'],
+			['numberline', 'numberline(0, 0, 10, 5, 4, 0)'],
+			['numberline', 'numberline(-10, 1, 10, 5, 3, 0)'],
+			['numberline', 'numberline(99990, 10, 10, 5, 3, 0)'],
+			// A line further than any step of the ladder goes: to 20,000, or to 10,010.
+			['numberline', 'numberline(0, 2000, 10, 5, 3, 0)'],
+			['numberline', 'numberline(9010, 100, 10, 5, 3, 0)'],
+			['numberline', 'numberline(300, 10, 10, 5, 4)'],
 			['balance', '8 + □ = 5 + 6 = ?'],
 			['balance', '8 ÷ □ = 5 + 6'],
 			['balance', '2 + □ = 1 + 1'],
