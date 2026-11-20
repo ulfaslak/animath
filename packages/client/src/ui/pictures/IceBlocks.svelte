@@ -26,8 +26,12 @@
 	/** Room round the stack, and on the left for the "?" beside a box whose layers are asked. */
 	const PAD = 10;
 	const ASK = 46;
-	/** One block back, on the page: right and up, the depth drawn shorter than a side, as a schoolbook does. */
-	const BACK = { x: 0.45, y: 0.5 };
+	/**
+	 * One block back, on the page: right and up, the depth drawn shorter than
+	 * a side, as a schoolbook does. A row or a flat layer is seen more from
+	 * above, so its rows stand apart and it fills the picture.
+	 */
+	const BACK = $derived(!high && h === 1 ? { x: 0.45, y: 0.8 } : { x: 0.45, y: 0.5 });
 	/** A row of two is not drawn bigger than a hand of blocks would be. */
 	const MAX_CELL = 44;
 
@@ -156,7 +160,7 @@
 		fill: #9fd8f2;
 	}
 	.side {
-		fill: #7cc4e6;
+		fill: #6ab4dd;
 	}
 	.edge {
 		fill: none;
@@ -189,5 +193,11 @@
 		text-anchor: middle;
 		dominant-baseline: central;
 		fill: var(--panel-ink);
+	}
+	/* A phone held sideways draws the stack small: a bigger "?", as a floor's numbers are. */
+	@media (max-height: 560px) {
+		.mark {
+			font-size: 34px;
+		}
 	}
 </style>
