@@ -24,8 +24,13 @@
 	const at = $derived((numbers[4] ?? 0) + (numbers[5] === NUMBERLINE.half ? 0.5 : 0));
 	const marks = $derived(Array.from({ length: gaps + 1 }, (_, k) => k));
 
-	/** The narrowest slot the line lies across in: 18 px numbers and marks 22 px apart. */
-	const WIDE = 240;
+	/**
+	 * The narrowest slot the line lies across in. Lying across, the drawing is
+	 * 320 wide and its numbers 20 high, so a number is the slot's width ÷ 16:
+	 * 16 px here, never under ([[DESIGN]] § Accessibility), its marks 20 px
+	 * apart. Narrower, it stands up (its numbers 16 px at a slot 240 wide).
+	 */
+	const WIDE = 256;
 	let width = $state(0);
 	/**
 	 * A line that stood up for a puzzle stays up until the next one: the pad
