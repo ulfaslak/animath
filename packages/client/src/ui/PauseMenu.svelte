@@ -275,6 +275,8 @@
 				return t('pause.makeAccount');
 			case 'logIn':
 				return t('pause.logIn');
+			case 'newPassword':
+				return t('pause.newPassword');
 			case 'logOut':
 				return account.leaving ? t('account.busy') : t('pause.logOut');
 			case 'puzzles':
@@ -764,7 +766,11 @@
 					{:else if pause.screen === 'logOut'}
 						<!-- Before Log out: without the password, the account's game can't come back. -->
 						<div class="side-title wraps">{t('pause.logOutTitle')}</div>
-						<div class="note ask">{t('pause.logOutAsk', { name: account.name ?? '' })}</div>
+						<div class="note ask">
+							{t(account.home ? 'pause.logOutAskHome' : 'pause.logOutAsk', {
+								name: account.name ?? ''
+							})}
+						</div>
 						<button
 							type="button"
 							class="row option"

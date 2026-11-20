@@ -12,7 +12,7 @@ import { currentAccount, gameKeys, logoutPending, rememberLogout } from '../src/
 import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
 import { REVEAL_KEY, rowKey } from '../src/input/press';
 import { KEYS, type KeyValueStore } from '../src/save/storage';
-import { account } from '../src/state/account.svelte';
+import { account, loginByNameAlone } from '../src/state/account.svelte';
 
 /**
  * The account screens' keys and what they do ([[UI_SPEC]] § Accounts): the
@@ -115,7 +115,8 @@ function setup(playerName: string | null = 'Ida', currentSave?: () => SaveWrite 
 			restarts.push(note);
 			restartNames.push(name ?? null);
 		},
-		forgetWelcome: () => welcomeSteps.push('forgetWelcome')
+		forgetWelcome: () => welcomeSteps.push('forgetWelcome'),
+		passwordChanged: () => events.push('passwordChanged')
 	});
 	const press = (...names: string[]) => {
 		let last = key('');
@@ -138,6 +139,8 @@ beforeEach(() => {
 	Object.assign(account, {
 		name: null,
 		session: 'unknown',
+		home: false,
+		homeNames: [],
 		// A server that can keep an account, unless a test says otherwise.
 		ready: true,
 		card: null,
@@ -182,7 +185,7 @@ describe('the account card', () => {
 	});
 
 	it('Enter waits its quiet moment, and from the name box goes on to the password first', () => {
-		const requests = server({});
+		const requests = server({ '/api/account/home': { status: 200, json: { names: [] } } });
 		const { controller, press, quiet } = setup(null);
 		controller.openLogin('title');
 		account.nameDraft = 'Ida';
@@ -191,7 +194,8 @@ describe('the account card', () => {
 		quiet();
 		press('Enter');
 		expect(account.field).toBe('password');
-		expect(requests).toEqual([]);
+		// Only which accounts this browser is the own of: none.
+		expect(requests.map((r) => r.url)).toEqual(['/api/account/home']);
 	});
 });
 
@@ -306,7 +310,7 @@ describe('making an account', () => {
 
 describe('logging in', () => {
 	it('an empty name or a password too short to be anyone’s is said at once, with no request', () => {
-		const requests = server({});
+		const requests = server({ '/api/account/home': { status: 200, json: { names: [] } } });
 		const { controller, press, quiet } = setup(null);
 		controller.openLogin('title');
 		account.passwordDraft = 'secret';
@@ -318,7 +322,8 @@ describe('logging in', () => {
 		quiet();
 		press('Enter');
 		expect(account.problem).toEqual({ kind: 'wrong' });
-		expect(requests).toEqual([]);
+		// No login asked: only which accounts this browser is the own of, as the card opened.
+		expect(requests.map((r) => r.url)).toEqual(['/api/account/home']);
 	});
 
 	it('a logout the server never heard waits aside while this browser logs in or registers, and is moot once it has', async () => {
@@ -760,5 +765,162 @@ describe('the save card', () => {
 		account.passwordDraft = 'pip';
 		controller.heardReady(false);
 		expect([account.card, account.passwordDraft]).toEqual(['register', 'pip']);
+	});
+});
+
+describe('the password gate', () => {
+	it('Continue on a guest game asks for a password first, the game’s name in its box; Back is the title', () => {
+		const { controller, press } = setup(null);
+		controller.openGate('Pip');
+		expect([account.card, account.from, account.nameDraft, account.field]).toEqual([
+			'register',
+			'gate',
+			'Pip',
+			'password'
+		]);
+		press('Escape');
+		expect(account.card).toBeNull();
+	});
+
+	it('the password picked makes the account with the guest game, and the page starts again in it', async () => {
+		const requests = server({
+			'/api/account/register': { status: 201, json: { user: { name: 'Pip' } } }
+		});
+		const { store, controller, restarts, press, quiet } = setup(null);
+		store.set(KEYS.save, saveText(9, 'Pip'));
+		controller.openGate('Pip');
+		account.passwordDraft = 'secret';
+		quiet();
+		press('Enter');
+		await answered();
+		expect(requests[0]).toMatchObject({
+			url: '/api/account/register',
+			body: { name: 'Pip', password: 'secret', save: { name: 'Pip', seq: 9 } }
+		});
+		expect(currentAccount(store)).toEqual({ name: 'Pip' });
+		expect(restarts).toEqual(['saved']);
+	});
+});
+
+describe('logging in on the account’s own browser', () => {
+	it('asks for the name alone: no password box, and Enter in the name box logs in', async () => {
+		const requests = server({
+			'/api/account/home': { status: 200, json: { names: ['Ida'] } },
+			'/api/account/login': { status: 200, json: { user: { name: 'Ida' } } },
+			'/api/account/save': { status: 404, json: { error: 'no save yet' } }
+		});
+		const { store, controller, restarts, press, quiet } = setup('ida');
+		controller.openLogin('title');
+		await answered();
+		expect(loginByNameAlone()).toBe(true);
+		expect(account.field).toBe('name');
+		// Tab has no password box to go to.
+		press('Tab');
+		expect(account.field).toBe('name');
+		quiet();
+		press('Enter');
+		await answered();
+		expect(requests.find((r) => r.url === '/api/account/login')?.body).toEqual({
+			name: 'ida',
+			home: true
+		});
+		expect(currentAccount(store)).toEqual({ name: 'Ida' });
+		expect(restarts).toEqual(['welcome']);
+	});
+
+	it('another name asks for its password as ever', async () => {
+		server({ '/api/account/home': { status: 200, json: { names: ['Ida'] } } });
+		const { controller, press } = setup('Bo');
+		controller.openLogin('title');
+		await answered();
+		expect(loginByNameAlone()).toBe(false);
+		press('Tab');
+		expect(account.field).toBe('name');
+		press('Tab');
+		expect(account.field).toBe('password');
+	});
+
+	it('a browser that is its own no more brings the password box back, and logs nobody in', async () => {
+		let names = ['Ida'];
+		server({
+			'/api/account/home': () => ({ status: 200, json: { names } }),
+			'/api/account/login': { status: 401, json: { error: 'not home' } }
+		});
+		const { store, controller, restarts, press, quiet } = setup('Ida');
+		controller.openLogin('title');
+		await answered();
+		names = [];
+		quiet();
+		press('Enter');
+		await answered();
+		expect(loginByNameAlone()).toBe(false);
+		expect(account.field).toBe('password');
+		expect([account.busy, account.card]).toEqual([false, 'login']);
+		expect(currentAccount(store)).toBeNull();
+		expect(restarts).toEqual([]);
+	});
+});
+
+describe('a new password', () => {
+	function atHome() {
+		account.name = 'Ida';
+		account.session = 'live';
+		account.home = true;
+	}
+
+	it('opens only on the account’s own browser, its name shown and the password to type', () => {
+		const { controller } = setup('Ida');
+		account.name = 'Ida';
+		controller.openPassword();
+		expect(account.card).toBeNull();
+		atHome();
+		controller.openPassword();
+		expect([account.card, account.from, account.nameDraft, account.field]).toEqual([
+			'password',
+			'pause',
+			'Ida',
+			'password'
+		]);
+	});
+
+	it('is checked by the rules first, then kept: the card goes and the game says so', async () => {
+		const requests = server({ '/api/account/password': { status: 200, json: { ok: true } } });
+		const { controller, events, press, quiet } = setup('Ida');
+		atHome();
+		controller.openPassword();
+		account.passwordDraft = 'no';
+		quiet();
+		press('Enter');
+		expect(account.problem).toEqual({ kind: 'password', reason: 'short' });
+		expect(requests).toEqual([]);
+		account.passwordDraft = 'nyt kodeord';
+		quiet();
+		press('Enter');
+		await answered();
+		expect(requests).toEqual([
+			{
+				url: '/api/account/password',
+				method: 'POST',
+				body: { password: 'nyt kodeord' },
+				account: 'Ida',
+				welcome: null
+			}
+		]);
+		expect(account.card).toBeNull();
+		expect(events).toContain('passwordChanged');
+	});
+
+	it('on a browser that is not the account’s own (any more) says so, and offers it no more', async () => {
+		server({ '/api/account/password': { status: 403, json: { error: 'not home' } } });
+		const { controller, events, press, quiet } = setup('Ida');
+		atHome();
+		controller.openPassword();
+		account.passwordDraft = 'nyt kodeord';
+		quiet();
+		press('Enter');
+		await answered();
+		expect(account.problem).toEqual({ kind: 'not-home' });
+		expect(account.home).toBe(false);
+		expect(events).not.toContain('passwordChanged');
 	});
 });

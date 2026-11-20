@@ -5,8 +5,11 @@ import {
 	acceptWelcome,
 	accountSaveServer,
 	accountsReady,
+	changePassword,
 	getAccountSave,
+	homeAccounts,
 	login,
+	loginAtHome,
 	logout,
 	lookAtWelcome,
 	register,
@@ -250,10 +253,15 @@ describe('a welcome link', () => {
 
 describe('whoAmI', () => {
 	it('names the account, or nobody, and anything else is no answer', async () => {
+		answer({ status: 200, json: { user: { name: 'Ida', home: true } } });
+		expect(await whoAmI()).toEqual({ kind: 'user', name: 'Ida', home: true });
+		// Only `true` is the account's own browser: an older server says nothing of it.
 		answer({ status: 200, json: { user: { name: 'Ida' } } });
-		expect(await whoAmI()).toEqual({ kind: 'user', name: 'Ida' });
+		expect(await whoAmI()).toEqual({ kind: 'user', name: 'Ida', home: false });
+		answer({ status: 200, json: { user: { name: 'Ida', home: 'yes' } } });
+		expect(await whoAmI()).toEqual({ kind: 'user', name: 'Ida', home: false });
 		answer({ status: 200, json: { user: null } });
-		expect(await whoAmI()).toEqual({ kind: 'user', name: null });
+		expect(await whoAmI()).toEqual({ kind: 'user', name: null, home: false });
 		answer({ status: 200, html: page });
 		expect(await whoAmI()).toEqual({ kind: 'offline' });
 		answer({ status: 500, json: { error: 'x' } });
@@ -305,6 +313,21 @@ describe('SessionCheck', () => {
 		expect(later).toHaveLength(0);
 		expect(seen).toHaveLength(1);
 		expect(heard).toEqual(['offline', 'live']);
+	});
+
+	it('tells whether this browser is the account’s own, only for this page’s account', async () => {
+		for (const [said, home] of [
+			[{ user: { name: 'IDA', home: true } }, true],
+			[{ user: { name: 'Ida', home: false } }, false],
+			[{ user: { name: 'Ida' } }, false],
+			// Another account's own browser is not this one's.
+			[{ user: { name: 'Bo', home: true } }, false]
+		] as const) {
+			const heard: boolean[] = [];
+			answer({ status: 200, json: said });
+			await new SessionCheck('Ida', (_a, h) => heard.push(h)).check();
+			expect(heard, JSON.stringify(said)).toEqual([home]);
+		}
 	});
 });
 
@@ -395,5 +418,60 @@ describe("the account's save, as the autosave's server", () => {
 		expect(got()).toEqual({ kind: 'offline' });
 		// With no word on the session, the save is never asked.
 		expect(seen).toEqual([me]);
+	});
+});
+
+describe('the account’s own browser', () => {
+	it('logs in by name alone with `home: true` and no password, and tells "not home" apart', async () => {
+		const seen = answer({ status: 200, json: { user: { name: 'Ida' } } });
+		expect(await loginAtHome('ida')).toEqual({ kind: 'logged-in', name: 'Ida' });
+		expect(seen[0]!.url).toBe('/api/account/login');
+		expect(JSON.parse(String(seen[0]!.init?.body))).toEqual({ name: 'ida', home: true });
+		answer({ status: 401, json: { error: 'not home' } });
+		expect(await loginAtHome('ida')).toEqual({ kind: 'not-home' });
+		answer({ status: 401, html: page });
+		expect(await loginAtHome('ida')).toEqual({ kind: 'offline' });
+	});
+
+	it('asks whose own browser this is: names only from the API’s own answer', async () => {
+		const seen = answer({ status: 200, json: { names: ['Ida', 'Bo'] } });
+		expect(await homeAccounts()).toEqual(['Ida', 'Bo']);
+		expect(seen[0]!.url).toBe('/api/account/home');
+		for (const a of [
+			{ status: 200, json: { names: 'Ida' } },
+			{ status: 200, json: { names: ['Ida', 3] } },
+			{ status: 200, html: page },
+			{ status: 500, json: { names: [] } },
+			'network error'
+		] as const) {
+			answer(a);
+			expect(await homeAccounts(), JSON.stringify(a)).toBeNull();
+		}
+	});
+
+	it('a new password names its account, and each answer is told apart', async () => {
+		const seen = answer({ status: 200, json: { ok: true } });
+		expect(await changePassword('Ida', 'nyt kodeord')).toEqual({ kind: 'changed' });
+		expect(seen[0]!.url).toBe('/api/account/password');
+		expect(new Headers(seen[0]!.init?.headers).get('x-animath-account')).toBe('Ida');
+		expect(JSON.parse(String(seen[0]!.init?.body))).toEqual({ password: 'nyt kodeord' });
+		const cases: [Answer, unknown][] = [
+			[
+				{ status: 400, json: { error: 'bad password', reason: 'short' } },
+				{ kind: 'bad-password', reason: 'short' }
+			],
+			[{ status: 403, json: { error: 'not home' } }, { kind: 'not-home' }],
+			[{ status: 401, json: { error: 'not logged in' } }, { kind: 'logged-out' }],
+			[
+				{ status: 429, json: { error: 'too many tries', retryAfter: 30 } },
+				{ kind: 'too-many', retryAfter: 30 }
+			],
+			[{ status: 200, html: page }, { kind: 'offline' }],
+			['network error', { kind: 'offline' }]
+		];
+		for (const [a, outcome] of cases) {
+			answer(a);
+			expect(await changePassword('Ida', 'nyt kodeord'), JSON.stringify(a)).toEqual(outcome);
+		}
 	});
 });
