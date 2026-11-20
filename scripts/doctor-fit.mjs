@@ -301,6 +301,8 @@ const STATES = {
 	},
 	'ask-puzzle': ask('1620 ÷ 18 = ?', 90),
 	'ask-picture': ask('barchart(2, 1, 0, 2, 4, 3, 10, 10, 10, 0)', 13, 'barchart', 3),
+	// The druid's tip asks at 8, so its longest sum in words is a heal's, with the story over it.
+	'ask-units': ask('units(1, 3, 3, 55)', 235, 'units', 8),
 	'ask-correct': right(ask('1620 ÷ 18 = ?', 90)),
 	// Met two ways and big: a line for the sea, one for the ice, and the far line.
 	'ask-told-shark': told('greenland-shark', 'arctic'),

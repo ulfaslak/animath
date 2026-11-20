@@ -755,8 +755,8 @@ export const ANIMALS: readonly AnimalSpec[] = [
 	// lists only its own pole's biomes. HP and powers are about 2 to 2.3 times a
 	// Nordland animal's of its tier,
 	// so a fight takes as many hits; the catch rates are Nordland's. The weakest
-	// attack asks a sum, and the stronger ones the Arctic's picture kinds and the
-	// balance, never a times table, a pattern, a missing number or a root.
+	// attack asks a sum, and the stronger ones the Arctic's picture kinds, the
+	// balance and units, never a times table, a pattern, a missing number or a root.
 	{
 		id: 'arctic-fox',
 		tier: 1,
