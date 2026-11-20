@@ -43,6 +43,13 @@
 			"when": 1790000500000,
 			"tag": "0005_client_errors",
 			"breakpoints": true
+		},
+		{
+			"idx": 6,
+			"version": "7",
+			"when": 1790000600000,
+			"tag": "0006_account_home",
+			"breakpoints": true
 		}
 	]
 }

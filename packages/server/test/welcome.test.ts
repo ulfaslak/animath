@@ -13,6 +13,7 @@ import { accountSaves, players, saves, sessions, users, welcomeTokens } from '..
 import { NO_PASSWORD } from '../src/passwords.js';
 import type { AccountLimits } from '../src/rate-limit.js';
 import { findSaves, openReadOnly, type Reader } from '../src/save-export.js';
+import { HOME_COOKIE } from '../src/home.js';
 import { SESSION_COOKIE } from '../src/sessions.js';
 import { WELCOME_DAYS } from '../src/welcome.js';
 
@@ -76,6 +77,8 @@ function doc(name: string | undefined, overrides: Record<string, unknown> = {}) 
 /** A browser with one cookie jar, as in account.test.ts. */
 class Browser {
 	cookie: string | null = null;
+	/** The home cookie's key (`home.ts`). */
+	home: string | null = null;
 	constructor(readonly headers: Record<string, string> = {}) {}
 
 	async request(method: string, path: string, body?: unknown, extra: Record<string, string> = {}) {
@@ -83,16 +86,21 @@ class Browser {
 		if (body !== undefined && !('content-type' in headers)) {
 			headers['content-type'] = 'application/json';
 		}
-		if (this.cookie) headers.cookie = `${SESSION_COOKIE}=${this.cookie}`;
+		const jar = [
+			...(this.cookie ? [`${SESSION_COOKIE}=${this.cookie}`] : []),
+			...(this.home ? [`${HOME_COOKIE}=${this.home}`] : [])
+		];
+		if (jar.length > 0) headers.cookie = jar.join('; ');
 		const res = await app.request(`/api/account${path}`, {
 			method,
 			headers,
 			body: body === undefined ? undefined : JSON.stringify(body)
 		});
-		const set = res.headers.get('set-cookie');
-		if (set) {
-			const value = new RegExp(`${SESSION_COOKIE}=([^;]*)`).exec(set)?.[1] ?? '';
-			this.cookie = /Max-Age=0/i.test(set) || value === '' ? null : value;
+		for (const set of res.headers.getSetCookie()) {
+			const value = /^[^=]*=([^;]*)/.exec(set)?.[1] ?? '';
+			const kept = /Max-Age=0/i.test(set) || value === '' ? null : value;
+			if (set.startsWith(`${SESSION_COOKIE}=`)) this.cookie = kept;
+			else if (set.startsWith(`${HOME_COOKIE}=`)) this.home = kept;
 		}
 		return res;
 	}
@@ -263,7 +271,8 @@ describe('the welcome link', () => {
 		expect(res.status).toBe(200);
 		expect(await res.json()).toStrictEqual({ user: { name }, save: doc(name) });
 		expect(res.headers.get('set-cookie')).toMatch(/HttpOnly/i);
-		expect(await (await kid.request('GET', '/me')).json()).toEqual({ user: { name } });
+		// The browser the link was used in is the account's own.
+		expect(await (await kid.request('GET', '/me')).json()).toEqual({ user: { name, home: true } });
 		const saved = await kid.request('GET', '/save', undefined, {
 			'x-animath-account': encodeURIComponent(name)
 		});
