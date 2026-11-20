@@ -4,6 +4,7 @@ import {
 	MAX_BIG_UNITS,
 	MAX_BLOCKS,
 	MAX_DOUBLED,
+	MAX_LINE_TOP,
 	UNITS,
 	UNIT_PAIRS,
 	puzzleFace
@@ -16,6 +17,7 @@ import { CLOCK, CLOCK_LADDER } from '../src/puzzles/generators/clock.js';
 import { DOUBLE, DOUBLE_LADDER } from '../src/puzzles/generators/double.js';
 import { FRACTION_LADDER } from '../src/puzzles/generators/fraction.js';
 import { KRONER_LADDER } from '../src/puzzles/generators/kroner.js';
+import { NUMBERLINE_LADDER, arrowMarks } from '../src/puzzles/generators/numberline.js';
 import { SHAPE_LADDER } from '../src/puzzles/generators/shape.js';
 import { THERMOMETER_LADDER } from '../src/puzzles/generators/thermometer.js';
 import {
@@ -29,8 +31,8 @@ import type { PuzzleKind } from '../src/puzzles/types.js';
 import { Rng } from '../src/rng.js';
 
 /**
- * The kinds that climb by skill, the Arctic's (#191) and doubling and
- * halving: each climbs its own ladder, a table per kind ([[PRODUCT]] §4
+ * The kinds that climb by skill, the Arctic's (#191), doubling and halving,
+ * and the number line: each climbs its own ladder, a table per kind ([[PRODUCT]] §4
  * "Puzzles"), and keeps the promises a kid relies on. Their answers against
  * an independent solver are in `puzzles.test.ts`.
  */
@@ -105,6 +107,38 @@ describe('the ladders climb', () => {
 		for (const [key, bands] of rows) expect(climbs(bands), key).toEqual([]);
 		// A face takes no number bigger than the ladder shows (`faceFits`).
 		expect(Math.max(...DOUBLE_LADDER.flat().map((f) => f.shown[1]))).toBe(MAX_DOUBLED);
+	});
+
+	it('numberline: on a mark to 8 and halfway from 9, the longest line never shorter in each, and no step a line of the one below', () => {
+		expect(NUMBERLINE_LADDER.map((step) => step.half)).toEqual([
+			...Array(8).fill(false),
+			true,
+			true
+		]);
+		// The biggest number a step's lines reach: 10, 100 (three times), 1000 (three times) and
+		// 10,000 on a mark; 1000, then 10,000, halfway.
+		const tops = NUMBERLINE_LADDER.map((step) =>
+			Math.max(...step.forms.map((f) => f.from[1] + f.gaps * f.step))
+		);
+		const rows = tops.map((top): Band => [top, top]);
+		expect(climbs(rows, 1, 8)).toEqual([]);
+		expect(climbs(rows, 9, 10)).toEqual([]);
+		// A line is what a mark is worth, how long it is, where it can start and what is written.
+		const line = (f: (typeof NUMBERLINE_LADDER)[number]['forms'][number]) =>
+			`${f.step} ${f.gaps} ${f.every} ${f.from.join(' ')}`;
+		const repeated: string[] = [];
+		for (let d = 2; d <= 10; d++) {
+			const [step, below] = [NUMBERLINE_LADDER[d - 1]!, NUMBERLINE_LADDER[d - 2]!];
+			const before = new Set(below.forms.map(line));
+			for (const f of step.forms)
+				if (step.half === below.half && before.has(line(f))) repeated.push(`d${d}: ${line(f)}`);
+		}
+		expect(repeated).toEqual([]);
+		// A face reaches no further than the ladder's longest line (`faceFits`).
+		const ends = NUMBERLINE_LADDER.flatMap((step) =>
+			step.forms.map((f) => f.from[1] + f.gaps * f.step)
+		);
+		expect(Math.max(...ends)).toBe(MAX_LINE_TOP);
 	});
 
 	it('thermometer: 0° and above to 4, across 0 from 5, how far from 0 and how much it changes never falling in each', () => {
@@ -445,6 +479,39 @@ describe('what each kind promises a kid', () => {
 			}
 		}
 		expect(bad.slice(0, 20)).toEqual([]);
+	});
+
+	it('numberline: its two ends and middle written, the arrow on a mark with no number or halfway, never more than two marks and a half from a number, and every line and place asked', () => {
+		const bad: string[] = [];
+		for (const d of DS) {
+			const step = NUMBERLINE_LADDER[d - 1]!;
+			const met = new Set<string>();
+			for (const [from, worth, gaps, every, mark, half, answer] of faces('numberline', d, 1500)) {
+				const p = `d${d}: numberline(${from}, ${worth}, ${gaps}, ${every}, ${mark}, ${half})`;
+				const written = [0, every!, gaps!];
+				if (gaps! / every! !== 2) bad.push(`${p}: not its ends and middle written`);
+				if (written.some((k) => from! + k * worth! === answer)) bad.push(`${p}: a number written`);
+				if (half !== (step.half ? 1 : 0)) bad.push(`${p}: halfway where the step says not`);
+				const at = mark! + half! / 2;
+				if (Math.min(...written.map((k) => Math.abs(k - at))) > 2.5)
+					bad.push(`${p}: far from a number written`);
+				if (!Number.isInteger(answer)) bad.push(`${p}: ${answer} not whole`);
+				const i = step.forms.findIndex(
+					(f) =>
+						f.step === worth &&
+						f.gaps === gaps &&
+						f.every === every &&
+						from! >= f.from[0] &&
+						from! <= f.from[1] &&
+						(from! - f.from[0]) % f.from[2] === 0
+				);
+				if (i < 0) bad.push(`${p}: fits no line of its step`);
+				else met.add(`${i} ${mark}`);
+			}
+			const places = step.forms.reduce((n, f) => n + arrowMarks(f, step.half).length, 0);
+			if (met.size !== places) bad.push(`d${d}: ${met.size} of ${places} lines and places met`);
+		}
+		expect(bad).toEqual([]);
 	});
 
 	it('units: every pair it names is one there is, and a small amount is fewer than a big unit holds', () => {

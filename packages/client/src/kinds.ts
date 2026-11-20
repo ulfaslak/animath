@@ -38,6 +38,8 @@ export function kindWord(topic: PuzzleTopic): string {
 			return t('battle.kinds.double');
 		case 'half':
 			return t('battle.kinds.half');
+		case 'numberline':
+			return t('battle.kinds.numberline');
 		case 'thermometer':
 			return t('battle.kinds.thermometer');
 		case 'kroner':
@@ -88,6 +90,9 @@ export function kindGlyph(topic: PuzzleTopic): string {
 			return '×2';
 		case 'half':
 			return '÷2';
+		// The number line: a line with its marks.
+		case 'numberline':
+			return '┣╋┫';
 		// The Arctic's kinds (#191): a sign of the picture each puzzle draws.
 		case 'thermometer':
 			return '−3°';

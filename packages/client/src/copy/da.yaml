@@ -1274,6 +1274,7 @@ puzzle:
   ask:
     double: Det dobbelte af {n} = ?
     half: Halvdelen af {n} = ?
+    numberline: Hvilket tal peger pilen på?
     thermometer:
       colder: Det er {start}°. Det bliver {change}° koldere. Hvad viser termometeret nu?
       warmer: Det er {start}°. Det bliver {change}° varmere. Hvad viser termometeret nu?
@@ -1494,6 +1495,7 @@ battle:
     sqrt: kvadratrødder
     double: fordobling
     half: halvering
+    numberline: tallinjer
     thermometer: temperaturer
     kroner: penge
     fraction: brøker

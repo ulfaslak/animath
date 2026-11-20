@@ -83,6 +83,8 @@ const TOKENS = new Set([
 	'barchart',
 	'clock',
 	'blocks',
+	// Nordland's number line, a picture kind too.
+	'numberline',
 	'balance',
 	// A kind of words goes by its id too, its numbers beside it, never its words.
 	'units'

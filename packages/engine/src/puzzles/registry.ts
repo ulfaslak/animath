@@ -9,6 +9,7 @@ import { blocks } from './generators/blocks.js';
 import { CLOCK_MINUTES, clock } from './generators/clock.js';
 import { fraction } from './generators/fraction.js';
 import { kroner } from './generators/kroner.js';
+import { numberline } from './generators/numberline.js';
 import { shape } from './generators/shape.js';
 import { thermometer } from './generators/thermometer.js';
 import { units } from './generators/units.js';
@@ -38,6 +39,7 @@ const GENERATORS: Record<PuzzleKind, PuzzleGenerator> = {
 	shape,
 	barchart,
 	clock,
+	numberline,
 	blocks,
 	balance,
 	units

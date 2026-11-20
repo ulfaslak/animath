@@ -19,12 +19,14 @@ export type PuzzleKind =
 	| 'units';
 
 /**
- * The kinds the puzzle panel draws a picture for (#191): the client words
- * their question and draws their picture from the face's numbers, so their
- * prompt is the face written out (`facePrompt`), never shown as it is.
+ * The kinds the puzzle panel draws a picture for: the Arctic's (#191) and
+ * Nordland's number line. The client words their question and draws their
+ * picture from the face's numbers, so their prompt is the face written out
+ * (`facePrompt`), never shown as it is. Not one land's list: the Arctic's
+ * fare names its kinds one by one.
  */
 export type PictureKind =
-	'thermometer' | 'kroner' | 'fraction' | 'shape' | 'barchart' | 'clock' | 'blocks';
+	'thermometer' | 'kroner' | 'fraction' | 'shape' | 'barchart' | 'clock' | 'numberline' | 'blocks';
 
 export const PICTURE_KINDS: readonly PictureKind[] = [
 	'thermometer',
@@ -33,6 +35,7 @@ export const PICTURE_KINDS: readonly PictureKind[] = [
 	'shape',
 	'barchart',
 	'clock',
+	'numberline',
 	'blocks'
 ];
 
@@ -91,6 +94,7 @@ export type PuzzleTopic =
 	| 'sqrt'
 	| 'double'
 	| 'half'
+	| 'numberline'
 	| 'thermometer'
 	| 'kroner'
 	| 'fraction'
@@ -112,6 +116,7 @@ export const ALL_PUZZLE_TOPICS: readonly PuzzleTopic[] = [
 	'sqrt',
 	'double',
 	'half',
+	'numberline',
 	'thermometer',
 	'kroner',
 	'fraction',

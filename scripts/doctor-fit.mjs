@@ -193,6 +193,8 @@ const STATES = {
 	'heal-shape': heal('shape(1, 4, 3, 0, 0, 1)', 14, 'shape', 3),
 	'heal-barchart': heal('barchart(2, 1, 0, 2, 4, 3, 10, 10, 10, 0)', 13, 'barchart', 3),
 	'heal-clock': { ...heal('clock(0, 11, 30, 0, 0)', 690, 'clock', 3), input: '11:30' },
+	// The widest number line: numbers to 10,000, the arrow halfway, so its hint is the longest too.
+	'heal-numberline': heal('numberline(0, 1000, 10, 5, 7, 1)', 7500, 'numberline', 3),
 	'heal-balance': heal('21 + □ = 23 + 20', 22, 'balance', 3),
 	// Ice blocks: the widest flat layer a heal asks, and the biggest box with its longest question.
 	'heal-blocks': heal('blocks(0, 9, 5, 1)', 45, 'blocks', 4),
@@ -205,6 +207,7 @@ const STATES = {
 	'heal-hint-div': hinted(heal('1620 ÷ 18 = ?', 90)),
 	'heal-hint-kroner': hinted(heal('kroner(0, 0, 1, 1, 2, 1, 0, 0, 0, 0, 0)', 47, 'kroner', 3)),
 	'heal-hint-balance': hinted(heal('21 + □ = 23 + 20', 22, 'balance', 3)),
+	'heal-hint-numberline': hinted(heal('numberline(0, 1000, 10, 5, 7, 1)', 7500, 'numberline', 3)),
 	'heal-hint-blocks': hinted(heal('blocks(0, 9, 5, 1)', 45, 'blocks', 4)),
 	'heal-hint-correct': right(hinted(heal('1620 ÷ 18 = ?', 90))),
 	'heal-picture-miss': wrong(heal('barchart(2, 1, 0, 2, 4, 3, 10, 10, 10, 0)', 13, 'barchart', 3), {

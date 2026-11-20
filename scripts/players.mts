@@ -723,11 +723,28 @@ function nextInSequence(t: number[]): number {
 	fail(`no pattern I can read: ${t.join(', ')}`);
 }
 
+/**
+ * A number line read as a kid reads it: where the arrow's tip is between the
+ * first and the last number written on the line, across or upright.
+ */
+const READ_LINE = `(() => {
+	const line = document.querySelector('.picture-slot .number-line');
+	const centre = (el) => { const r = el.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; };
+	const numbers = [...line.querySelectorAll('text.number')].map((t) => [Number(t.textContent), centre(t)]);
+	const tip = centre(line.querySelector('polygon.head'));
+	const [[v0, p0], [v1, p1]] = [numbers[0], numbers.at(-1)];
+	const k = Math.abs(p1[0] - p0[0]) > Math.abs(p1[1] - p0[1]) ? 0 : 1;
+	return Math.round(v0 + ((tip[k] - p0[k]) / (p1[k] - p0[k])) * (v1 - v0));
+})()`;
+
 /** Answer the puzzle on `page`'s screen, rightly (or, `wrong`, one more than right), then Enter. */
 async function answer(page: Page, wrong: boolean): Promise<void> {
-	const prompt = page.locator('.puzzle-prompt');
-	await prompt.waitFor({ timeout: 20_000 });
-	const sum = solve((await prompt.textContent()) ?? '') + (wrong ? 1 : 0);
+	const prompt = page.locator('.puzzle-prompt, .picture-slot .number-line');
+	await prompt.first().waitFor({ timeout: 20_000 });
+	const read = (await page.locator('.picture-slot .number-line').count())
+		? ((await page.evaluate(READ_LINE)) as number)
+		: solve((await page.locator('.puzzle-prompt').textContent()) ?? '');
+	const sum = read + (wrong ? 1 : 0);
 	for (const digit of String(sum)) await page.keyboard.press(digit);
 	await page.waitForTimeout(150);
 	await page.keyboard.press('Enter');
