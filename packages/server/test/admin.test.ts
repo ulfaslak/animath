@@ -1,6 +1,13 @@
 import { eq } from 'drizzle-orm';
 import { afterAll, describe, expect, it, vi } from 'vitest';
-import { AdminError, deleteAccount, easyPassword, listAll, resetPassword } from '../src/admin.js';
+import {
+	AdminError,
+	clearAccountHome,
+	deleteAccount,
+	easyPassword,
+	listAll,
+	resetPassword
+} from '../src/admin.js';
 import { createApp } from '../src/app.js';
 import { db, pool } from '../src/db/index.js';
 import { accountSaveBackups, accountSaves, sessions, users } from '../src/db/schema.js';
@@ -113,7 +120,7 @@ describe('delete-account', () => {
 				`^Would delete ${name}: made .*, save seq 7 from .*, 1 browser\\(s\\) logged in\\.$`
 			)
 		);
-		expect(await me(token)).toEqual({ user: { name } });
+		expect(await me(token)).toEqual({ user: { name, home: false } });
 	});
 
 	it('with --yes deletes the account, its sessions, its save and its set-aside saves', async () => {
@@ -144,5 +151,30 @@ describe('list', () => {
 		await register(name);
 		const line = (await listAll()).find((l) => l.startsWith(`${name}\t`));
 		expect(line).toMatch(/\tseq 7 at .*\t1 logged in$/);
+	});
+});
+
+describe('clear-home', () => {
+	it('forgets the account’s own browser: the next browser it is logged in on takes it', async () => {
+		const name = freshName();
+		const token = await register(name);
+		const [before] = await db.select().from(users).where(eq(users.name, name));
+		expect(before!.homeHash).not.toBeNull();
+		expect(await clearAccountHome(name.toLowerCase())).toEqual([
+			`${name} has no own browser now.`,
+			'The next browser it is logged in on becomes its own.'
+		]);
+		const [after] = await db.select().from(users).where(eq(users.name, name));
+		expect(after!.homeHash).toBeNull();
+		expect((await listAll()).find((line) => line.startsWith(`${name}\t`))).toMatch(
+			/\tno own browser yet/
+		);
+		// This browser has no home key: it gets one, and is the account's own now.
+		expect(await me(token)).toEqual({ user: { name, home: true } });
+		expect(await clearAccountHome(name)).toEqual([
+			`${name} has no own browser now.`,
+			'The next browser it is logged in on becomes its own.'
+		]);
+		await expect(clearAccountHome(freshName())).rejects.toThrow(AdminError);
 	});
 });

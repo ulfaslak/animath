@@ -15,6 +15,8 @@ import { afterAll, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../src/app.js';
 import { db, pool } from '../src/db/index.js';
 import { accountSaveBackups, accountSaves, sessions, users } from '../src/db/schema.js';
+import { HOME_COOKIE } from '../src/home.js';
+import { hashPassword } from '../src/passwords.js';
 import type { AccountLimits } from '../src/rate-limit.js';
 import {
 	ACCOUNT_BACKUP_BYTES,
@@ -67,6 +69,11 @@ function freshName(): string {
 	return `Acc${process.pid % 1000}x${counter}`;
 }
 
+/** The session's `Set-Cookie` in an answer, if it has one. */
+function sessionCookieSent(res: Response): string | undefined {
+	return res.headers.getSetCookie().find((set) => set.startsWith(`${SESSION_COOKIE}=`));
+}
+
 /**
  * A browser: one cookie jar, which follows every Set-Cookie it is sent, and
  * the account its page plays (logged in or registered here), which it names
@@ -74,6 +81,8 @@ function freshName(): string {
  */
 class Browser {
 	cookie: string | null = null;
+	/** The home cookie's key (`home.ts`): sent only to the account routes, as this jar's requests all are. */
+	home: string | null = null;
 	account: string | null = null;
 	constructor(
 		readonly target = app,
@@ -85,16 +94,21 @@ class Browser {
 		if (body !== undefined && !('content-type' in headers)) {
 			headers['content-type'] = 'application/json';
 		}
-		if (this.cookie) headers.cookie = `${SESSION_COOKIE}=${this.cookie}`;
+		const jar = [
+			...(this.cookie ? [`${SESSION_COOKIE}=${this.cookie}`] : []),
+			...(this.home ? [`${HOME_COOKIE}=${this.home}`] : [])
+		];
+		if (jar.length > 0 && !('cookie' in headers)) headers.cookie = jar.join('; ');
 		const res = await this.target.request(`/api/account${path}`, {
 			method,
 			headers,
 			body: body === undefined ? undefined : typeof body === 'string' ? body : JSON.stringify(body)
 		});
-		const set = res.headers.get('set-cookie');
-		if (set) {
-			const value = new RegExp(`${SESSION_COOKIE}=([^;]*)`).exec(set)?.[1] ?? '';
-			this.cookie = /Max-Age=0/i.test(set) || value === '' ? null : value;
+		for (const set of res.headers.getSetCookie()) {
+			const value = /^[^=]*=([^;]*)/.exec(set)?.[1] ?? '';
+			const kept = /Max-Age=0/i.test(set) || value === '' ? null : value;
+			if (set.startsWith(`${SESSION_COOKIE}=`)) this.cookie = kept;
+			else if (set.startsWith(`${HOME_COOKIE}=`)) this.home = kept;
 		}
 		return res;
 	}
@@ -254,7 +268,8 @@ describe('register', () => {
 		expect(res.status).toBe(201);
 		expect(await res.json()).toEqual({ user: { name } });
 		expect(browser.cookie).toMatch(/^[A-Za-z0-9_-]{43}$/);
-		expect(await browser.me()).toEqual({ user: { name } });
+		// The browser it was made in is its own.
+		expect(await browser.me()).toEqual({ user: { name, home: true } });
 	});
 
 	it('sets an HttpOnly, SameSite=Lax cookie for a year, not Secure in development', async () => {
@@ -345,7 +360,7 @@ describe('register', () => {
 		// The name is kept as the rules give it: trimmed, and NFC.
 		const other = new Browser();
 		expect((await other.register('  Bjørn Ole  ')).status).toBe(201);
-		expect(await other.me()).toEqual({ user: { name: 'Bjørn Ole' } });
+		expect(await other.me()).toEqual({ user: { name: 'Bjørn Ole', home: true } });
 	});
 
 	it("refuses a name the engine's nameKey folds onto a taken one: ß and ss, full-width letters", async () => {
@@ -433,8 +448,9 @@ describe('login and logout', () => {
 		expect(res.status).toBe(200);
 		expect(await res.json()).toEqual({ user: { name } });
 		expect(second.cookie).not.toBe(first.cookie);
-		expect(await first.me()).toEqual({ user: { name } });
-		expect(await second.me()).toEqual({ user: { name } });
+		expect(await first.me()).toEqual({ user: { name, home: true } });
+		// Logging in elsewhere never moves the account's own browser.
+		expect(await second.me()).toEqual({ user: { name, home: false } });
 	});
 
 	it('finds the account whatever the case or way of writing the name, and the password typed on a tablet', async () => {
@@ -492,14 +508,14 @@ describe('login and logout', () => {
 		// What a login does after the password check, without a slow hash each time.
 		for (let i = 0; i < MAX_SESSIONS_PER_USER - 1; i++) await createSession(db, user!.id);
 		expect(await sessionRows(name)).toHaveLength(MAX_SESSIONS_PER_USER);
-		expect(await browser.me()).toEqual({ user: { name } });
+		expect(await browser.me()).toEqual({ user: { name, home: true } });
 		const latest = new Browser();
 		expect((await latest.login(name)).status).toBe(200);
 		expect(await sessionRows(name)).toHaveLength(MAX_SESSIONS_PER_USER);
 		const oldest = new Browser();
 		oldest.cookie = first;
 		expect(await oldest.me()).toEqual({ user: null });
-		expect(await latest.me()).toEqual({ user: { name } });
+		expect(await latest.me()).toEqual({ user: { name, home: false } });
 	});
 });
 
@@ -571,22 +587,23 @@ describe('sessions', () => {
 	it('a session in use slides a year out, in the database and in the cookie, once a month', async () => {
 		const { browser, name } = await account();
 		const user = await userRow(name);
-		// Fresh, and 25 days in: nothing to move, no cookie sent again.
+		// Fresh, and 25 days in: nothing to move, no session cookie sent again (the home
+		// cookie, whose key never changes, goes every time).
 		const fresh = await browser.request('GET', '/me');
-		expect(fresh.headers.get('set-cookie')).toBeNull();
+		expect(sessionCookieSent(fresh)).toBeUndefined();
 		await db
 			.update(sessions)
 			.set({ expiresAt: sql`now() + interval '340 days'` })
 			.where(eq(sessions.userId, user!.id));
 		const early = await browser.request('GET', '/me');
-		expect(early.headers.get('set-cookie')).toBeNull();
-		expect(await early.json()).toEqual({ user: { name } });
+		expect(sessionCookieSent(early)).toBeUndefined();
+		expect(await early.json()).toEqual({ user: { name, home: true } });
 		await db
 			.update(sessions)
 			.set({ expiresAt: sql`now() + interval '300 days'` })
 			.where(eq(sessions.userId, user!.id));
 		const res = await browser.request('GET', '/me');
-		expect(res.headers.get('set-cookie')).toMatch(new RegExp(`Max-Age=${SESSION_DAYS * 86400}`));
+		expect(sessionCookieSent(res)).toMatch(new RegExp(`Max-Age=${SESSION_DAYS * 86400}`));
 		const [row] = await db
 			.select({ days: sql<number>`extract(epoch from (${sessions.expiresAt} - now())) / 86400` })
 			.from(sessions)
@@ -649,7 +666,7 @@ describe('the account a request names', () => {
 		expect(res.status).toBe(200);
 		expect(await res.json()).toEqual({ ok: true });
 		expect(res.headers.get('set-cookie')).toBeNull();
-		expect(await other.browser.me()).toEqual({ user: { name: other.name } });
+		expect(await other.browser.me()).toEqual({ user: { name: other.name, home: true } });
 		expect(await sessionRows(other.name)).toHaveLength(1);
 		// Its own account's logout ends it, and sends no cookie either.
 		const own = await other.browser.logout();
@@ -1262,5 +1279,168 @@ describe('rate limits', () => {
 		expect((await from(limited).register(name)).status).toBe(201);
 		expect((await from(limited).register(name.toLowerCase())).status).toBe(409);
 		expect((await from(limited).register(name)).status).toBe(429);
+	});
+});
+
+describe('the account’s own browser', () => {
+	function homeCookieSent(res: Response): string | undefined {
+		return res.headers.getSetCookie().find((set) => set.startsWith(`${HOME_COOKIE}=`));
+	}
+	async function homeNamesOf(browser: Browser): Promise<unknown> {
+		return (await browser.request('GET', '/home')).json();
+	}
+	function loginAtHome(browser: Browser, name: string) {
+		return browser.request('POST', '/login', { name, home: true });
+	}
+	/** An account made before homes: no home, logged in on `browser` with a session of its own. */
+	async function homeless(): Promise<{ browser: Browser; name: string }> {
+		const name = freshName();
+		const [user] = await db
+			.insert(users)
+			.values({ name, nameKey: nameKey(name), passwordHash: await hashPassword('secret') })
+			.returning({ id: users.id });
+		const browser = new Browser();
+		browser.cookie = await createSession(db, user!.id);
+		browser.account = name;
+		return { browser, name };
+	}
+
+	it('is the browser the account is made in: an HttpOnly key for the account routes alone, kept only as a hash', async () => {
+		const browser = new Browser();
+		const name = freshName();
+		const res = await browser.register(name);
+		const set = homeCookieSent(res)!;
+		expect(set).toMatch(/HttpOnly/i);
+		expect(set).toMatch(/SameSite=Lax/i);
+		expect(set).toMatch(/Path=\/api\/account(;|$)/);
+		expect(set).toMatch(new RegExp(`Max-Age=${400 * 86400}`));
+		expect(browser.home).toMatch(/^[A-Za-z0-9_-]{43}$/);
+		expect((await userRow(name))!.homeHash).toBe(sha256(browser.home!));
+		expect(await homeNamesOf(browser)).toEqual({ names: [name] });
+		expect(await homeNamesOf(new Browser())).toEqual({ names: [] });
+	});
+
+	it('logs in with the name alone there, whatever its case, and nowhere else', async () => {
+		const { browser: home, name } = await account();
+		expect((await home.logout()).status).toBe(200);
+		expect(await home.me()).toEqual({ user: null });
+		const res = await loginAtHome(home, name.toUpperCase());
+		expect(res.status).toBe(200);
+		expect(await res.json()).toEqual({ user: { name } });
+		expect(await home.me()).toEqual({ user: { name, home: true } });
+		// Another browser, one with a made-up key, and a name with no account: no.
+		const elsewhere = new Browser();
+		const guessed = new Browser();
+		guessed.home = 'A'.repeat(43);
+		for (const [browser, typed] of [
+			[elsewhere, name],
+			[guessed, name],
+			[home, freshName()],
+			[home, 'x'.repeat(500)]
+		] as const) {
+			const no = await loginAtHome(browser, typed);
+			expect(no.status).toBe(401);
+			expect(await no.json()).toEqual({ error: 'not home' });
+			expect(sessionCookieSent(no)).toBeUndefined();
+		}
+		expect(await elsewhere.me()).toEqual({ user: null });
+	});
+
+	it('is one key a browser: a tablet two kids share is home to both, and each logs in by name', async () => {
+		const tablet = new Browser();
+		const first = freshName();
+		const second = freshName();
+		expect((await tablet.register(first)).status).toBe(201);
+		const key = tablet.home;
+		expect((await tablet.register(second)).status).toBe(201);
+		expect(tablet.home).toBe(key);
+		expect(await homeNamesOf(tablet)).toEqual({ names: [first, second] });
+		expect((await loginAtHome(tablet, first)).status).toBe(200);
+		expect(await tablet.me()).toEqual({ user: { name: first, home: true } });
+	});
+
+	it('never moves when the account logs in somewhere else', async () => {
+		const { browser: home, name } = await account();
+		const before = (await userRow(name))!.homeHash;
+		const other = new Browser();
+		expect((await other.login(name)).status).toBe(200);
+		expect(homeCookieSent(await other.request('GET', '/me'))).toBeUndefined();
+		expect(other.home).toBeNull();
+		expect((await userRow(name))!.homeHash).toBe(before);
+		expect(await homeNamesOf(other)).toEqual({ names: [] });
+		expect(await home.me()).toEqual({ user: { name, home: true } });
+	});
+
+	it('an account made before homes takes the first browser it is logged in on, and keeps it', async () => {
+		const { browser: first, name } = await homeless();
+		const second = new Browser();
+		second.cookie = await createSession(db, (await userRow(name))!.id);
+		second.account = name;
+		expect(await first.me()).toEqual({ user: { name, home: true } });
+		expect(first.home).toMatch(/^[A-Za-z0-9_-]{43}$/);
+		// The second browser, logged in all along, finds the home taken.
+		expect(await second.me()).toEqual({ user: { name, home: false } });
+		expect(second.home).toBeNull();
+		expect((await userRow(name))!.homeHash).toBe(sha256(first.home!));
+		// A browser that already holds a key (another account's home) uses it.
+		const { browser: shared, name: other } = await account();
+		const { name: late } = await homeless();
+		expect((await shared.login(late)).status).toBe(200);
+		expect(await homeNamesOf(shared)).toEqual({ names: [other, late] });
+	});
+
+	it('is where the password can be changed: others are logged out, this browser stays in', async () => {
+		const { browser: home, name } = await account();
+		const other = new Browser();
+		expect((await other.login(name)).status).toBe(200);
+		const changed = await home.request(
+			'POST',
+			'/password',
+			{ password: 'nyt kodeord' },
+			home.named()
+		);
+		expect(changed.status).toBe(200);
+		expect(await changed.json()).toEqual({ ok: true });
+		expect(sessionCookieSent(changed)).toBeUndefined();
+		expect(await home.me()).toEqual({ user: { name, home: true } });
+		expect(await other.me()).toEqual({ user: null });
+		expect((await new Browser().login(name, 'secret')).status).toBe(401);
+		expect((await new Browser().login(name, 'nyt kodeord')).status).toBe(200);
+	});
+
+	it('refuses a new password anywhere else, without a session, for another account, or against the rules', async () => {
+		const { browser: home, name } = await account();
+		const other = new Browser();
+		expect((await other.login(name)).status).toBe(200);
+		const away = await other.request('POST', '/password', { password: 'stolen' }, other.named());
+		expect(away.status).toBe(403);
+		expect(await away.json()).toEqual({ error: 'not home' });
+		// The home key without the session: not logged in.
+		const keyOnly = new Browser();
+		keyOnly.home = home.home;
+		keyOnly.account = name;
+		expect(
+			(await keyOnly.request('POST', '/password', { password: 'stolen' }, keyOnly.named())).status
+		).toBe(401);
+		// No account named, or another one named.
+		expect((await home.request('POST', '/password', { password: 'stolen' })).status).toBe(400);
+		const { name: someoneElse } = await account();
+		expect(
+			(
+				await home.request(
+					'POST',
+					'/password',
+					{ password: 'stolen' },
+					{ 'x-animath-account': encodeURIComponent(someoneElse) }
+				)
+			).status
+		).toBe(401);
+		const short = await home.request('POST', '/password', { password: 'ab' }, home.named());
+		expect(short.status).toBe(400);
+		expect(await short.json()).toEqual({ error: 'bad password', reason: 'short' });
+		expect((await home.request('POST', '/password', {}, home.named())).status).toBe(400);
+		// Nothing changed: the old password still works, and the other browser is still in.
+		expect((await new Browser().login(name, 'secret')).status).toBe(200);
+		expect(await other.me()).toEqual({ user: { name, home: false } });
 	});
 });

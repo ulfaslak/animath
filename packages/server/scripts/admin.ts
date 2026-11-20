@@ -1,5 +1,6 @@
 import {
 	AdminError,
+	clearAccountHome,
 	deleteAccount,
 	exportLocalSave,
 	importSave,
@@ -17,6 +18,7 @@ import { SAVE_MAX_BYTES } from '../src/save.js';
 //   admin reset-password <name> [<new password> | --stdin]   (a made-up one when none is given;
 //                                                    --stdin reads it, and never says it back)
 //   admin delete-account <name> [--yes]            (says what it would delete without --yes)
+//   admin clear-home <name>                        (the next browser it is logged in on is its own)
 //   admin export-local-save <player id> [--from anonymous|account|account:<name>] [--out <folder>]
 //   admin import-save [--name <name>] [--origin <address>] < save.json
 //   admin errors [--since 7d|24h|90m|<date>|<time>] [--new] [--json]
@@ -34,6 +36,7 @@ const USAGE = [
 	'  admin list',
 	'  admin reset-password <name> [<new password> | --stdin]',
 	'  admin delete-account <name> [--yes]',
+	'  admin clear-home <name>',
 	'  admin export-local-save <player id> [--from anonymous|account|account:<name>] [--out <folder>]',
 	'  admin import-save [--name <name>] [--origin <address>] < save.json',
 	'  admin errors [--since 7d|24h|90m|<date>|<time>] [--new] [--json]'
@@ -44,6 +47,7 @@ const FLAGS: Record<string, Record<string, boolean>> = {
 	list: {},
 	'reset-password': { '--stdin': true },
 	'delete-account': { '--yes': true },
+	'clear-home': {},
 	'export-local-save': { '--from': false, '--out': false },
 	'import-save': { '--name': false, '--origin': false },
 	errors: { '--since': false, '--new': true, '--json': true }
@@ -108,6 +112,9 @@ async function run(args: string[]): Promise<string[]> {
 		case 'list':
 			if (words.length !== 0) break;
 			return listAll();
+		case 'clear-home':
+			if (words.length !== 1) break;
+			return clearAccountHome(words[0]!);
 		case 'reset-password': {
 			if (!flags.has('--stdin')) {
 				if (words.length < 1 || words.length > 2) break;
