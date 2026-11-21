@@ -395,7 +395,7 @@ Two things keep a rule cheap to move to the server: intents carry only what the 
 | `test/copy-files.test.ts` | vitest: the copy files: same keys and params in every language, plurals, every literal key in English, species and item forms, `LINES`' params, Danish commas and the druid's naming ([[DESIGN]] § Voice and copy). |
 | `test/copy-runtime.test.ts` | vitest: `t()`'s rules, `chooseLanguage`, lines as data, malformed values a gap. |
 | `test/updating-page.test.ts` | vitest: `nginx/502.html` carries `app.updating` word for word in every language, shows the fallback's before any script, and reads `LANGUAGE_STORAGE_KEY`. |
-| `test/hardcoded-text.test.ts` | vitest: no template prints its own words and no module holds a sentence literal (outside `new Error`, `console`, `/* glsl */` shaders, and `FOR_DEVELOPERS`: the API clients and error reports). |
+| `test/hardcoded-text.test.ts` | vitest: no template prints its own words and no module holds a sentence literal (outside `new Error`, `console`, code held as text (`/* glsl */` shaders, `/* js */` scripts), and `FOR_DEVELOPERS`: the API clients and error reports). |
 | `test/handlers.test.ts` | vitest over the parsed source (`source.ts`): what a handler takes of the world at `welcome` it takes again at `travelled`, unless `STAYS_PUT` names the call and why; `EVENTS` pins the protocol's events, so a new event fails, listing every file that branches on an event's type. |
 | `test/source.ts` | Helpers for tests that parse the client's source: Svelte's AST for components, TypeScript's for modules, so comments never count. |
 | `test/setup.test.ts` | vitest: `setup.ts` turns the event loop between tests. |

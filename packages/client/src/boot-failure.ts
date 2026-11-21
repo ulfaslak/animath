@@ -58,7 +58,7 @@ export function forgetReload(tab: () => TabStore): void {
  * Safari to read: a class's private method, and `#name in`. `index.html`'s
  * `readsTheGame` asks the browser about the same line.
  */
-export const NEWEST_SYNTAX = 'class A { #a = 1; #b() { return #a in this; } }';
+export const NEWEST_SYNTAX = /* js */ 'class A { #a = 1; #b() { return #a in this; } }';
 
 /** Whether this browser reads `NEWEST_SYNTAX`. */
 export function readsTheGame(): boolean {
