@@ -1317,8 +1317,13 @@ puzzle:
       fell: At noon it is {start}°. At night it is {end}°. How many degrees colder did it get?
     kroner:
       count: How many kroner is this?
-      oneThing: You buy a toy for {price} kroner. You pay with the money in the picture. How much do you get back?
-      twoThings: You buy a book for {price} kroner and a hat for {other} kroner. You pay with the money in the picture. How much do you get back?
+      # Paying for one thing or two: what is bought, then how it is paid, then the question.
+      # A card too small for all three (a small phone's battle, beside its pad) lets the middle
+      # one go: the picture shows the money.
+      oneThing: You buy a toy for {price} kroner.
+      twoThings: You buy a book for {price} kroner and a hat for {other} kroner.
+      pay: You pay with the money in the picture.
+      back: How much do you get back?
     fraction: What is {fraction} of {amount}?
     shape:
       floor: How many floor tiles are there?

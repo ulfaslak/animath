@@ -26,6 +26,7 @@
 	import { t } from '../copy';
 	import { rowKey, unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
+	import { fit } from '../fit';
 	import { kindList, wholePanel } from '../kinds';
 	import { messageWords, whose, words } from '../lines';
 	import { animalWords, nameOf, speciesName } from '../names';
@@ -67,6 +68,17 @@
 	 * match's notes over the screen (`MatchNotes`) and, when Escape asks it,
 	 * "Leave the match?" (`MatchLeave`).
 	 */
+	/**
+	 * The puzzle card's look, fitted to the card (`fit.ts`) a step at a time
+	 * and only while what it holds is still too tall: its lines closer, then
+	 * the hint a size smaller, then the hint and the answer at their smallest,
+	 * then the question's lines closer, and last a sentence its picture says
+	 * already. A phone's card is 220 px tall, and beside its pad a kroner sum
+	 * for two things, its picture and its hint would otherwise run over the
+	 * card's top and bottom (seven lines of Danish at 667×375).
+	 */
+	const PUZZLE_STEPS = ['close', 'small', 'least', 'tight', 'said'] as const;
+
 	/** The other player, in a friendly match. */
 	const vs = $derived(battle.vs);
 	const front = $derived(battle.party[battle.front] ?? null);
@@ -517,7 +529,11 @@
 		</div>
 	{/if}
 
-	<div class="card puzzle" class:correct={battle.judged?.correct === true}>
+	<div
+		class="card puzzle"
+		class:correct={battle.judged?.correct === true}
+		{@attach fit(PUZZLE_STEPS)}
+	>
 		{#if battle.puzzle && vs && battle.turn === 'opponent'}
 			<!-- The other player's puzzle, watched while they think: never its answer, nor what they type. -->
 			<PuzzlePanel
@@ -908,6 +924,46 @@
 	}
 	.puzzle.correct {
 		background: color-mix(in srgb, var(--good) 22%, var(--panel-bg));
+	}
+	/*
+	 * The steps `fit` takes, in order, while what the card holds is still
+	 * taller than the card (`PUZZLE_STEPS`). `close`: the lines closer.
+	 */
+	.puzzle:global([data-fit~='close']) {
+		gap: 4px;
+		padding-block: 4px;
+	}
+	.puzzle:global([data-fit~='close']) :global(.question) {
+		gap: 3px;
+	}
+	/* `small`: the hint a size smaller (`HintView`), as the druid's crowded card has it. */
+	.puzzle:global([data-fit~='small']) {
+		--hint-size: 20px;
+	}
+	/* `least`: the hint at its smallest, as the druid's (17 px), and the answer box smaller. */
+	.puzzle:global([data-fit~='least']) {
+		--hint-size: 17px;
+	}
+	.puzzle:global([data-fit~='least']) :global(.answer) {
+		font-size: 28px;
+	}
+	/* `tight`: the question's lines closer, and the hint's. */
+	.puzzle:global([data-fit~='tight']) :global(.ask) {
+		line-height: 1.15;
+	}
+	.puzzle:global([data-fit~='tight']) :global(.hint) {
+		line-height: 1.1;
+	}
+	.puzzle:global([data-fit~='tight']) :global(.hint .sum) {
+		row-gap: 1px;
+	}
+	/*
+	 * `said`: last, a question's sentence that its picture says already goes
+	 * (how a kroner sum is paid: `puzzle-words.ts`'s `aside`). A small phone's
+	 * column beside a picture and the pad holds only so much Danish.
+	 */
+	.puzzle:global([data-fit~='said']) :global(.ask .aside) {
+		display: none;
 	}
 	.soft {
 		font-weight: 800;
