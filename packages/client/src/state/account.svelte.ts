@@ -130,7 +130,10 @@ class AccountView {
 	prompt = $state(false);
 	/** The lit choice of the save card, an index into `PROMPT_CHOICES`. */
 	promptChoice = $state(0);
-	/** Logging out is on its way: the pause menu waits. */
+	/**
+	 * Logging out, or following the account's new name, is on its way: the
+	 * page starts again soon, and the pause menu waits.
+	 */
 	leaving = $state(false);
 }
 

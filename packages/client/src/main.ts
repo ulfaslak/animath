@@ -11,13 +11,7 @@ import { AccountController } from './account/controller';
 import { NUDGE_STEPS, SaveNudge } from './account/nudge';
 import { ReadyWatch, keepingCursors } from './account/ready';
 import { noteNextStart, restartWith, takeAccountNote } from './account/restart';
-import {
-	currentAccount,
-	forgetLogout,
-	gameKeys,
-	logoutPending,
-	moveAccountGame
-} from './account/session';
+import { currentAccount, forgetLogout, gameKeys, logoutPending } from './account/session';
 import { forgetWelcome, takeWelcomeToken, welcomeFrom } from './account/welcome';
 import { sfx } from './audio/sfx.svelte';
 import { LocalAuthority, mintId } from './authority/local';
@@ -119,8 +113,11 @@ account.name = current?.name ?? null;
  * [[INVARIANTS]] § Server): the account's save goes to the server only
  * while it says the session is this account's.
  */
+// The account took a new name on another page: this one follows it (`followRename`).
 const sessionCheck = current
-	? new SessionCheck(current.name, heardSession, undefined, (name) => heardRenamed(name))
+	? new SessionCheck(current.name, heardSession, undefined, (name) => {
+			void accountController.followRename(name);
+		})
 	: null;
 
 /** The session ended before there was anywhere to say so: the title says it when it opens. */
@@ -133,8 +130,8 @@ let sessionEndedUnsaid = false;
  * message line mid-game.
  */
 function heardSession(answer: SessionAnswer, home = false): void {
-	// The page is starting again (the account took a new name, say): nothing more to say here.
-	if (reloading) return;
+	// The page is starting again, or about to (a logout, the account's new name): nothing more to say.
+	if (reloading || account.leaving) return;
 	if (answer === 'offline' || account.session === answer) return;
 	account.session = answer;
 	// On the account's own browser a new password or a new name asks for nothing more.
@@ -220,7 +217,6 @@ const accountController = new AccountController({
 		pauseController.close();
 		hud.accountNotice('newName');
 	},
-	renamedElsewhere: (name) => heardRenamed(name),
 	gateStepsAside: () => {
 		const passing = gated;
 		gated = null;
@@ -240,22 +236,6 @@ const pauseController = new PauseController(authority, {
 	newName: () => accountController.openName(),
 	logOut: () => void accountController.logOut()
 });
-
-/**
- * The account this page plays took a new name on another page (another
- * tablet or computer, another tab): the server answers for it by the new name
- * only, and keeps the old one for it. The game is saved as it stands, moves to
- * the new name in this browser (`moveAccountGame`), and the page starts again
- * in it, saying the new name. Once: a page starting again hears nothing more.
- */
-function heardRenamed(name: string): void {
-	const from = account.name;
-	if (reloading || from === null || !store) return;
-	autosave.flush();
-	moveAccountGame(store, from, name);
-	reloading = true;
-	restartWith('renamed', name);
-}
 
 /**
  * The server said whether it can keep an account now (`account/ready.ts`):

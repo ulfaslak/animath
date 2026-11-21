@@ -124,7 +124,6 @@ function setup(playerName: string | null = 'Ida', currentSave?: () => SaveWrite 
 		forgetWelcome: () => welcomeSteps.push('forgetWelcome'),
 		passwordChanged: () => events.push('passwordChanged'),
 		nameChosen: (name) => events.push(`nameChosen:${name}`),
-		renamedElsewhere: (name) => events.push(`renamedElsewhere:${name}`),
 		gateStepsAside: () => events.push('gateStepsAside')
 	});
 	const press = (...names: string[]) => {
@@ -1011,11 +1010,12 @@ describe('a new password', () => {
 		expect(events).toContain('passwordChanged');
 	});
 
-	it('hears that the page plays the account by an old name, and hands the new one on', async () => {
+	it('hears that the page plays the account by an old name, and follows it there', async () => {
 		server({
-			'/api/account/password': { status: 401, json: { error: 'account renamed', name: 'Ella' } }
+			'/api/account/password': { status: 401, json: { error: 'account renamed', name: 'Ella' } },
+			'/api/account/save': { status: 404, json: { error: 'no save yet' } }
 		});
-		const { controller, events, press, quiet } = setup('Ida');
+		const { controller, events, press, quiet, restarts, restartNames } = setup('Ida');
 		atHome();
 		controller.openPassword();
 		account.passwordDraft = 'nyt kodeord';
@@ -1023,7 +1023,7 @@ describe('a new password', () => {
 		press('Enter');
 		await answered();
 		expect(account.card).toBeNull();
-		expect(events).toEqual(['renamedElsewhere:Ella']);
+		expect([events, restarts, restartNames]).toEqual([['flush'], ['renamed'], ['Ella']]);
 	});
 
 	it('logged out meanwhile: says so, and waits for a login', async () => {
@@ -1080,7 +1080,10 @@ describe('a new name', () => {
 	});
 
 	it('an account’s at home goes to the server alone; then its game here moves to the new name and the page starts again in it', async () => {
-		const requests = server({ '/api/account/name': ok('Ella') });
+		const requests = server({
+			'/api/account/name': ok('Ella'),
+			'/api/account/save': { status: 404, json: { error: 'no save yet' } }
+		});
 		const { store, controller, events, press, quiet, restarts, restartNames } = setup('Ida');
 		account.name = 'Ida';
 		account.session = 'live';
@@ -1100,7 +1103,9 @@ describe('a new name', () => {
 				body: { name: 'ella' },
 				account: 'Ida',
 				welcome: null
-			}
+			},
+			// The server's copy, asked for by the new name, in case it is further along.
+			{ url: '/api/account/save', method: 'GET', body: undefined, account: 'Ella', welcome: null }
 		]);
 		// The name as the server keeps it.
 		expect([restarts, restartNames]).toEqual([['renamed'], ['Ella']]);
@@ -1112,7 +1117,10 @@ describe('a new name', () => {
 
 	it('away from home asks for the password too, after the name; a wrong one is said under its box', async () => {
 		let answer: Answer = { status: 403, json: { error: 'wrong password' } };
-		const requests = server({ '/api/account/name': () => answer });
+		const requests = server({
+			'/api/account/name': () => answer,
+			'/api/account/save': { status: 404, json: { error: 'no save yet' } }
+		});
 		const { controller, press, quiet, restarts } = setup('Ida');
 		account.name = 'Ida';
 		account.session = 'live';
@@ -1134,6 +1142,7 @@ describe('a new name', () => {
 		press('Enter');
 		await answered();
 		expect(requests.map((r) => r.body)).toEqual([{ name: 'Ella', password: 'gammel kode' }]);
+		requests.length = 0;
 		expect([account.problem, account.field, restarts]).toEqual([
 			{ kind: 'wrong-current' },
 			'current',
@@ -1171,11 +1180,12 @@ describe('a new name', () => {
 		expect(store.get(gameKeys({ name: 'Ida' }).save)).toBe(text);
 	});
 
-	it('the account had a new name already somewhere else: handed on, and nothing else asked', async () => {
+	it('the account had a new name already somewhere else: the page follows that one, not the one typed', async () => {
 		server({
-			'/api/account/name': { status: 401, json: { error: 'account renamed', name: 'Ella' } }
+			'/api/account/name': { status: 401, json: { error: 'account renamed', name: 'Ella' } },
+			'/api/account/save': { status: 404, json: { error: 'no save yet' } }
 		});
-		const { controller, events, press, quiet, restarts } = setup('Ida');
+		const { controller, events, press, quiet, restarts, restartNames } = setup('Ida');
 		account.name = 'Ida';
 		account.session = 'live';
 		account.home = true;
@@ -1184,7 +1194,47 @@ describe('a new name', () => {
 		quiet();
 		press('Enter');
 		await answered();
-		expect([account.card, events, restarts]).toEqual([null, ['renamedElsewhere:Ella'], []]);
+		expect([account.card, events, restarts, restartNames]).toEqual([
+			null,
+			['flush'],
+			['renamed'],
+			['Ella']
+		]);
+	});
+
+	it('following a new name takes the server’s copy when it is further along, once, keeping this one aside', async () => {
+		const theirs = JSON.parse(saveText(30, 'Ella'));
+		const requests = server({ '/api/account/save': { status: 200, json: theirs } });
+		const { store, controller, events, restarts } = setup('Ida');
+		account.name = 'Ida';
+		account.session = 'live';
+		logInHere(store, 'Ida');
+		store.set(gameKeys({ name: 'Ida' }).save, saveText(9));
+		const following = controller.followRename('Ella');
+		// Heard again meanwhile (the flush's own answer, the session check): nothing more.
+		void controller.followRename('Ella');
+		expect(account.leaving).toBe(true);
+		await following;
+		await answered();
+		const keys = gameKeys({ name: 'Ella' });
+		expect(JSON.parse(store.get(keys.save)!).seq).toBe(30);
+		expect(JSON.parse(store.get(keys.replaced)!)).toMatchObject({ seq: 9, name: 'Ella' });
+		expect(currentAccount(store)).toEqual({ name: 'Ella' });
+		expect([events, restarts, requests.length]).toEqual([['flush'], ['renamed'], 1]);
+	});
+
+	it('following a new name with no answer from the server starts again with this browser’s copy', async () => {
+		server({ '/api/account/save': 'network error' });
+		const { store, controller, restarts } = setup('Ida');
+		account.name = 'Ida';
+		account.session = 'live';
+		store.set(gameKeys({ name: 'Ida' }).save, saveText(9));
+		await controller.followRename('Ella');
+		expect(JSON.parse(store.get(gameKeys({ name: 'Ella' }).save)!)).toMatchObject({
+			seq: 9,
+			name: 'Ella'
+		});
+		expect(restarts).toEqual(['renamed']);
 	});
 
 	it('this browser is the account’s own no more: the password box comes', async () => {

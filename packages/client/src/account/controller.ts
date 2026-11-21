@@ -108,11 +108,6 @@ export interface AccountHooks {
 	/** A guest picked a new name (as `checkName` keeps it): the card is gone, and the game takes it. */
 	nameChosen?(name: string): void;
 	/**
-	 * The server says the account the page plays took a new name somewhere
-	 * else first: the page moves its game to it and starts again.
-	 */
-	renamedElsewhere?(name: string): void;
-	/**
 	 * The gate could not make the account because the server is busy or away
 	 * (too many tries from one school's network, no connection): the card is
 	 * gone, and the game goes on as a guest. The gate asks again next time.
@@ -122,6 +117,12 @@ export interface AccountHooks {
 
 /** Keys that change what a box holds without typing a letter. */
 const EDIT_KEYS: ReadonlySet<string> = new Set(['Backspace', 'Delete']);
+
+/**
+ * How long a page following its account's new name waits for the server's
+ * copy of the game before it starts again with its own: start-up's wait.
+ */
+export const FOLLOW_WAIT_MS = 2_500;
 
 /** What the box `field` holds. */
 function draftOf(field: AccountField): string {
@@ -476,9 +477,9 @@ export class AccountController {
 				account.session = 'ended';
 				return this.refuse({ kind: 'logged-out' });
 			case 'renamed':
+				// The account took a new name on another page first: this one follows it.
 				this.close();
-				this.hooks.renamedElsewhere?.(result.name);
-				return;
+				return this.followRename(result.name);
 			case 'too-many':
 				return this.refuse({ kind: 'too-many', minutes: minutes(result.retryAfter) });
 			case 'refused':
@@ -522,11 +523,7 @@ export class AccountController {
 		switch (result.kind) {
 			case 'renamed':
 				sfx.play('confirm');
-				// The game as it stands goes along, under the new name.
-				this.hooks.flush();
-				moveAccountGame(store, name, result.name);
-				this.hooks.restart('renamed', result.name);
-				return;
+				return this.followRename(result.name);
 			case 'bad-name':
 				return this.refuse({ kind: 'name', reason: result.reason });
 			case 'taken':
@@ -541,14 +538,34 @@ export class AccountController {
 				return this.refuse({ kind: 'logged-out' });
 			case 'renamed-before':
 				this.close();
-				this.hooks.renamedElsewhere?.(result.name);
-				return;
+				return this.followRename(result.name);
 			case 'too-many':
 				return this.refuse({ kind: 'too-many', minutes: minutes(result.retryAfter) });
 			case 'refused':
 			case 'offline':
 				return this.refuse({ kind: 'offline' });
 		}
+	}
+
+	/**
+	 * The account the page plays is called `name` now: the kid picked it on
+	 * this page, or on another (another tab, another tablet) and the server
+	 * says so. The game as it stands is saved, moves to the new name's keys in
+	 * this browser (`moveAccountGame`), the server's copy is taken when it is
+	 * further along (as at a login, waiting `FOLLOW_WAIT_MS` at most), and the
+	 * page starts again in it, saying the new name. Once: the page waits
+	 * meanwhile (`account.leaving`) and hears nothing more.
+	 */
+	async followRename(name: string): Promise<void> {
+		const from = account.name;
+		const store = this.hooks.store;
+		if (account.leaving || from === null || !store) return;
+		account.leaving = true;
+		this.hooks.flush();
+		moveAccountGame(store, from, name);
+		const theirs = await getAccountSave(name, undefined, FOLLOW_WAIT_MS);
+		if (theirs.kind === 'found') takeAccountGame(store, name, theirs.doc);
+		this.hooks.restart('renamed', name);
 	}
 
 	/**
