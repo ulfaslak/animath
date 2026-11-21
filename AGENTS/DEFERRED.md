@@ -40,7 +40,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### Error reports share nginx's guard on POSTs with logging in
 
-**What**: nginx counts every POST from one address in one bucket (`nginx/http.conf`: 60 at once, then one a second), and the pages' error reports are POSTs, as logging in and signing up are. A tab sends three reports an hour at most (`error-reports.ts`), so 20 pages breaking in the same seconds behind one school address send up to 60, which empties the bucket: a kid logging in during those seconds gets nginx's `429`, which the page takes for no answer ("We can't reach the game's home right now"), until the bucket refills at one a second.
+**What**: nginx counts every POST from one address in one bucket (`nginx/http.conf`: 60 at once, then one a second), and the pages' error reports are POSTs, as logging in and signing up are. A tab sends three reports an hour at most, and one security-policy notice beside them (`error-reports.ts`), so 20 pages breaking in the same seconds behind one school address send up to 80, which empties the bucket: a kid logging in during those seconds gets nginx's `429`, which the page takes for no answer ("We can't reach the game's home right now"), until the bucket refills at one a second.
 
 **Why deferred**: it takes many kids behind one address whose pages break at once, and a login in the same seconds. A bucket of the reports' own is a rule on a path, which the guard avoids on purpose: nginx and the app spell a path differently.
 
@@ -231,7 +231,7 @@ A browser whose storage has no room for a second copy of the game cannot follow 
 
 **Why deferred**: a policy that refuses something the game needs breaks it for every kid at once, and the game plays in browsers no agent can run here (Safari 15 on an old iPad). Chrome 157 and WebKit 26.6 played a game on the local production stack, the presence socket and the 502 page included, with nothing refused (2026-11-21); the reports from kids' own browsers are what shows the rest. No page has a place where a name or any other text becomes HTML, so the policy is a second guard, not the only one.
 
-**Trigger**: 2026-12-05, two weeks after the policy reached production: `admin errors --since 14d` holds no "security policy would refuse" report that is the game's own (not an extension's, not a host the game never loads). Then rename the header to `Content-Security-Policy` (the reports then say "refused"), and play a game in WebKit on the local stack before the merge. A report that is the game's own is fixed in the policy first.
+**Trigger**: 2026-12-05, two weeks after the policy reached production: `admin errors --since 14d` holds no "security policy would refuse" report that is the game's own (its stack names a script of the page's; a notice with no stack is something the page did not write, a school's filter or a translator). Then rename the header to `Content-Security-Policy` (the reports then say "refused"), and play a game in WebKit on the local stack before the merge. A report that is the game's own is fixed in the policy first.
 
 ### HSTS is a week, not a year
 

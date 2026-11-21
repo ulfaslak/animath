@@ -4,10 +4,12 @@ import {
 	errorReporter,
 	errorReports,
 	listenTo,
+	MAX_POLICY_REPORTS,
 	MAX_REPORTS,
 	postReport,
 	scrubbed,
 	thrownBy,
+	violationOf,
 	type ErrorReport,
 	type ErrorReports
 } from '../src/error-reports';
@@ -445,41 +447,96 @@ describe('the page', () => {
 		]);
 	});
 
-	it("reports what the page's security policy refuses, by its rule and host, and nothing an extension caused", () => {
+	it("tells a security policy's refusal by its rule and a keyword, never an address, and where only in the page's own script", () => {
+		const ORIGIN = 'https://animath.xyz';
+		const told = (event: Record<string, unknown>) => violationOf(event, ORIGIN);
+		expect(
+			told({
+				effectiveDirective: 'img-src',
+				blockedURI: 'https://filter.some-school.dk/inject/pupil-17.png?u=anna',
+				sourceFile: 'https://animath.xyz/immutable/index-abc.js?v=1',
+				lineNumber: 3,
+				columnNumber: 14,
+				disposition: 'report'
+			})
+		).toEqual({
+			message: "the page's security policy would refuse img-src: another address",
+			where: 'https://animath.xyz/immutable/index-abc.js?v=1:3:14'
+		});
+		expect(
+			told({
+				effectiveDirective: 'script-src-elem',
+				blockedURI: 'inline',
+				sourceFile: 'https://animath.xyz/',
+				lineNumber: 40,
+				disposition: 'enforce'
+			})
+		).toEqual({
+			message: "the page's security policy refused script-src-elem: inline",
+			where: 'https://animath.xyz/:40:0'
+		});
+		// A script from somewhere else says nothing about the game, and its address may say whose network it is.
+		expect(
+			told({
+				effectiveDirective: 'script-src-elem',
+				blockedURI: 'https://filter.some-school.dk/a.js',
+				sourceFile: 'https://filter.some-school.dk/inject/pupil-17.js',
+				lineNumber: 1,
+				disposition: 'report'
+			})
+		).toEqual({
+			message: "the page's security policy would refuse script-src-elem: another address",
+			where: ''
+		});
+		// The page's own address only, not one that starts the same.
+		expect(
+			told({
+				effectiveDirective: 'img-src',
+				blockedURI: 'data',
+				sourceFile: 'https://animath.xyz.evil.example/x.js'
+			})?.where
+		).toBe('');
+		expect(
+			violationOf(
+				{
+					effectiveDirective: 'img-src',
+					blockedURI: 'data',
+					sourceFile: 'https://animath.xyz/x.js'
+				},
+				''
+			)?.where
+		).toBe('');
+		for (const extension of [
+			{ blockedURI: 'inline', sourceFile: 'chrome-extension://abcdefghijklmnop/content.js' },
+			{ blockedURI: 'safari-web-extension://1234/icon.png' },
+			{ blockedURI: 'moz-extension://1234/icon.png' },
+			{ blockedURI: 'inline', sourceFile: 'webkit-masked-url://hidden/' }
+		]) {
+			expect(
+				told({ effectiveDirective: 'style-src-elem', disposition: 'report', ...extension })
+			).toBeNull();
+		}
+	});
+
+	it("sends a tab's security-policy notices on a budget of their own, beside its errors'", () => {
 		const { sent, fire } = listening();
-		fire('securitypolicyviolation', {
-			effectiveDirective: 'connect-src',
-			blockedURI: 'wss://animath.xyz/api/ws?guest=abc',
-			sourceFile: 'https://animath.xyz/immutable/index-abc.js?v=1',
-			lineNumber: 3,
-			columnNumber: 14,
-			disposition: 'report'
-		});
-		fire('securitypolicyviolation', {
-			effectiveDirective: 'script-src-elem',
-			blockedURI: 'inline',
-			sourceFile: 'https://animath.xyz/',
-			lineNumber: 40,
-			disposition: 'enforce'
-		});
-		fire('securitypolicyviolation', {
-			effectiveDirective: 'style-src-elem',
-			blockedURI: 'inline',
-			sourceFile: 'chrome-extension://abcdefghijklmnop/content.js',
-			disposition: 'report'
-		});
-		fire('securitypolicyviolation', {
-			effectiveDirective: 'img-src',
-			blockedURI: 'safari-web-extension://1234/icon.png',
-			disposition: 'report'
-		});
-		expect(sent.map((r) => [r.message, r.stack])).toEqual([
-			[
-				"the page's security policy would refuse connect-src: animath.xyz",
-				'/immutable/index-abc.js:3:14'
-			],
-			["the page's security policy refused script-src-elem: inline", '/:40:0']
+		for (const blockedURI of ['inline', 'eval', 'data', 'blob']) {
+			fire('securitypolicyviolation', {
+				effectiveDirective: 'img-src',
+				blockedURI,
+				disposition: 'report'
+			});
+		}
+		for (const message of ['a is undefined', 'b is undefined', 'c is undefined']) {
+			fire('error', { error: new TypeError(message), message: `Uncaught TypeError: ${message}` });
+		}
+		expect(sent.map((r) => r.message)).toEqual([
+			"the page's security policy would refuse img-src: inline",
+			'TypeError: a is undefined',
+			'TypeError: b is undefined',
+			'TypeError: c is undefined'
 		]);
+		expect(MAX_POLICY_REPORTS).toBe(1);
 	});
 
 	it('posts a report as JSON without the cookie, and lets a failed post go', async () => {

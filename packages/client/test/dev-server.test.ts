@@ -58,7 +58,9 @@ describe('the dev server', () => {
 	it('refuses every file reached through a link that leaves what it serves', async () => {
 		// Vite checks the path a request names, not where a link in it leads.
 		const leaving = linksLeaving();
-		expect(leaving.map((l) => l.link)).toContain('node_modules/.pnpm/node_modules/@mathgame/server');
+		expect(leaving.map((l) => l.link)).toContain(
+			'node_modules/.pnpm/node_modules/@mathgame/server'
+		);
 		const answers = await Promise.all(
 			leaving.map(async ({ link, file }) => [`${link}/${file}`, await status(`${link}/${file}`)])
 		);
@@ -81,7 +83,9 @@ function linksLeaving(): { link: string; file: string }[] {
 		'node_modules/.pnpm/node_modules',
 		'packages/client/node_modules',
 		'packages/engine/node_modules',
-		...readdirSync(join(ROOT, 'node_modules/.pnpm')).map((d) => `node_modules/.pnpm/${d}/node_modules`)
+		...readdirSync(join(ROOT, 'node_modules/.pnpm')).map(
+			(d) => `node_modules/.pnpm/${d}/node_modules`
+		)
 	];
 	const found: { link: string; file: string }[] = [];
 	const look = (folder: string) => {

@@ -65,6 +65,8 @@ interface ReporterOptions {
 	/** Where the tab remembers what it sent, across reloads; without it, the page alone remembers. */
 	memory?: ReportMemory;
 	now?: () => number;
+	/** The most it sends in `REPORT_WINDOW_MS`; `MAX_REPORTS` without it. */
+	max?: number;
 }
 
 /** Text the tab keeps (its `sessionStorage`, on the page). Either may throw. */
@@ -173,7 +175,7 @@ export function errorReporter(options: ReporterOptions): ErrorReports {
 			try {
 				const now = clock();
 				const lately = sentLately(now);
-				if (lately.length >= MAX_REPORTS) return;
+				if (lately.length >= (options.max || MAX_REPORTS)) return;
 				const words = wordsNow();
 				const told = described(thrown, rejected);
 				const message = shorten(oneLine(scrubbed(told.message, words)), MESSAGE_MAX);
@@ -400,12 +402,38 @@ export function listenTo(page: Window, send: (report: ErrorReport) => void = pos
 	// What the page's Content-Security-Policy refused, or would have refused
 	// while it only reports (nginx's app.conf): the page learns of it here,
 	// so the reports go where every other error goes.
+	// It has a reporter of its own, one notice a tab an hour, so a page whose
+	// school filter or translator injects what the policy refuses still reports
+	// its own errors.
+	const notices = errorReporter({
+		send,
+		build: String(import.meta.env.VITE_BUILD_SHA || 'dev'),
+		browser: browserOf(page.navigator.userAgent, page.navigator.maxTouchPoints || 0),
+		screen: () => `${Math.round(page.innerWidth)}x${Math.round(page.innerHeight)}`,
+		memory: {
+			read: () => page.sessionStorage.getItem(POLICY_SENT_KEY),
+			write: (text) => page.sessionStorage.setItem(POLICY_SENT_KEY, text)
+		},
+		max: MAX_POLICY_REPORTS
+	});
 	page.addEventListener('securitypolicyviolation', (event) => {
-		const found = violationOf(event);
-		if (found) reports.report({ message: found.message }, false, found.where);
+		let origin = '';
+		try {
+			origin = page.location.origin;
+		} catch (e) {
+			// No address to tell the page's own scripts by: none is named.
+		}
+		const found = violationOf(event, origin);
+		if (found) notices.report({ message: found.message }, false, found.where);
 	});
 	return reports;
 }
+
+/** The most security-policy notices a tab sends in `REPORT_WINDOW_MS`, beside its `MAX_REPORTS` errors. */
+export const MAX_POLICY_REPORTS = 1;
+
+/** The tab's `sessionStorage` key for the security-policy notices it sent this hour. */
+export const POLICY_SENT_KEY = 'animath.errors.policy';
 
 /** What a `securitypolicyviolation` event carries that a report uses. */
 interface ViolationLike {
@@ -418,30 +446,43 @@ interface ViolationLike {
 	disposition?: unknown;
 }
 
-/** A browser extension's address: what it puts on the page is not the game's to report. */
-const EXTENSION = /^(chrome|moz|safari|safari-web|ms-browser)-extension:/i;
+/**
+ * A browser extension's address, or Safari's mask over one: what an extension
+ * puts on the page is not the game's to report.
+ */
+const EXTENSION = /^(chrome|moz|safari|safari-web|ms-browser)-extension:|^webkit-masked-url:/i;
+
+/** What a policy stops that is not an address: `inline`, `eval`, `data`, `blob`, … */
+const KEYWORD = /^[a-z][a-z-]{0,39}$/;
 
 /**
  * A policy violation as a report tells it, or null for one a browser extension
- * caused. The message names the rule and what it stopped: a keyword
- * (`inline`, `eval`, `data`) or the host a load went to, never its path or
- * query; where it happened is the page's own script, as a stack names it.
+ * caused. The message names the rule and what it stopped: a keyword (`inline`,
+ * `eval`, `data`) or "another address", never the address itself, whose host
+ * could name a school's web filter as well as a game's mistake. Where it
+ * happened goes along only when that is a script at the page's own address
+ * (`origin`), cut to its path as a stack's places are: a script that came from
+ * elsewhere tells nothing about the game.
  */
-export function violationOf(event: ViolationLike): { message: string; where: string } | null {
+export function violationOf(
+	event: ViolationLike,
+	origin: string
+): { message: string; where: string } | null {
 	const blocked = String(event.blockedURI || '');
 	const source = String(event.sourceFile || '');
 	if (EXTENSION.test(blocked) || EXTENSION.test(source)) return null;
-	const rule = String(event.effectiveDirective || event.violatedDirective || 'unknown').split(
-		' '
-	)[0];
-	let what = blocked || 'unknown';
-	const host = /^[a-z][a-z0-9+.-]*:\/\/([^/?#]*)/i.exec(blocked);
-	if (host) what = host[1] || 'unknown';
+	const rule =
+		String(event.effectiveDirective || event.violatedDirective || '').split(' ')[0] || '';
+	const what = KEYWORD.test(blocked) ? blocked : blocked === '' ? 'unknown' : 'another address';
 	const report = event.disposition === 'report' ? 'would refuse' : 'refused';
-	const place = source
+	const ours = origin !== '' && (source === origin || source.indexOf(`${origin}/`) === 0);
+	const place = ours
 		? `${source}:${Number(event.lineNumber) || 0}:${Number(event.columnNumber) || 0}`
 		: '';
-	return { message: `the page's security policy ${report} ${rule}: ${what}`, where: place };
+	return {
+		message: `the page's security policy ${report} ${KEYWORD.test(rule) ? rule : 'unknown'}: ${what}`,
+		where: place
+	};
 }
 
 /** The address of the `<script>` an event is on, or null for anything else (the page itself, an image). */
