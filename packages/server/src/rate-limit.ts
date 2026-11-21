@@ -115,9 +115,12 @@ export interface AccountLimits {
 	/** Save PUTs per account. A page sends one a second at most, and fewer as it walks. */
 	savesPerAccount: LimitSpec;
 	/**
-	 * New names per account (`POST /name`) that landed: each keeps the old
-	 * one as the account's for good, so a kid trying names cannot hold a
-	 * class's worth of them.
+	 * New names per account (`POST /name`) that landed. Each keeps the old
+	 * one as the account's for good, so this slows one account taking names
+	 * out of reach: a few in one sitting, which a kid trying names needs, not
+	 * one a second. It is no bound over a day (and, like every limit here,
+	 * forgets on a restart); registering takes names faster still
+	 * (`registerPerIp`), so neither path is the guard against a name hoarder.
 	 */
 	renamesPerAccount: LimitSpec;
 	/**
