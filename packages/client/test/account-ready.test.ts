@@ -1,9 +1,8 @@
-import { bundles } from '@mathgame/engine';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { READY_EVERY_MS, ReadyWatch, keepingCursors, relit } from '../src/account/ready';
 import { account } from '../src/state/account.svelte';
-import { game } from '../src/state/game.svelte';
-import { menuItems, pause, type MenuItem } from '../src/state/pause.svelte';
+
+import { pause, settingsRows, type Setting } from '../src/state/pause.svelte';
 import { title } from '../src/state/title.svelte';
 
 /**
@@ -86,20 +85,35 @@ describe('keepingCursors', () => {
 		title.cursor = 0;
 	});
 
-	it('never moves a cursor from "Log in" onto "Log out" as the account rows go: a kid mid-press would log out', () => {
+	it('never moves the Settings cursor from "Log in" onto "Log out" as the account rows go: a kid mid-press would log out', () => {
 		Object.assign(account, { ready: true, name: 'Ida', session: 'ended' });
-		const cards = bundles(game.party).length;
-		pause.open = true;
-		pause.cursor = cards + menuItems().indexOf('logIn');
+		Object.assign(pause, { open: true, screen: 'settings' });
+		pause.option = settingsRows().indexOf('logIn');
 		keepingCursors(() => {
 			account.ready = false;
 		});
-		expect(menuItems()[pause.cursor - cards]).toBe('resume');
+		expect(settingsRows()[pause.option]).toBe('back');
 		// And back: the lit row stays where it is.
 		keepingCursors(() => {
 			account.ready = true;
 		});
-		expect(menuItems()[pause.cursor - cards]).toBe('resume');
+		expect(settingsRows()[pause.option]).toBe('back');
+		// The session ending under "New password" takes it away too; "Log in" comes in its place.
+		Object.assign(account, { session: 'live' });
+		pause.option = settingsRows().indexOf('newPassword');
+		keepingCursors(() => {
+			account.session = 'ended';
+		});
+		expect(settingsRows()[pause.option]).toBe('back');
+	});
+
+	it("leaves the cursors of the menu's other screens alone: their rows never follow the account", () => {
+		account.ready = true;
+		Object.assign(pause, { open: true, screen: 'list', cursor: 4, option: 2 });
+		keepingCursors(() => {
+			account.ready = false;
+		});
+		expect([pause.cursor, pause.option]).toEqual([4, 2]);
 	});
 
 	it('keeps the title\'s cursor on its row as "I have an account" comes and goes', () => {
@@ -122,27 +136,22 @@ describe('relit', () => {
 		account.ready = false;
 	});
 
-	it("keeps the pause menu's cursor on its row as the account's rows go and come", () => {
+	it("keeps the Settings screen's cursor on its row as the account's rows go and come", () => {
 		account.ready = true;
-		const withRows = menuItems();
+		const withRows = settingsRows();
 		account.ready = false;
-		const without = menuItems();
-		const moves = (from: readonly MenuItem[], to: readonly MenuItem[]) =>
-			Object.fromEntries(from.map((item, i) => [item, to[relit(from, to, i)]]));
+		const without = settingsRows();
+		const moves = (from: readonly Setting[], to: readonly Setting[]) =>
+			Object.fromEntries(from.map((row, i) => [row, to[relit(from, to, i, 'back')]]));
 		expect(moves(withRows, without)).toEqual({
-			worlds: 'worlds',
-			players: 'players',
 			language: 'language',
 			sound: 'sound',
 			// A guest's new name is the game's alone: it stays when the server can keep no account.
 			newName: 'newName',
-			// A lit row that went: the next one still there, Keep playing.
-			makeAccount: 'resume',
-			logIn: 'resume',
-			resume: 'resume',
-			quit: 'quit',
-			puzzles: 'puzzles',
-			book: 'book'
+			// A lit row that went: Back, whatever comes after it.
+			makeAccount: 'back',
+			logIn: 'back',
+			back: 'back'
 		});
 		expect(moves(without, withRows)).toEqual(Object.fromEntries(without.map((i) => [i, i])));
 	});

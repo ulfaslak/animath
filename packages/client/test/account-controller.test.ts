@@ -19,6 +19,7 @@ import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
 import { REVEAL_KEY, rowKey } from '../src/input/press';
 import { KEYS, type KeyValueStore } from '../src/save/storage';
 import { account, cardBoxes, loginByNameAlone } from '../src/state/account.svelte';
+import { pause, settingsRows, type Setting } from '../src/state/pause.svelte';
 
 /**
  * The account screens' keys and what they do ([[UI_SPEC]] § Accounts): the
@@ -1444,4 +1445,42 @@ describe('a new name', () => {
 		]);
 		expect(cardBoxes()).toEqual(['name', 'current']);
 	});
+});
+
+describe('the session over while a card of Settings was open', () => {
+	afterEach(() => {
+		Object.assign(pause, { open: false, screen: 'list', option: 0 });
+	});
+
+	/** Settings open on `row`, for Ida logged in with a live session, on her own browser. */
+	function onSettings(row: Setting) {
+		Object.assign(account, { name: 'Ida', session: 'live', home: true });
+		Object.assign(pause, { open: true, screen: 'settings', option: settingsRows().indexOf(row) });
+		expect(settingsRows()[pause.option]).toBe(row);
+	}
+
+	it.each([
+		['newPassword', '/api/account/password'],
+		['newName', '/api/account/name']
+	] as const)(
+		'%s: its row goes, and the cursor lands on Back, never on Log in or Log out',
+		async (row, route) => {
+			server({ [route]: { status: 401, json: { error: 'not logged in' } } });
+			const { controller, press, quiet } = setup('Ida');
+			onSettings(row);
+			if (row === 'newPassword') {
+				controller.openPassword();
+				account.passwordDraft = 'nyt kodeord';
+			} else {
+				controller.openName();
+				account.nameDraft = 'Bo';
+			}
+			quiet();
+			press('Enter');
+			await answered();
+			expect([account.problem, account.session]).toEqual([{ kind: 'logged-out' }, 'ended']);
+			expect(settingsRows()).not.toContain(row);
+			expect(settingsRows()[pause.option]).toBe('back');
+		}
+	);
 });

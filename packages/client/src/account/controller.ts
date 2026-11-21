@@ -36,6 +36,7 @@ import {
 	register,
 	renameAccount
 } from './api';
+import { keepingCursors } from './ready';
 import type { AccountNote } from './restart';
 import {
 	forgetLogout,
@@ -406,6 +407,18 @@ export class AccountController {
 		}
 	}
 
+	/**
+	 * The server said this page's session is over, in answer to a card. The
+	 * account's rows follow the session (New password and New name go, Log in
+	 * comes), so the Settings cursor keeps its row, or Back when its row went,
+	 * as when the session check hears it first (`heardSession` in `main.ts`).
+	 */
+	private sessionEnded(): void {
+		keepingCursors(() => {
+			account.session = 'ended';
+		});
+	}
+
 	private refuse(problem: AccountProblem): void {
 		account.problem = problem;
 		account.busy = false;
@@ -491,7 +504,7 @@ export class AccountController {
 			case 'wrong':
 				return this.refuse({ kind: 'wrong-current' });
 			case 'logged-out':
-				account.session = 'ended';
+				this.sessionEnded();
 				return this.refuse({ kind: 'logged-out' });
 			case 'renamed':
 				// The account took a new name on another page first: this one follows it.
@@ -554,7 +567,7 @@ export class AccountController {
 			case 'wrong':
 				return this.refuse({ kind: 'wrong-current' });
 			case 'logged-out':
-				account.session = 'ended';
+				this.sessionEnded();
 				return this.refuse({ kind: 'logged-out' });
 			case 'renamed-before':
 				this.close();

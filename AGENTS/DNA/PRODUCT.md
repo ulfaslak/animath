@@ -558,7 +558,7 @@ What is built and observable today, one line a feature: the rules are in §4, th
 - The top right corner ([[UI_SPEC]] § Explore mode): the tokens ("23 tokens"), the puzzles solved ("312 puzzles"; §4 "Puzzles"), the tools the kid owns, and the world the kid is in ("World 42"), the number to tell a friend.
 - Coordinates in the bottom right corner ([[DECISIONS]] § Client; [[UI_SPEC]] § Explore mode): where the kid stands, "x 40 · y 1000", the same numbers for every player on a tile.
 - Choosing the lead from explore: the number keys 1–9 pick the card in that place, whose first animal standing goes first (§4 "Party"); a card of tired animals can't go first, and the message line says so.
-- Pause menu (Escape in explore; [[UI_SPEC]] § Pause menu): the team's cards, to reorder, choose who goes first and give nicknames; Worlds, Who's here, the Language and Sound settings, the account's rows, "Keep playing" and "Start screen"; and the Animal book. Walking waits while it is open. Who's here lists the 50 nearest others in your world; "Go to <name>" takes you next to them in a poof.
+- Pause menu (Escape in explore; [[UI_SPEC]] § Pause menu): the team's cards, to reorder, choose who goes first and give nicknames; Worlds, Who's here, "Keep playing" and "Start screen"; My puzzles, the Animal book, and Settings, which holds the Language and Sound settings and the account's rows. Walking waits while it is open. Who's here lists the 50 nearest others in your world; "Go to <name>" takes you next to them in a poof.
 - The animal book ([[UI_SPEC]] § Pause menu; §4 "The animal book"): a page per land, a card for every kind ("?", met and faded, or caught with a green tick, a rose heart for a kind set free), the counts beside the title, and under the grid what the lit card says ("Who could this be? Go exploring and find out!", "You met a Brown rat. Catch one with your leash!"). Enter or a tap on a lit card that was met makes its animal hop.
 - Worlds ([[UI_SPEC]] § Pause menu; §4 "World"): which world the kid is in and which is home, a number (1 to 9999) typed on a big number pad or the keyboard to go there, or home; Go waits, greyed, with why, until the number is a world to go to. The trip closes the world into a circle of sky and opens the new one with a whoosh and a chime ("World 42!").
 - Message line ([[UI_SPEC]] § Explore mode): the latest message for a few seconds, the controls hint for the first few steps, and what Enter does in front of the player ("Press Enter to talk to the druid").
@@ -598,13 +598,13 @@ What is built and observable today, one line a feature: the rules are in §4, th
 ### Sound and feel
 
 - Sound: short, soft sounds made while the game runs, no sound files ([[DESIGN]] § Sound) — a jingle when a wild animal jumps out, blips on the menus, a chime for a right answer and a soft bonk for a miss, a thump for a hit, a puff when an animal gets tired, the leash's whoosh, tick-tock and its fanfare or boing, a sparkle at the druid, coins clinking when tokens change hands, a ding for a new lead and a fanfare for a win, a chop and a crack as the axe and the pickaxe land, a whoosh and a chime for a trip to another world, a whoosh as the paraglider takes off and a soft thud and two notes as it lands, and a squawk when a wild bird notices the glider. Every sound goes with something on screen.
-- Sound setting: on by default, a Sound row in the pause menu and on the title, and M on any screen except while typing; remembered on this device.
+- Sound setting: on by default, a Sound row in the pause menu's Settings and on the title, and M on any screen except while typing; remembered on this device.
 - Little flourishes ([[UI_SPEC]] § Sound and juice): the iris into a battle, a tired animal lying down in a ring of dust with z's, sparkles along a healed animal's HP bar, the trainer's walk and the lead's bounce. A system set to reduce motion gets calmer versions.
 - Big moments feel big ([[UI_SPEC]] § Sound and juice): a caught animal cheers in confetti, its name in big letters over a burst of rays; a win gets a hop and a few stars.
 
 ### Language
 
-- The whole game in Danish and English, the animals' and attacks' names included. It starts in the language the browser prefers (Danish or English, else English); Language in the pause menu and on the title switches every word on screen at once and is remembered on this device (`?lang=da` / `?lang=en` in the address picks one for a visit).
+- The whole game in Danish and English, the animals' and attacks' names included. It starts in the language the browser prefers (Danish or English, else English); Language in the pause menu's Settings and on the title switches every word on screen at once and is remembered on this device (`?lang=da` / `?lang=en` in the address picks one for a visit).
 
 ### The page
 

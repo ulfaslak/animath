@@ -17,9 +17,9 @@
  * `--shots` saves a frame of each screen, and `--verbose` prints every case.
  *
  * The screens: the title (Continue on the long name), explore (the party
- * cards, the tokens and tools, the message line), the pause menu and an
- * animal's card opened in it (not on a phone, which UI_SPEC gives them no
- * layout for), and the druid's card (one Enter from World 1's spawn
+ * cards, the tokens and tools, the message line), the pause menu, an
+ * animal's card opened in it and its Settings screen (not on a phone, which
+ * UI_SPEC gives them no layout for), and the druid's card (one Enter from World 1's spawn
  * tent). A battle is not reached here: its widest names are the species'
  * `wild` forms, which [[DEVELOPMENT]] says how to measure. The druid's card
  * in all its states is `scripts/doctor-fit.mjs`'s.
@@ -82,7 +82,7 @@ const SIZES: [number, number][] = [
 ];
 const LANGUAGES = ['en', 'da'];
 /** Screens UI_SPEC gives no layout on a phone held sideways. */
-const UNLAID_ON_PHONES = ['pause', 'card'];
+const UNLAID_ON_PHONES = ['pause', 'card', 'settings'];
 
 /** The widest of everything, in one save: World 1, by its spawn's tent, facing it. */
 function worstSave(): string {
@@ -199,7 +199,9 @@ for (const [width, height] of SIZES) {
 			if (
 				only &&
 				!only.test(label) &&
-				!['title', 'explore', 'pause', 'card', 'druid'].some((s) => only.test(`${label} ${s}`))
+				!['title', 'explore', 'pause', 'card', 'settings', 'druid'].some((s) =>
+					only.test(`${label} ${s}`)
+				)
 			)
 				continue;
 			const context = await browser.newContext({
@@ -256,6 +258,14 @@ for (const [width, height] of SIZES) {
 				await look('pause');
 				await press(page, 'Enter');
 				await look('card');
+				// Back to the team, then up to Settings (the last row) and into it, with the
+				// player's long name over the account's rows.
+				await press(page, 'Escape');
+				await page.waitForTimeout(400);
+				await press(page, 'ArrowUp');
+				await press(page, 'Enter');
+				await page.waitForSelector('.menu .settings', { timeout: 10_000 });
+				await look('settings');
 				// Back to the team, then out of the menu: one Escape each, never one more (in explore
 				// Escape opens the menu again).
 				await press(page, 'Escape');

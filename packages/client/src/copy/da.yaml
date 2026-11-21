@@ -1833,11 +1833,20 @@ pause:
   newVersion: Der er en ny udgave af spillet. Den kommer om lidt!
   keysPlayers: ↑ ↓ flyt · Enter gå · Esc tilbage
   keysList: ↑ ↓ flyt · Enter vælg · Esc luk
-  keysLanguage: ↑ ↓ flyt · ← → eller Enter skift sprog · Esc luk
-  keysSound: ↑ ↓ flyt · ← → eller Enter slå lyden fra eller til · Esc luk
+  keysLanguage: ↑ ↓ flyt · ← → eller Enter skift sprog · Esc tilbage
+  keysSound: ↑ ↓ flyt · ← → eller Enter slå lyden fra eller til · Esc tilbage
   keysOptions: ↑ ↓ flyt · Enter vælg · Esc tilbage
   keysNaming: Enter gem · Esc tilbage
   save: Gem
+  playersAbout: Se hvem der ellers spiller i denne verden. Du kan gå hen til dem.
+
+settings:
+  title: Indstillinger
+  languageHelp: Alle ord i spillet skifter med det samme.
+  logInHelp: Spil det spil, du har gemt på din konto.
+  newPasswordHelp: 'Vælg en ny hemmelig kode til {name}.'
+  logOutHelp: 'Hold op med at spille som {name} på denne tablet eller computer.'
+  backHelp: Tilbage til dit hold.
 
 save:
   # On the message line when a saved game is picked up.
@@ -1986,7 +1995,7 @@ title:
     # The row, with the account's name beside it (and in the login card it opens).
     logIn: Log ind
   # On the title of the game opened from the Home Screen with nothing saved there (#90).
-  standaloneHint: Har du spillet i Safari før? Lav en konto der (Menu → Lav en konto) og log så ind her.
+  standaloneHint: Har du spillet i Safari før? Lav en konto der (Menu → Indstillinger → Lav en konto) og log så ind her.
   language: Sprog
   sound: Lyd
   animals:
