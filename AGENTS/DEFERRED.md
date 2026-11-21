@@ -224,3 +224,19 @@ A browser whose storage has no room for a second copy of the game cannot follow 
 **Why deferred**: it needs a rename on one device while another is logged out with play it never sent (or has a full storage), and nothing is lost for good. Following it would need a logged-out page to learn an old name's new one, which would tell anyone which names an account had.
 
 **Trigger**: a kid's play missing after a new name on another tablet, or `admin list` showing old names on an account whose kid reports a lost game.
+
+### The security policy only reports
+
+**What**: nginx sends the pages' Content-Security-Policy as `Content-Security-Policy-Report-Only` (`nginx/app.conf`, [[INVARIANTS]] § "A page of the game loads from its own address only"), so a browser refuses nothing: an injected script would still run. A browser tells the page what the policy would refuse, and the page sends it home as an error report (`violationOf`, `admin errors` lists them as "the page's security policy would refuse …").
+
+**Why deferred**: a policy that refuses something the game needs breaks it for every kid at once, and the game plays in browsers no agent can run here (Safari 15 on an old iPad). Chrome 157 and WebKit 26.6 played a game on the local production stack, the presence socket and the 502 page included, with nothing refused (2026-11-21); the reports from kids' own browsers are what shows the rest. No page has a place where a name or any other text becomes HTML, so the policy is a second guard, not the only one.
+
+**Trigger**: 2026-12-05, two weeks after the policy reached production: `admin errors --since 14d` holds no "security policy would refuse" report that is the game's own (not an extension's, not a host the game never loads). Then rename the header to `Content-Security-Policy` (the reports then say "refused"), and play a game in WebKit on the local stack before the merge. A report that is the game's own is fixed in the policy first.
+
+### HSTS is a week, not a year
+
+**What**: `Strict-Transport-Security` is `max-age=604800` (`nginx/nginx.conf.template`). A browser that has not visited for a week forgets that the game is HTTPS-only, and its next visit by `http://` could be intercepted before the redirect.
+
+**Why deferred**: the certificate has not yet renewed by itself (issued 2026-09-27, the first renewal due around 2026-11-26). If renewal fails while HSTS is long, a browser shows no "continue anyway" for as long as HSTS lasts.
+
+**Trigger**: the certificate's start date is later than 2026-09-27 (`echo | openssl s_client -connect animath.xyz:443 -servername animath.xyz 2>/dev/null | openssl x509 -noout -startdate`). Then `max-age=31536000` (the ramp in the template's comment; `includeSubDomains` only once no subdomain but `www` could ever serve plain HTTP; never `preload`).

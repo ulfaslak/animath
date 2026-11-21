@@ -114,7 +114,7 @@ Colour is never the only signal: a wrong answer also shakes, a low HP bar also s
 
 ## Typography
 
-**Nunito** (Google Fonts), weights 600 and 800. Rounded terminals suit the low-poly look and read well for kids.
+**Nunito**, weights 600 and 800, served with the game ([[DECISIONS]] § Client). Rounded terminals suit the low-poly look and read well for kids.
 
 - Puzzle prompt: 800, very large (≥ 40 px on a laptop). It is the most important text in the game.
 - The game's name on the title: 800, 64–112 px, each letter its own colour with a cream rim and a soft shadow, bobbing gently out of step.

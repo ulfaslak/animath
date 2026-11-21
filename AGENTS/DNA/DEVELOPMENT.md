@@ -467,6 +467,8 @@ ngrok http 5180                # or: cloudflared tunnel --url http://localhost:5
 
 The API is reached through Vite's proxy, so one tunnel is enough. ngrok is installed and signed in on this machine.
 
+The tunnel puts the dev server on the internet, so what it serves is what anyone with the link can read: the client, the engine and the installed libraries, nothing else of the clone (`DEV_SERVER_SERVES` in `vite.config.ts`, [[INVARIANTS]] § Serving). Before 2026-11-21 it served the whole clone, `terraform/terraform.tfvars` with the Hetzner token included. Anything else put behind a tunnel gets the same look first: ask it for a file it should not have.
+
 A page opened through the tunnel shows the moved card before anything else ([[UI_SPEC]] § Frame); its small "Keep playing here" is for a grown-up testing. A guest's game there is saved in their own browser, under the link they opened, and nowhere else since the anonymous backup was retired: this machine's `mathgame` database has it only as that backup last took it, and holds an account made there with its save (§ Moving a kid's game to production). ngrok's free plan gives the account one fixed `….ngrok-free.dev` address, reused on every `ngrok http 5180`; a new address, `localhost`, or another tunnel is a different place, with a `localStorage` of its own.
 
 ## Deployment
