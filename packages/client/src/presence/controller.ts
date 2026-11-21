@@ -406,7 +406,7 @@ export class PresenceController {
 		if (this.underWay && !this.options.behind()) this.connection.wake();
 	}
 
-	/** Who this is, where, for tests. */
+	/** The socket's status, for tests. */
 	get status(): PresenceStatus {
 		return this.connection.status;
 	}
