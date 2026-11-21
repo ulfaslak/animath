@@ -432,3 +432,10 @@ To become `[learned]`: a line in CLAUDE.md Phase 2 that an error handler sorting
 
 To become `[learned]`: a second case of a behaviour copied to a sibling path without its reason would make this a pattern, and a line in CLAUDE.md Phase 2 its guard.
 
+
+### 2026-11-21 — the Arctic spot check (fix/spot-arctic, PR #257) — a fit tuned on the phone it was looked at, not over every size and step `[not codified]`
+
+- **Three fit steps that fitted the sum on screen.** The battle's puzzle card took `close`, `small` and `least` because they made the kroner sum in front of me fit at 844×390. The longest sums (two things, five notes and coins) and the smaller phones still ran over. Found by measuring every kind at every step, many puzzles each, at every supported size in both languages. Fixed with `tight` and `said`. The same kind as the number line's (2026-11-20): a size checked where it was seen, not where it can land.
+- **A mirror that drifted by rule order.** The puzzle preview, which copies `BattlePanel`'s card "as it stands", had its phone rule before the rule it changes, so a phone's card kept 12 px of padding where a battle has 5 px. Found while measuring in the preview. Fixed: the phone rule stands last, as in `BattlePanel`.
+
+To become `[learned]`: `pnpm fit` measures the battle's puzzle card for every picture kind at every step with its hint up, at 667×375 and 1024×768 by touch, in both languages, so a fit change is measured where it can land and the preview cannot drift unseen.
