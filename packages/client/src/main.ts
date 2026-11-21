@@ -217,11 +217,9 @@ const accountController = new AccountController({
 		pauseController.close();
 		hud.accountNotice('newName');
 	},
-	// The account's new name, with no room in this browser for its game under it: play on, and say so.
-	cannotFollow: () => {
-		if (title.open && title.land === null) title.notice = 'save.storageFull';
-		else if (game.mode === 'explore') hud.notice('save.storageFull');
-	},
+	// The account's new name, with no room in this browser for its game under it: the page plays
+	// on as one logged out, its game kept only here, says so, and Log in (by the new name) is offered.
+	cannotFollow: () => heardSession('ended'),
 	gateStepsAside: () => {
 		const passing = gated;
 		gated = null;

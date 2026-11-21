@@ -109,7 +109,9 @@ export interface AccountHooks {
 	nameChosen?(name: string): void;
 	/**
 	 * The account took a new name, and this browser has no room to keep its
-	 * game under it: the page plays on as it is, and says so.
+	 * game under it: nothing this page plays reaches the account any more, so
+	 * the page plays on as a logged-out one (its game kept in this browser
+	 * only), and says so; logging in by the new name brings the account back.
 	 */
 	cannotFollow?(): void;
 	/**
@@ -570,8 +572,9 @@ export class AccountController {
 	 * the new name. So nothing played meanwhile stays under the old name. Once: the page waits
 	 * meanwhile (`account.leaving`) and hears nothing more. When the browser
 	 * cannot keep the game under the new name (its storage is full), the page
-	 * plays on as it is and says so (`hooks.cannotFollow`), once: starting
-	 * again would only hear the new name again, and start again for ever.
+	 * plays on as a logged-out one and says so (`hooks.cannotFollow`), once:
+	 * starting again would only hear the new name again, and start again for
+	 * ever.
 	 * True when this call starts the page again.
 	 */
 	async followRename(name: string): Promise<boolean> {

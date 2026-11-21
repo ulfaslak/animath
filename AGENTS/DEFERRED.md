@@ -215,10 +215,12 @@ Every number above was measured in Nordland's worlds, before The Arctic's slides
 
 **Trigger**: the first change to the name rules after accounts shipped. In the same PR, check every account's name against the new rules, and decide how an account whose name they refuse is shown to others and asked for a new one.
 
-### A browser that is logged out when its account takes a new name keeps that game under the old name
+### A browser that is logged out when its account takes a new name, or has no room to follow it, keeps that game under the old name
 
 **What**: a page learns that its account is called something else now only from the server, while its session is live: `/me` and the save routes answer by the old name (`account renamed`), and the page moves its game to the new name's keys (`moveAccountGame`). A browser that was logged out by then (the kid logged out there, or a new password picked elsewhere ended its session) hears `{ user: null }`, and keeps the account's game under the old name's keys (`animath.account.<old name>.save`). Logging in there by the new name takes the server's copy and leaves the old keys as they are: nothing is deleted, but play that never reached the server stays under keys no page reads. A presence socket already open on another tablet shows the old name to other players too, until that page starts again (its next save).
 
-**Why deferred**: it needs a rename on one device while another is logged out with play it never sent, and nothing is lost for good. Following it would need a logged-out page to learn an old name's new one, which would tell anyone which names an account had.
+A browser whose storage has no room for a second copy of the game cannot follow either (`moveAccountGame` is false): the page plays on logged out (`hooks.cannotFollow`), and what it plays from then on stays under the old name's keys the same way.
+
+**Why deferred**: it needs a rename on one device while another is logged out with play it never sent (or has a full storage), and nothing is lost for good. Following it would need a logged-out page to learn an old name's new one, which would tell anyone which names an account had.
 
 **Trigger**: a kid's play missing after a new name on another tablet, or `admin list` showing old names on an account whose kid reports a lost game.

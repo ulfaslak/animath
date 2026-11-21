@@ -164,12 +164,14 @@ export function takeAccountGame(store: KeyValueStore, name: string, theirs: unkn
  * the keys. The old name's set-aside
  * copies stay where they are.
  *
- * All or nothing, so that no play is left under keys no page reads: the
- * browser is pointed at the new name only once its game is kept there, and
- * the old key is emptied last. The old copy never makes room for the new: a
- * storage that refuses every write would not take it back. False when the
- * move could not be done (the storage is full or refuses writes): then the
- * browser plays the old name as before, its game where it was.
+ * So that no play is left under keys no page reads, the browser is pointed
+ * at the new name only once its game is kept there, and the old key is
+ * emptied last; the old copy never makes room for the new (a storage that
+ * refuses every write would not take it back). False when the move could not
+ * be done (the storage is full or refuses writes): then the browser plays the
+ * old name as before, its game where it was. Only a copy written to empty
+ * keys is taken back then; when the new name's keys held a copy already, the
+ * two may stay settled there, as the next move or login would settle them.
  */
 export function moveAccountGame(store: KeyValueStore, from: string, to: string): boolean {
 	const was = currentAccount(store);
