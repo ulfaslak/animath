@@ -3,11 +3,9 @@ import {
 	isNewerSave,
 	readSave,
 	replacesAnotherGame,
-	saveLineage,
-	saveSeq,
 	type SaveWrite
 } from '@mathgame/engine';
-import { and, eq, sql } from 'drizzle-orm';
+import { desc, eq, sql } from 'drizzle-orm';
 import { db } from './db/index.js';
 import { accountSaveBackups, accountSaves, users } from './db/schema.js';
 
@@ -83,9 +81,8 @@ export type KeepResult =
 	/** Kept among the account's set-aside saves. */
 	| { kind: 'kept' }
 	/**
-	 * The account holds this game already: its own save is the same game, as
-	 * far along or further, or this very document is among its set-aside saves.
-	 * Nothing is written.
+	 * The account holds this very document already: it is the account's save,
+	 * or the newest of its set-aside saves. Nothing is written.
 	 */
 	| { kind: 'held' }
 	/** The account is gone (deleted while this request was on its way). */
@@ -95,13 +92,18 @@ export type KeepResult =
  * Keeps `doc`, a guest game the password gate passed over, among the
  * account's set-aside saves (`guest`), within `ACCOUNT_BACKUP_BYTES`, so the
  * grown-up can bring it back by hand. The account's own save is never
- * touched. A game the account holds already (`held`) is not kept twice: the
- * same lineage as its save at no higher `seq` is that game, not as far
- * along; and a page that did not hear the answer sends the same document
- * again at the next gate. The account's row is locked, as for a write, so
- * the save compared with is the one stored.
+ * touched. Only the very same document is `held`, never kept twice: the
+ * account's save, or the newest set-aside save, which is where a page that
+ * did not hear the answer finds it when it sends it again at the next gate.
+ * A copy of the account's own game (the same lineage) that differs in any
+ * way is kept, whatever its `seq`: it may hold play the account's save does
+ * not. Two documents are compared at most, each up to a save's size, so the
+ * cost does not grow with the set-aside saves an account has. The account's
+ * row is locked, as for a write, so racing sends are decided one after the
+ * other, each seeing what the one before kept.
  */
 export async function keepAccountGame(userId: string, doc: SaveWrite): Promise<KeepResult> {
+	const text = JSON.stringify(doc);
 	return db.transaction(async (tx) => {
 		const [user] = await tx
 			.select({ id: users.id })
@@ -109,24 +111,18 @@ export async function keepAccountGame(userId: string, doc: SaveWrite): Promise<K
 			.where(eq(users.id, userId))
 			.for('no key update');
 		if (!user) return { kind: 'gone' };
-		const [row] = await tx
-			.select({ data: accountSaves.data })
+		const [save] = await tx
+			.select({ same: sql<boolean>`${accountSaves.data} = ${text}::jsonb` })
 			.from(accountSaves)
 			.where(eq(accountSaves.userId, userId));
-		if (row && saveLineage(row.data) === doc.lineage && doc.seq <= saveSeq(row.data)) {
-			return { kind: 'held' };
-		}
-		const [twin] = await tx
-			.select({ id: accountSaveBackups.id })
+		if (save?.same) return { kind: 'held' };
+		const [newest] = await tx
+			.select({ same: sql<boolean>`${accountSaveBackups.data} = ${text}::jsonb` })
 			.from(accountSaveBackups)
-			.where(
-				and(
-					eq(accountSaveBackups.userId, userId),
-					sql`${accountSaveBackups.data} = ${JSON.stringify(doc)}::jsonb`
-				)
-			)
+			.where(eq(accountSaveBackups.userId, userId))
+			.orderBy(desc(accountSaveBackups.id))
 			.limit(1);
-		if (twin) return { kind: 'held' };
+		if (newest?.same) return { kind: 'held' };
 		await keepAside(tx, userId, doc, 'guest');
 		return { kind: 'kept' };
 	});

@@ -1104,17 +1104,21 @@ describe('a guest game kept with the account (the password gate)', () => {
 		expect(await storedSave(name)).toBeNull();
 	});
 
-	it('the same game as the account’s, as far along or behind, is held already: nothing kept; further along, kept', async () => {
+	it('the account’s save itself is held already; any other copy of its game is kept, behind, level or ahead', async () => {
 		const { browser, name } = await account(doc(5, 'game-a'));
-		for (const seq of [5, 3]) {
-			const res = await browser.keep(doc(seq, 'game-a', { tokens: seq }));
-			expect(res.status).toBe(200);
-			expect(await res.json()).toEqual({ ok: true });
-		}
+		const res = await browser.keep(doc(5, 'game-a'));
+		expect(res.status).toBe(200);
+		expect(await res.json()).toEqual({ ok: true });
 		expect(await keptAside(name)).toEqual([]);
-		const ahead = doc(6, 'game-a', { tokens: 60 });
-		expect((await browser.keep(ahead)).status).toBe(200);
-		expect(await keptAside(name)).toEqual([{ data: ahead, reason: 'guest' }]);
+		// A fork of the account's game (a guest copy played on elsewhere) may hold play its save
+		// lacks, whatever its seq: a caught animal at seq 3 is still a caught animal.
+		const forks = [
+			doc(3, 'game-a', { party: [animal(1), animal(2)] }),
+			doc(5, 'game-a', { tokens: 50 }),
+			doc(6, 'game-a', { tokens: 60 })
+		];
+		for (const fork of forks) expect((await browser.keep(fork)).status).toBe(200);
+		expect(await keptAside(name)).toEqual(forks.map((data) => ({ data, reason: 'guest' })));
 		expect(await storedSave(name)).toEqual(doc(5, 'game-a'));
 	});
 
@@ -1131,6 +1135,10 @@ describe('a guest game kept with the account (the password gate)', () => {
 			'guest-game',
 			'other-guest-game'
 		]);
+		// Only the newest kept game is compared, so the cost never grows with how many there are:
+		// a game kept before another is kept again.
+		expect((await browser.keep(guest)).status).toBe(200);
+		expect(await keptAside(name)).toHaveLength(3);
 	});
 
 	it('keeps kept games within the set-aside budget with the replaced ones, newest first', async () => {

@@ -923,6 +923,49 @@ describe('the password gate', () => {
 		expect(restarts).toEqual(['welcome']);
 	});
 
+	it('a login at the gate to another account (a sibling on a shared tablet) leaves the guest game for its own', async () => {
+		// The tablet is the own of both: the gate stands before Pip's game, and Bo types his name.
+		account.homeNames = ['Pip', 'Bo'];
+		const requests = server({
+			'/api/account/login': { status: 200, json: { user: { name: 'Bo' } } },
+			'/api/account/save': { status: 404, json: { error: 'no save yet' } }
+		});
+		const { store, controller, press, quiet, restarts } = setup(null);
+		const guest = saveText(9, 'Pip', 'guest');
+		store.set(KEYS.save, guest);
+		controller.openGate('Pip');
+		account.nameDraft = 'bo';
+		quiet();
+		press('Enter');
+		await answered();
+		expect(requests.find((r) => r.url === '/api/account/login')?.body).toEqual({
+			name: 'bo',
+			home: true
+		});
+		expect(requests.some((r) => r.url === '/api/account/keep')).toBe(false);
+		expect(store.get(KEYS.save)).toBe(guest);
+		expect(currentAccount(store)).toEqual({ name: 'Bo' });
+		expect(restarts).toEqual(['welcome']);
+	});
+
+	it('the guest game’s name typed otherwise is still its account', async () => {
+		account.homeNames = ['Pip'];
+		const requests = server({
+			'/api/account/login': { status: 200, json: { user: { name: 'Pip' } } },
+			'/api/account/save': { status: 404, json: { error: 'no save yet' } },
+			'/api/account/keep': { status: 200, json: { ok: true } }
+		});
+		const { store, controller, press, quiet } = setup(null);
+		store.set(KEYS.save, saveText(9, 'pip', 'guest'));
+		controller.openGate('pip');
+		account.nameDraft = ' PIP ';
+		quiet();
+		press('Enter');
+		await answered();
+		expect(requests.some((r) => r.url === '/api/account/keep')).toBe(true);
+		expect(store.get(KEYS.save)).toBeNull();
+	});
+
 	it('a login from the title, not the gate, sends no game to keep and leaves the guest game alone', async () => {
 		const requests = server({
 			'/api/account/home': { status: 200, json: { names: [] } },

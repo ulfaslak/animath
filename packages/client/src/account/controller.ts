@@ -161,6 +161,9 @@ export class AccountController {
 	/** A new name this browser had no room to follow (`followRename`): not tried again on this page. */
 	private unfollowed: string | null = null;
 
+	/** The name of the guest game the password gate last stood before (`openGate`). */
+	private gateName = '';
+
 	constructor(private hooks: AccountHooks) {}
 
 	/**
@@ -198,6 +201,7 @@ export class AccountController {
 	 */
 	openGate(name: string): void {
 		const own = name !== '' && account.homeNames.some((n) => nameKey(n) === nameKey(name));
+		this.gateName = name;
 		this.open(own ? 'login' : 'register', 'gate', name);
 	}
 
@@ -701,7 +705,9 @@ export class AccountController {
 
 	private async logIn(): Promise<void> {
 		const store = this.hooks.store;
-		const atGate = account.from === 'gate';
+		// The guest game's own name, when this card is the gate's: only a login to that account
+		// passes the game over for good (any other account leaves it for its own login).
+		const gameName = account.from === 'gate' && this.gateName !== '' ? this.gateName : null;
 		if (account.nameDraft.trim() === '') return this.refuse({ kind: 'name', reason: 'empty' });
 		// On the account's own browser the name alone logs in.
 		const alone = loginByNameAlone();
@@ -725,7 +731,9 @@ export class AccountController {
 				this.hooks.flush();
 				const theirs = await getAccountSave(result.name);
 				if (theirs.kind === 'found') takeAccountGame(store, result.name, theirs.doc);
-				if (atGate) await this.keepGuestGame(store, result.name);
+				if (gameName !== null && nameKey(gameName) === nameKey(result.name)) {
+					await this.keepGuestGame(store, result.name);
+				}
 				logInHere(store, result.name);
 				this.hooks.restart('welcome');
 				return;
@@ -752,8 +760,9 @@ export class AccountController {
 	}
 
 	/**
-	 * The password gate logged in to `name` instead of going on with the guest
-	 * game, which this browser alone holds: it goes to the account's set-aside
+	 * The password gate logged in to `name`, the account the guest game is named
+	 * for, instead of going on with that game, which this browser alone holds
+	 * and every later Continue would lead to the same login: it goes to the account's set-aside
 	 * games on the server, for the grown-up to bring back, and once the server
 	 * has it, it is put away here too (`putGuestGameAway`), so the gate does not
 	 * stand before it again. No word is said: the kid plays the account's game,
