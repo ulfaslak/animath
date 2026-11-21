@@ -438,3 +438,11 @@ To become `[learned]`: a check in a fit script that every text in `ui/pictures/`
 - **A syntax probe held as a string tripped the worded-literals check.** `NEWEST_SYNTAX` (`class A { #a = 1; … }`) read as a sentence to `hardcoded-text.test.ts`, which knew only `/* glsl */` for code held as text. Found by the full suite after a commit made on the new test file alone. Fixed: the check knows `/* js */` too, and the probe carries it.
 
 To become `[learned]`: a line in CLAUDE.md Phase 2 that an error handler sorting failures names each kind by what it is, with a test case from each other kind, never by elimination.
+
+### 2026-11-21 — the deep cleanse's code fixes (fix/cleanse-code-2026-11-21, PR #255) — a fix copied from a sibling path without the sibling's reason, and a "never" a comment promised for the next case only `[not codified]`
+
+- **A step-aside copied from register to login.** At the password gate, a register the server turns away (too many tries, no server) steps aside and plays on as a guest, and DECISIONS § Accounts says why that is safe: the next register takes the same guest game along. The cleanse gave the gate's name-only login the same step-aside, but a login that works takes the account's game in place of the guest's, so what a kid played meanwhile was stranded at the next visit; and it covered every login at the gate, so ten wrong passwords got past it. Found by the cold review. Reverted, and the classroom case went to the human. A rule copied to a sibling path holds only where its reason does.
+- **"No note under a trip", true of the next note only.** `exploreOnScreen` stopped a note from starting under a card or a trip; one already up stayed its 4 s, over the new world, where its friend was not. Found by the cold review. Fixed: a new world drops the note about the old one.
+
+To become `[learned]`: a second case of a behaviour copied to a sibling path without its reason would make this a pattern, and a line in CLAUDE.md Phase 2 its guard.
+
