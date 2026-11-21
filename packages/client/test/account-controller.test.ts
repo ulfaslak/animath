@@ -837,6 +837,26 @@ describe('the password gate', () => {
 		expect(events).not.toContain('gateStepsAside');
 	});
 
+	it.each([
+		[
+			'too many tries from one network',
+			{ status: 429, json: { error: 'too many tries', retryAfter: 900 } }
+		],
+		['a server that is away', { status: 503, json: { error: 'accounts are off' } }]
+	])('logging in by the name alone steps aside the same way for %s', async (_, answer) => {
+		server({ '/api/account/login': answer });
+		account.homeNames = ['Pip'];
+		const { store, controller, events, press, quiet } = setup(null);
+		store.set(KEYS.save, saveText(9, 'Pip'));
+		controller.openGate('Pip');
+		quiet();
+		press('Enter');
+		await answered();
+		expect(account.card).toBeNull();
+		expect(events).toContain('gateStepsAside');
+		expect(currentAccount(store)).toBeNull();
+	});
+
 	it('a game named for an account this browser is the own of opens that account’s login, by the name alone', () => {
 		account.homeNames = ['Pip'];
 		const { controller } = setup(null);
