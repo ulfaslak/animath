@@ -504,10 +504,7 @@ export class AccountController {
 		}
 	}
 
-	/**
-	 * At the gate, a server that cannot make the account now, or log in to the
-	 * one the game is named for, lets the game go on as a guest's.
-	 */
+	/** At the gate, a server that cannot make the account now lets the game go on as a guest's. */
 	private stepAside(): boolean {
 		if (account.from !== 'gate' || !this.hooks.gateStepsAside) return false;
 		this.close();
@@ -557,11 +554,9 @@ export class AccountController {
 				if (!loginByNameAlone()) account.field = 'password';
 				return;
 			case 'too-many':
-				if (this.stepAside()) return;
 				return this.refuse({ kind: 'too-many', minutes: minutes(result.retryAfter) });
 			case 'refused':
 			case 'offline':
-				if (this.stepAside()) return;
 				return this.refuse({ kind: 'offline' });
 		}
 	}
