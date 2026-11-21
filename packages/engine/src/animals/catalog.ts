@@ -340,7 +340,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		]
 	},
 	{
-		// Talon Grab asks times tables and missing numbers, not the division #89
+		// Talon Grab asks doubling, times tables and missing numbers, not the division #89
 		// wrote for it: nothing below tier 3 asks division ([[DECISIONS]] § Gameplay).
 		id: 'tawny-owl',
 		tier: 2,
