@@ -65,26 +65,27 @@ export type AccountWriteResult =
  * `account_save_backups`, within `ACCOUNT_BACKUP_BYTES`. The account's row
  * is locked for the read-decide-write, so two concurrent writes are decided
  * one after the other, never both against the same old document.
- * A write that does not land returns the stored save. `nameKey` is the
- * account's name as the request named it: a rename that landed since then
- * (`renameAccount`, which locks the row too) refuses the write, so a page
- * still playing the account by its old name puts no old name back in its save.
+ * A write that does not land returns the stored save. `name` is the
+ * account's name as the request named it, spelled as it is: a new name that
+ * landed since then (`renameAccount`, which locks the row too), even one in
+ * another case only, refuses the write, so a page still playing the account
+ * by its old name puts no old name back in its save.
  */
 export async function writeAccountSave(
 	userId: string,
 	doc: SaveWrite,
-	nameKey: string
+	name: string
 ): Promise<AccountWriteResult> {
 	return db.transaction(async (tx) => {
 		const [user] = await tx
-			.select({ id: users.id, name: users.name, nameKey: users.nameKey })
+			.select({ id: users.id, name: users.name })
 			.from(users)
 			.where(eq(users.id, userId))
 			// Serializes this account's save writes without holding up a login,
 			// whose new session only needs the row to stay (a key-share lock).
 			.for('no key update');
 		if (!user) return { kind: 'gone' };
-		if (user.nameKey !== nameKey) return { kind: 'renamed', name: user.name };
+		if (user.name !== name) return { kind: 'renamed', name: user.name };
 		const [row] = await tx
 			.select({ data: accountSaves.data })
 			.from(accountSaves)

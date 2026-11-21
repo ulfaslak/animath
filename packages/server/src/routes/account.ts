@@ -92,8 +92,9 @@ import { acceptWelcome, welcomeState } from '../welcome.js';
  * other browser logged in to the account, each needs the account's password
  * too. Both name their account as the save routes do. A new password logs
  * every other browser out; a new name keeps every browser in, and its old name
- * stays the account's (`former_names`): a request naming the account by it
- * hears the new one (`401 account renamed`, and `/me`'s `renamed`).
+ * stays the account's (`former_names`): a request naming the account by it,
+ * or by the name it had in another case or spacing, hears the new one
+ * (`401 account renamed`, and `/me`'s `renamed`).
  */
 
 /** The header a welcome link's lookup carries its token in. */
@@ -185,6 +186,22 @@ function claimedAccount(c: Context): string | null | undefined {
 }
 
 /**
+ * The account's name exactly as the request spells it (`ACCOUNT_HEADER`):
+ * a page names its account as the server answered it at the login, so a
+ * spelling other than the account's now, at the same key, is a page from
+ * before a new name that changed only the case or the spacing.
+ */
+function claimedSpelling(c: Context): string | null {
+	const raw = c.req.header(ACCOUNT_HEADER);
+	if (raw === undefined) return null;
+	try {
+		return decodeURIComponent(raw);
+	} catch {
+		return null;
+	}
+}
+
+/**
  * The `nameKey` a typed login name looks up. `nameKey` tidies the text itself
  * (spaces, NFC, case), and the name rules are not asked, so an account whose
  * name a later rule refuses can still log in. Null for a name too long to be
@@ -263,6 +280,8 @@ export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 			if ((await formerOwner(db, claimed)) === user.id) return renamed(c, user.name);
 			return c.json({ error: 'not logged in' }, 401);
 		}
+		// "emma", called "Emma" now: the same key, and still a new name to hear.
+		if (claimedSpelling(c) !== user.name) return renamed(c, user.name);
 		c.set('user', user);
 		await next();
 	};
@@ -446,8 +465,9 @@ export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 			const claimed = claimedAccount(c);
 			const renamed =
 				typeof claimed === 'string' &&
-				claimed !== user.nameKey &&
-				(await formerOwner(db, claimed)) === user.id;
+				(claimed === user.nameKey
+					? claimedSpelling(c) !== user.name
+					: (await formerOwner(db, claimed)) === user.id);
 			return c.json({
 				user: renamed ? { name: user.name, home, renamed } : { name: user.name, home }
 			});
@@ -524,7 +544,7 @@ export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 				return c.json({ error: 'bad save', detail: checked.error }, 400);
 			}
 			const user = c.get('user');
-			const written = await writeAccountSave(user.id, checked.value, user.nameKey);
+			const written = await writeAccountSave(user.id, checked.value, user.name);
 			if (written.kind === 'gone') return c.json({ error: 'not logged in' }, 401);
 			if (written.kind === 'renamed') return renamed(c, written.name);
 			if (written.kind === 'stale') {

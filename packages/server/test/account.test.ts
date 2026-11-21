@@ -123,6 +123,12 @@ class Browser {
 		return res;
 	}
 
+	/** The account's name as the server answered it, as a page keeps it (`logInHere(result.name)`). */
+	private async answered(res: Response): Promise<string> {
+		const body = (await res.clone().json()) as { user: { name: string } };
+		return body.user.name;
+	}
+
 	/** The header naming the account the page plays, when it plays one. */
 	named(extra: Record<string, string> = {}): Record<string, string> {
 		if (this.account === null) return extra;
@@ -135,12 +141,12 @@ class Browser {
 			'/register',
 			save === undefined ? { name, password } : { name, password, save }
 		);
-		if (res.status === 201) this.account = name;
+		if (res.status === 201) this.account = await this.answered(res);
 		return res;
 	}
 	async login(name: string, password = 'secret') {
 		const res = await this.request('POST', '/login', { name, password });
-		if (res.status === 200) this.account = name;
+		if (res.status === 200) this.account = await this.answered(res);
 		return res;
 	}
 	async logout() {
@@ -159,7 +165,7 @@ class Browser {
 			password === undefined ? { name } : { name, password },
 			this.named()
 		);
-		if (res.status === 200) this.account = name;
+		if (res.status === 200) this.account = await this.answered(res);
 		return res;
 	}
 	/** A new password; `current`, the password now, away from the account's own browser. */
@@ -676,13 +682,19 @@ describe('the account a request names', () => {
 		expect(await (await mine.getSave()).json()).toEqual(doc(5));
 	});
 
-	it('names the account by its name, which the server keys itself, however it is written', async () => {
+	it('names the account by its name as the server keeps it, which the server keys itself; another spelling hears that name', async () => {
 		const browser = new Browser();
 		const name = `Øre ${freshName()}`;
 		expect((await browser.register(name, 'secret', doc(3))).status).toBe(201);
-		for (const typed of [name.toLowerCase(), ` ${name.toUpperCase()}  `, name]) {
+		expect((await browser.getSave()).status).toBe(200);
+		// The same key spelled otherwise is what a page sends after a new name in another case only.
+		for (const typed of [name.toLowerCase(), ` ${name.toUpperCase()}  `, name.replace(' ', '  ')]) {
 			browser.account = typed;
-			expect((await browser.getSave()).status, typed).toBe(200);
+			const res = await browser.getSave();
+			expect([res.status, await res.json()], typed).toEqual([
+				401,
+				{ error: 'account renamed', name }
+			]);
 		}
 	});
 
@@ -1656,12 +1668,44 @@ describe('a new name', () => {
 		const next = freshName();
 		expect((await browser.rename(next)).status).toBe(200);
 		const write = doc(5) as unknown as SaveWrite;
-		expect(await writeAccountSave(user!.id, write, nameKey(name))).toEqual({
+		expect(await writeAccountSave(user!.id, write, name)).toEqual({
 			kind: 'renamed',
 			name: next
 		});
 		expect(await storedSave(next)).toEqual(doc(1));
-		expect(await writeAccountSave(user!.id, write, nameKey(next))).toEqual({ kind: 'saved' });
+		expect(await writeAccountSave(user!.id, write, next)).toEqual({ kind: 'saved' });
+	});
+
+	it('a new name in another case only is a new name too: a page playing the old spelling hears it, and puts it back nowhere', async () => {
+		const name = freshName().toLowerCase();
+		const home = new Browser();
+		expect((await home.register(name, 'secret', doc(3, 'game-a', { name }))).status).toBe(201);
+		const other = new Browser();
+		expect((await other.login(name)).status).toBe(200);
+		const next = name.toUpperCase();
+		const res = await home.rename(next);
+		expect([res.status, await res.json()]).toEqual([200, { user: { name: next } }]);
+		expect(await formerOf(next)).toEqual({});
+		expect(await storedSave(next)).toEqual(doc(3, 'game-a', { name: next }));
+		// `other` still spells it the old way.
+		const put = await other.putSave(doc(9, 'game-a', { name }));
+		expect([put.status, await put.json()]).toEqual([401, { error: 'account renamed', name: next }]);
+		expect(await storedSave(next)).toEqual(doc(3, 'game-a', { name: next }));
+		expect(await other.me(other.named())).toEqual({
+			user: { name: next, home: false, renamed: true }
+		});
+		expect(await home.me(home.named())).toEqual({ user: { name: next, home: true } });
+		// A save already past the session check when the new spelling landed is refused too.
+		const user = await userRow(next);
+		expect(await writeAccountSave(user!.id, doc(9) as unknown as SaveWrite, name)).toEqual({
+			kind: 'renamed',
+			name: next
+		});
+		// Logging in by any spelling gives the page the account's own.
+		const again = new Browser();
+		expect((await again.login(name)).status).toBe(200);
+		expect(again.account).toBe(next);
+		expect((await again.putSave(doc(10, 'game-a', { name: next }))).status).toBe(200);
 	});
 
 	it('keeps a former name its account’s: nobody registers it or takes it, in any case; the account takes it back', async () => {
