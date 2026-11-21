@@ -2330,7 +2330,7 @@ title:
     logIn: Log in
   # On the title of the game opened from the Home Screen with nothing saved there: a web app
   # keeps its own storage, apart from the browser's (#90).
-  standaloneHint: Played in Safari before? Make an account there (Menu → Make an account), then log in here.
+  standaloneHint: Played in Safari before? Make an account there (Menu → Settings → Make an account), then log in here.
   language: Language
   sound: Sound
   # Beside Continue, after the name of the saved team's first animal: how big the team is.

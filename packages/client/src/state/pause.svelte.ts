@@ -48,9 +48,10 @@ export type PauseScreen =
  * puzzles", the animal book and Settings, side by side at the top, on the
  * menu's title line, so up from the first card reaches Settings and down
  * from the last row comes round to "My puzzles". A new row is a new id
- * here, its label in `PauseMenu.svelte`, and its case in
- * `PauseController.chooseItem` — the cursor, keys and layout already count
- * every row. Rows side by side take left and right to step between each
+ * here, its place on a line of `MENU_LINES` (which `PauseMenu.svelte`
+ * draws, the title line by hand), its label there, and its case in
+ * `PauseController.chooseItem` — the cursor and keys already count every
+ * row, and a test fails while a row has no line. Rows side by side take left and right to step between each
  * other. `worlds` opens the Worlds screen, with the world the player is in
  * beside it; `players` opens the list of the other players in this world
  * on the right, where picking one goes to them; `quit` (Start screen) saves
