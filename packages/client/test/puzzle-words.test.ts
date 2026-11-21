@@ -1,7 +1,13 @@
 import { Rng, UNITS, generatePuzzle, puzzleFace, type PuzzleFace } from '@mathgame/engine';
 import { afterEach, describe, expect, it } from 'vitest';
 import { language } from '../src/copy';
-import { shownPrompt, wordedPrompt, wordedSum } from '../src/puzzle-words';
+import {
+	questionParts,
+	questionText,
+	shownPrompt,
+	wordedPrompt,
+	wordedSum
+} from '../src/puzzle-words';
 
 /**
  * A measuring puzzle (`units`) is a sum in words the client writes from its
@@ -95,5 +101,32 @@ describe('the prompt in big type', () => {
 		}
 		expect(shownPrompt({ kind: 'clock', prompt: 'clock(9, 3, 0, 0, 0)' }, null)).toBe('?');
 		expect(shownPrompt({ kind: 'double', prompt: 'double(5, 8)' }, null)).toBe('?');
+	});
+});
+
+describe('a kroner question', () => {
+	// Paying for two things: 200 + 100 kr. for 52 and 179 kr. (`kroner`'s face: kind, the
+	// pieces by value from 1 kr. up, then the prices).
+	const face: PuzzleFace = { kind: 'kroner', numbers: [2, 0, 0, 0, 0, 0, 0, 1, 1, 52, 179] };
+
+	it('reads whole, and only how it is paid may step aside for a card with no room', () => {
+		for (const [lang, whole, shown] of [
+			[
+				'en',
+				'You buy a book for 52 kroner and a hat for 179 kroner. You pay with the money in the picture. How much do you get back?',
+				'You buy a book for 52 kroner and a hat for 179 kroner. How much do you get back?'
+			],
+			[
+				'da',
+				'Du køber en bog til 52 kroner og en hue til 179 kroner. Du betaler med pengene på billedet. Hvor mange penge får du tilbage?',
+				'Du køber en bog til 52 kroner og en hue til 179 kroner. Hvor mange penge får du tilbage?'
+			]
+		] as const) {
+			language.set(lang);
+			const parts = questionParts(face)!;
+			expect(questionText(parts)).toBe(whole);
+			const kept = parts.filter((p) => !('aside' in p && p.aside));
+			expect(questionText(kept)).toBe(shown);
+		}
 	});
 });

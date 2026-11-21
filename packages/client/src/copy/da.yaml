@@ -1282,8 +1282,10 @@ puzzle:
       fell: Ved middagstid er det {start}°. Om natten er det {end}°. Hvor mange grader koldere er det blevet?
     kroner:
       count: Hvor mange kroner er det?
-      oneThing: Du køber et stykke legetøj til {price} kroner. Du betaler med pengene på billedet. Hvor mange penge får du tilbage?
-      twoThings: Du køber en bog til {price} kroner og en hue til {other} kroner. Du betaler med pengene på billedet. Hvor mange penge får du tilbage?
+      oneThing: Du køber et stykke legetøj til {price} kroner.
+      twoThings: Du køber en bog til {price} kroner og en hue til {other} kroner.
+      pay: Du betaler med pengene på billedet.
+      back: Hvor mange penge får du tilbage?
     fraction: Hvad er {fraction} af {amount}?
     shape:
       floor: Hvor mange gulvfliser er der?

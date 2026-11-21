@@ -19,7 +19,7 @@
 	const topic = $derived(puzzleTopics([preview.kind], preview.difficulty)[0] ?? 'add');
 	const wide = $derived(wholePanel(preview.kind));
 	/** `BattlePanel`'s steps, so a crowded puzzle fits here as it does there. */
-	const PUZZLE_STEPS = ['close', 'small', 'least'] as const;
+	const PUZZLE_STEPS = ['close', 'small', 'least', 'tight', 'said'] as const;
 
 	function key(name: string) {
 		return (e: PointerEvent) => {
@@ -155,6 +155,18 @@
 	}
 	.puzzle:global([data-fit~='least']) :global(.answer) {
 		font-size: 28px;
+	}
+	.puzzle:global([data-fit~='tight']) :global(.ask) {
+		line-height: 1.15;
+	}
+	.puzzle:global([data-fit~='tight']) :global(.hint) {
+		line-height: 1.1;
+	}
+	.puzzle:global([data-fit~='tight']) :global(.hint .sum) {
+		row-gap: 1px;
+	}
+	.puzzle:global([data-fit~='said']) :global(.ask .aside) {
+		display: none;
 	}
 	/* A phone held sideways, after the rules it changes, as in `BattlePanel`. */
 	@media (max-height: 560px) {

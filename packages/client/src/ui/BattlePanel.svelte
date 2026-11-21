@@ -71,12 +71,13 @@
 	/**
 	 * The puzzle card's look, fitted to the card (`fit.ts`) a step at a time
 	 * and only while what it holds is still too tall: its lines closer, then
-	 * the hint a size smaller, then the hint and the answer at their smallest.
-	 * A phone's card is 220 px tall, and beside its pad a picture's longest
-	 * question (four lines of a kroner sum in Danish) with its hint up would
-	 * otherwise run over the card's top and bottom.
+	 * the hint a size smaller, then the hint and the answer at their smallest,
+	 * then the question's lines closer, and last a sentence its picture says
+	 * already. A phone's card is 220 px tall, and beside its pad a kroner sum
+	 * for two things, its picture and its hint would otherwise run over the
+	 * card's top and bottom (seven lines of Danish at 667×375).
 	 */
-	const PUZZLE_STEPS = ['close', 'small', 'least'] as const;
+	const PUZZLE_STEPS = ['close', 'small', 'least', 'tight', 'said'] as const;
 
 	/** The other player, in a friendly match. */
 	const vs = $derived(battle.vs);
@@ -945,6 +946,24 @@
 	}
 	.puzzle:global([data-fit~='least']) :global(.answer) {
 		font-size: 28px;
+	}
+	/* `tight`: the question's lines closer, and the hint's. */
+	.puzzle:global([data-fit~='tight']) :global(.ask) {
+		line-height: 1.15;
+	}
+	.puzzle:global([data-fit~='tight']) :global(.hint) {
+		line-height: 1.1;
+	}
+	.puzzle:global([data-fit~='tight']) :global(.hint .sum) {
+		row-gap: 1px;
+	}
+	/*
+	 * `said`: last, a question's sentence that its picture says already goes
+	 * (how a kroner sum is paid: `puzzle-words.ts`'s `aside`). A small phone's
+	 * column beside a picture and the pad holds only so much Danish.
+	 */
+	.puzzle:global([data-fit~='said']) :global(.ask .aside) {
+		display: none;
 	}
 	.soft {
 		font-weight: 800;

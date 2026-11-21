@@ -20,10 +20,13 @@ import { t } from './copy';
  * screen. The engine sends numbers and never words ([[DECISIONS]] § Copy
  * and languages); the words are picked here, when they are shown. Most of a
  * question is text; a fraction is drawn stacked and a bar chart's bar by
- * its shape, so those come as parts of their own.
+ * its shape, so those come as parts of their own. A sentence of text that
+ * the picture says already is `aside`: a card with no room left for it
+ * (`BattlePanel`'s last fit step) lets it go, and a screen reader still
+ * reads it.
  */
 export type QuestionPart =
-	{ text: string } | { fraction: readonly [number, number] } | { shape: number };
+	{ text: string; aside?: true } | { fraction: readonly [number, number] } | { shape: number };
 
 /** Where a part that is not text goes, until the text is cut there. */
 const FRACTION = '';
@@ -44,13 +47,18 @@ export function questionParts(face: PuzzleFace): QuestionPart[] | null {
 			return [{ text: thermometerText(at(0), at(1), at(2)) }];
 		case 'kroner': {
 			const [p, q] = [at(9), at(10)];
-			const text =
-				at(0) === 0
-					? t('puzzle.ask.kroner.count')
-					: at(0) === 1
-						? t('puzzle.ask.kroner.oneThing', { price: p })
-						: t('puzzle.ask.kroner.twoThings', { price: p, other: q });
-			return [{ text }];
+			if (at(0) === 0) return [{ text: t('puzzle.ask.kroner.count') }];
+			// How it is paid is `aside`: a card with no room for it lets it go, the picture saying it.
+			return [
+				{
+					text:
+						at(0) === 1
+							? t('puzzle.ask.kroner.oneThing', { price: p })
+							: t('puzzle.ask.kroner.twoThings', { price: p, other: q })
+				},
+				{ text: ` ${t('puzzle.ask.kroner.pay')}`, aside: true },
+				{ text: ` ${t('puzzle.ask.kroner.back')}` }
+			];
 		}
 		case 'fraction':
 			return cut(t('puzzle.ask.fraction', { fraction: FRACTION, amount: at(2) }), {
