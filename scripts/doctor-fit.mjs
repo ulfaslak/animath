@@ -227,6 +227,28 @@ const STATES = {
 		healed: { amounts: { 0: 100, 1: 90, 2: 40 }, n: 1 },
 		line: { say: 'healed', animal: bears[0], others: 2, someoneStillHurt: false }
 	}),
+	// A picture puzzle's reward: the list is back beside the right-hand side, and the
+	// doctor's cheer over it is at its longest. Each picture kind, as the heals above ask it.
+	...Object.fromEntries(
+		[
+			['thermometer(1, -10, 12)', 2, 'thermometer'],
+			['kroner(0, 0, 1, 1, 2, 1, 0, 0, 0, 0, 0)', 47, 'kroner'],
+			['fraction(1, 3, 12)', 4, 'fraction'],
+			['shape(1, 4, 3, 0, 0, 1)', 14, 'shape'],
+			['barchart(2, 1, 0, 2, 4, 3, 10, 10, 10, 0)', 13, 'barchart'],
+			['clock(0, 11, 30, 0, 0)', 690, 'clock'],
+			['numberline(0, 1000, 10, 5, 7, 1)', 7500, 'numberline'],
+			['blocks(0, 6, 5, 6)', 180, 'blocks']
+		].map(([prompt, answer, kind]) => [
+			`heal-reward-${kind}`,
+			right(heal(prompt, answer, kind, 3), {
+				party: TEAM.map(well),
+				healed: { amounts: { 0: 100, 1: 90, 2: 40 }, n: 1 },
+				line: { say: 'healed', animal: bears[0], others: 2, someoneStillHurt: true },
+				...(kind === 'clock' ? { input: '11:30' } : {})
+			})
+		])
+	),
 	'home-list': {
 		party: TEAM,
 		tab: 'home',
@@ -591,6 +613,14 @@ function measure(safe) {
 				if (over(a.r, b.r)) out.push(`overlap: ${name(a.el)} / ${name(b.el)}`);
 			}
 		info.fit = side.dataset.fit ?? '';
+		// A picture's numbers and words as big as any text, 16 px at least ([[DESIGN]] §
+		// Accessibility): an SVG draws them at its own scale, so measure them on the screen.
+		for (const el of side.querySelectorAll('.picture-slot text')) {
+			if (!shown(el)) continue;
+			const m = el.getScreenCTM();
+			const px = parseFloat(getComputedStyle(el).fontSize) * Math.hypot(m.a, m.b);
+			if (px < 15.5) out.push(`picture text ${name(el)} is ${px.toFixed(1)} px`);
+		}
 	}
 	// The doctor's line keeps off the badge and the tokens, and inside its card.
 	const talk = card.querySelector('.talk');
