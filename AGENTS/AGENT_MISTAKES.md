@@ -431,3 +431,10 @@ To become `[learned]`: `pnpm fit` (or a battle sibling of it) measures the attac
 - **A face check wider than the ladder, a third time today.** `faceFits` took towers, walls one block thick and a box 2 layers high asked how high, faces no step makes, which the page would word as a box with hidden blocks; the units and number line PRs had just logged the same lesson. Found by the review. Fixed, with those faces refused in `face.test.ts`.
 
 To become `[learned]`: a check in a fit script that every text in `ui/pictures/` is 16 px or more as drawn at 667×375, for every picture kind. The harder-step check is codified for ice blocks only; one generic over every kind's ladder would hold it for all.
+
+### 2026-11-21 — a game that did not download (fix/boot-download-retry) — a failure sorted by what it is not, and code held as text read as copy `[not codified]`
+
+- **"Not WebGL, not too old" taken to mean "did not download".** `failureOf` first called every other rejection of `import('./main')` a missing file, so an error the game's own code throws as it starts (three.js on a context lost as it was made, in Safari) would have cost a reload and then a card telling the grown-up to check the internet. The import's rejection carries both kinds alike. Found by the cold review. Fixed: only the words browsers and Vite use for a file that did not download count (`NOT_DOWNLOADED`), and `boot-failure.test.ts` holds errors of the game's own to `other`.
+- **A syntax probe held as a string tripped the worded-literals check.** `NEWEST_SYNTAX` (`class A { #a = 1; … }`) read as a sentence to `hardcoded-text.test.ts`, which knew only `/* glsl */` for code held as text. Found by the full suite after a commit made on the new test file alone. Fixed: the check knows `/* js */` too, and the probe carries it.
+
+To become `[learned]`: a line in CLAUDE.md Phase 2 that an error handler sorting failures names each kind by what it is, with a test case from each other kind, never by elimination.

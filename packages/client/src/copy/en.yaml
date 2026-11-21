@@ -35,6 +35,15 @@ app:
     title: Animath has moved!
     go: Play at {domain}
     stay: Keep playing here
+  # Instead of the game, when its code did not download twice in a row (the page
+  # tried once more by itself). The button loads the page again. The last line
+  # is for the grown-up. index.html's card for a page whose first script did not
+  # download says the title and the button in English and Danish at once
+  # (test/boot-failure.test.ts checks).
+  notLoaded:
+    title: Animath didn't load.
+    retry: Try again
+    grownUps: 'For grown-ups: check that this device is online, then try again.'
 
 keys:
   # Key caps, as printed on the keyboard.
