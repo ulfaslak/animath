@@ -28,13 +28,6 @@ app:
     title: This browser can't draw Animath's world.
     ask: Ask a grown-up for help!
     grownUps: "For grown-ups: Animath needs WebGL 2. Check that hardware acceleration is on in the browser's settings, or try another browser. On an iPad or iPhone, Lockdown Mode turns it off."
-  # Instead of the game, on an old address of it (the one it was shared from before it
-  # had its own): the game lives at {domain} now (animath.xyz). The big button goes
-  # there; the small link under it, for a grown-up, plays on at the old address.
-  moved:
-    title: Animath has moved!
-    go: Play at {domain}
-    stay: Keep playing here
   # Instead of the game, when its code did not download twice in a row (the page
   # tried once more by itself). The button loads the page again. The last line
   # is for the grown-up. index.html's card for a page whose first script did not

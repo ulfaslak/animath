@@ -1,14 +1,10 @@
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { parseEnv } from 'node:util';
 import { defineConfig, transformWithEsbuild, type Plugin } from 'vite';
 import { parse } from 'yaml';
 import { BUILD_TARGET, colorMixFallbacks, oldBrowsers, paletteOf } from './browsers';
 
-// TUNNEL=1 lets an ngrok / cloudflared hostname reach the dev server (Vite
-// blocks unknown hosts by default). Only set it while a tunnel is up.
-const tunnel = process.env.TUNNEL === '1';
 // API_PORT points the proxy at another API server, e.g. a worktree's own.
 const apiPort = process.env.API_PORT ?? '3000';
 /** The folders the dev server serves files from: the client, the engine, and the clone's installed libraries. */
@@ -23,34 +19,11 @@ process.env.VITE_BUILD_SHA ||= 'dev';
 // (MATHGAME_DOMAIN, deploy.env's, through the Dockerfile). The link preview
 // names its image by it (`%VITE_SITE_ORIGIN%` in index.html) and its page
 // (`pageAddress`), as a messenger wants absolute URLs. Empty everywhere else,
-// the dev server behind the tunnel included: the image's URL stays relative,
-// and the page names no address that is not its own.
+// the dev server included: the image's URL stays relative, and the page names
+// no address that is not its own.
 process.env.VITE_SITE_ORIGIN ||= process.env.MATHGAME_DOMAIN
 	? `https://${process.env.MATHGAME_DOMAIN}`
 	: '';
-// The game's domain, for every build and the dev server alike: a page on any
-// address that is neither this domain nor a machine of the developer's (the old
-// tunnel's, which the dev server still serves) points the kid here first
-// (`moved.ts`, `boot.ts`). It is deploy.env's `MATHGAME_DOMAIN`, the one place
-// the domain is set: the image's build is given it (the build context leaves
-// deploy.env out), and everywhere else it is read from the file. Empty when
-// neither says one, and then no page is pointed anywhere.
-process.env.VITE_GAME_DOMAIN = gameDomain();
-
-function gameDomain(): string {
-	let domain = process.env.MATHGAME_DOMAIN ?? '';
-	if (domain === '') {
-		try {
-			const file = readFileSync(new URL('../../deploy.env', import.meta.url), 'utf8');
-			domain = parseEnv(file).MATHGAME_DOMAIN ?? '';
-		} catch {
-			// No deploy.env here: no domain.
-		}
-	}
-	domain = domain.trim().toLowerCase();
-	return /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(domain) ? domain : '';
-}
-
 /**
  * `import en from './en.yaml'` gives the file's data. The YAML is parsed here,
  * at build time, so the browser gets plain objects and ships no YAML parser.
@@ -212,12 +185,12 @@ export default defineConfig({
 	server: {
 		port: 5180,
 		strictPort: true,
-		allowedHosts: tunnel ? true : undefined,
 		// What the dev server hands out from outside the client (`/@fs/…`): the
 		// engine it imports and the installed libraries, nothing else in the
-		// clone. Vite's default is the whole workspace, and behind the tunnel that
-		// put every file `fs.deny` does not name on the internet, terraform's state
-		// and its Hetzner API token among them. Vite checks the path a request
+		// clone, should it ever be reached from another machine (`--host`, a
+		// tunnel). Vite's default is the whole workspace, and behind the old ngrok
+		// tunnel (closed 2026-11-21) that put every file `fs.deny` does not name
+		// on the internet, terraform's state and its Hetzner API token among them. Vite checks the path a request
 		// names, not where a link in it leads, and pnpm links every workspace
 		// package into node_modules (`.pnpm/node_modules/@mathgame/server`), so
 		// the server's package is denied by name too; Vite's own four first,
