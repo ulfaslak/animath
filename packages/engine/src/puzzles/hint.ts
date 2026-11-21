@@ -315,10 +315,13 @@ function balanceHint(form: number, a: number, b: number, c: number): PuzzleHint 
  * The thermometer as a sum, through 0 when it crosses it: 3° and 5° colder
  * is 3 − 3 − (5 − 3) (down to 0, then what is left of the 5), from −4° to
  * 7° is 4 + 7 degrees. A thermometer that starts or ends at 0° has nothing
- * easier in it, and no hint.
+ * easier in it, and no hint: 5° and 5° colder would be 5 − 5. It ends where
+ * it went to (`b`) when the two temperatures are written, else at the start
+ * moved by the change.
  */
 function thermometerHint(how: number, a: number, b: number): PuzzleHint | null {
-	if (a === 0 || ((how === THERMOMETER.rose || how === THERMOMETER.fell) && b === 0)) return null;
+	const end = how === THERMOMETER.colder ? a - b : how === THERMOMETER.warmer ? a + b : b;
+	if (a === 0 || end === 0) return null;
 	switch (how) {
 		case THERMOMETER.colder:
 			return a > 0 && a - b < 0 ? same([a, '−', a, '−', '(', b, '−', a, ')']) : same([a, '−', b]);
