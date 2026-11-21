@@ -6,7 +6,8 @@ export const TILE_COLORS: Record<TileKind, number> = {
 	tallgrass: 0x63b94a,
 	sand: 0xf3d9a4,
 	water: 0x5ec8f2,
-	// Deep water, out in the middle of a lake: bluer and darker than the shallows,
+	// Deep water, two tiles out from every shore (the middle of a lake, the sea):
+	// bluer and darker than the shallows,
 	// so the sea animals' water reads at a glance, as tall grass does on land.
 	deepwater: 0x3f9fdc,
 	rock: 0xa8a39e,

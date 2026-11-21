@@ -164,7 +164,10 @@ interface Other {
 	/** The way they face, standing: as they last said. Walking, the way they walk. */
 	facing: Direction;
 	ownsBoat: boolean;
-	/** Their items as the others see them: the harness (their lead carries them) and the skis, when they own them. */
+	/**
+	 * Their items as the others see them: the harness (their lead carries
+	 * them), the skis and the sled (their lead pulls them), when they own them.
+	 */
 	items: readonly string[];
 	/** Their skis, once they are seen to own them: on their feet on the ground. */
 	skis: Skis | null;
@@ -883,7 +886,7 @@ function direction(from: GridPos, to: GridPos): Direction | null {
  */
 const SKI_RUN = 9;
 
-/** What another player owns, as the others see it: the harness and the skis. */
+/** What another player owns, as the others see it: the harness, the skis and the sled. */
 function itemsOf(peer: PeerMessage): string[] {
 	return [
 		...(peer.harness ? ['harness'] : []),

@@ -86,24 +86,6 @@ export interface Stage {
 	resize(width: number, height: number): void;
 }
 
-/**
- * Owns the Three.js scene: a fixed-angle orthographic camera (no zoom, no
- * rotation — the world reads like a diorama), flat-shaded low-poly meshes,
- * one directional light with soft shadows. The chunks around the player are
- * built as the player approaches them and freed when they fall behind
- * (`chunks.ts`), each as the player left it (a tree they chopped is a
- * stump). Figures (the player and anything added with `addFigure`)
- * breathe a little every frame, and the player swings its arms and legs
- * through each step (smaller with reduced motion), and its tool when it
- * clears a tile (`clearing.ts`).
- *
- * Once the player owns the boat (`setBoat`) the trainer carries it upside
- * down on their back (`boat.ts`); a step onto the water swings it under
- * them as they hop in, a step back onto land swings it back, and out on the
- * water they stand in it, gliding from tile to tile, the two of them rocking
- * gently on the water (still with reduced motion, where the boat snaps from
- * the back to the water half way through the step instead).
- */
 /** How many tiles tall the viewport is (the title's scenery measures the screen with it too). */
 export const VIEW_HEIGHT_TILES = 14;
 const CAMERA_PITCH = THREE.MathUtils.degToRad(50);
@@ -176,6 +158,24 @@ export interface PlaneOnScreen {
 	ride: number;
 }
 
+/**
+ * Owns the Three.js scene: a fixed-angle orthographic camera (no zoom, no
+ * rotation — the world reads like a diorama), flat-shaded low-poly meshes,
+ * one directional light with shadows and a sky-and-ground fill. The chunks
+ * around the player are built as the player approaches them and freed when they fall behind
+ * (`chunks.ts`), each as the player left it (a tree they chopped is a
+ * stump). Figures (the player and anything added with `addFigure`)
+ * breathe a little every frame, and the player swings its arms and legs
+ * through each step (smaller with reduced motion), and its tool when it
+ * clears a tile (`clearing.ts`).
+ *
+ * Once the player owns the boat (`setBoat`) the trainer carries it upside
+ * down on their back (`boat.ts`); a step onto the water swings it under
+ * them as they hop in, a step back onto land swings it back, and out on the
+ * water they stand in it, gliding from tile to tile, the two of them rocking
+ * gently on the water (still with reduced motion, where the boat snaps from
+ * the back to the water half way through the step instead).
+ */
 export class GameRenderer {
 	private renderer: THREE.WebGLRenderer;
 	private scene = new THREE.Scene();
