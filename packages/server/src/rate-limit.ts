@@ -112,7 +112,10 @@ export interface AccountLimits {
 	registerPerIp: LimitSpec;
 	/** Every register try for one name, from anywhere. */
 	registerPerName: LimitSpec;
-	/** Save PUTs per account. A page sends one a second at most, and fewer as it walks. */
+	/**
+	 * Save PUTs per account, and games kept with it (`POST /keep`) counted
+	 * among them. A page sends one a second at most, and fewer as it walks.
+	 */
 	savesPerAccount: LimitSpec;
 	/**
 	 * New names per account (`POST /name`) that landed. Each keeps the old
