@@ -14,10 +14,10 @@
 		"prune-test-databases": "tsx scripts/prune-test-databases.ts"
 	},
 	"dependencies": {
-		"@hono/node-server": "^1.19.0",
+		"@hono/node-server": "^2.1.11",
 		"@mathgame/engine": "workspace:*",
-		"drizzle-orm": "^0.44.5",
-		"hono": "^4.9.0",
+		"drizzle-orm": "^0.45.2",
+		"hono": "^4.13.16",
 		"pg": "^8.16.3",
 		"ws": "^8.18.3"
 	},
