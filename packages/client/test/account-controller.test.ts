@@ -1227,6 +1227,25 @@ describe('a new name', () => {
 		expect([events, restarts, requests.length]).toEqual([['flush'], ['renamed'], 1]);
 	});
 
+	it('following a new name moves what was played while the server’s copy was on its way', async () => {
+		server({ '/api/account/save': 'network error' });
+		const { store, controller, restarts } = setup('Ida');
+		account.name = 'Ida';
+		account.session = 'live';
+		logInHere(store, 'Ida');
+		store.set(gameKeys({ name: 'Ida' }).save, saveText(9));
+		const following = controller.followRename('Ella');
+		// The kid walks on meanwhile: the autosave writes under the old name's keys.
+		store.set(gameKeys({ name: 'Ida' }).save, saveText(10));
+		await following;
+		expect(JSON.parse(store.get(gameKeys({ name: 'Ella' }).save)!)).toMatchObject({
+			seq: 10,
+			name: 'Ella'
+		});
+		expect(store.get(gameKeys({ name: 'Ida' }).save)).toBeNull();
+		expect(restarts).toEqual(['renamed']);
+	});
+
 	it('following a new name with no answer from the server starts again with this browser’s copy', async () => {
 		server({ '/api/account/save': 'network error' });
 		const { store, controller, restarts } = setup('Ida');
@@ -1256,7 +1275,8 @@ describe('a new name', () => {
 		expect(store.get(gameKeys({ name: 'Ida' }).save)).toBe(text);
 		// Heard again (the next save's answer, the session check): nothing more.
 		await controller.followRename('Ella');
-		expect([events, restarts, requests.length]).toEqual([['flush', 'cannotFollow'], [], 0]);
+		// The server's copy was asked for once, before the move: never again.
+		expect([events, restarts, requests.length]).toEqual([['flush', 'cannotFollow'], [], 1]);
 	});
 
 	it('this browser is the account’s own no more: the password box comes', async () => {

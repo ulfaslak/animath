@@ -562,10 +562,12 @@ export class AccountController {
 	/**
 	 * The account the page plays is called `name` now: the kid picked it on
 	 * this page, or on another (another tab, another tablet) and the server
-	 * says so. The game as it stands is saved, moves to the new name's keys in
-	 * this browser (`moveAccountGame`), the server's copy is taken when it is
-	 * further along (as at a login, waiting `FOLLOW_WAIT_MS` at most), and the
-	 * page starts again in it, saying the new name. Once: the page waits
+	 * says so. The server's copy is asked for first (`FOLLOW_WAIT_MS` at most),
+	 * while the game plays on under the old name; then, with no wait between,
+	 * the game as it stands is saved, moves to the new name's keys in this
+	 * browser (`moveAccountGame`), the server's copy is taken when it is
+	 * further along (as at a login), and the page starts again in it, saying
+	 * the new name. So nothing played meanwhile stays under the old name. Once: the page waits
 	 * meanwhile (`account.leaving`) and hears nothing more. When the browser
 	 * cannot keep the game under the new name (its storage is full), the page
 	 * plays on as it is and says so (`hooks.cannotFollow`), once: starting
@@ -577,6 +579,7 @@ export class AccountController {
 		const store = this.hooks.store;
 		if (account.leaving || from === null || !store || this.unfollowed === name) return false;
 		account.leaving = true;
+		const theirs = await getAccountSave(name, undefined, FOLLOW_WAIT_MS);
 		this.hooks.flush();
 		if (!moveAccountGame(store, from, name)) {
 			account.leaving = false;
@@ -584,7 +587,6 @@ export class AccountController {
 			this.hooks.cannotFollow?.();
 			return false;
 		}
-		const theirs = await getAccountSave(name, undefined, FOLLOW_WAIT_MS);
 		if (theirs.kind === 'found') takeAccountGame(store, name, theirs.doc);
 		this.hooks.restart('renamed', name);
 		return true;
