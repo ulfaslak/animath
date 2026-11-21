@@ -236,8 +236,10 @@
 				}
 				// Whether the page may load again by itself, marking the tab when it may:
 				// once, until the game has loaded (boot-failure.ts's reloadOnce). A tab
-				// that keeps nothing never does, since nothing would stop the next.
+				// that keeps nothing never does, since nothing would stop the next, and
+				// nor does a browser that knows it is offline.
 				function reloadOnce() {
+					if (navigator.onLine === false) return false;
 					try {
 						var tab = window.sessionStorage;
 						if (tab.getItem('animath.reloaded') !== null) return false;

@@ -63,7 +63,7 @@ const tab = () => sessionStorage;
  */
 function notLoaded(error: unknown): void {
 	errorReports?.report(error, true);
-	if (reloadOnce(tab)) {
+	if (reloadOnce(tab, navigator.onLine !== false)) {
 		location.reload();
 		return;
 	}

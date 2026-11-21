@@ -28,9 +28,12 @@ export interface TabStore {
 /**
  * Whether the page may reload itself now, marking the tab when it may. Once
  * marked, it may not. A tab that keeps nothing never reloads by itself:
- * nothing would stop the reload after it.
+ * nothing would stop the reload after it. Nor does a browser that knows it is
+ * offline (`online`, `navigator.onLine`): the reload would end on the
+ * browser's own page about it, where the card says to check the connection.
  */
-export function reloadOnce(tab: () => TabStore): boolean {
+export function reloadOnce(tab: () => TabStore, online: boolean): boolean {
+	if (!online) return false;
 	try {
 		const store = tab();
 		if (store.getItem(RELOADED_KEY) !== null) return false;

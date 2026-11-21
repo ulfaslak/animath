@@ -73,20 +73,20 @@ describe('why the game did not start', () => {
 describe('reloading once', () => {
 	it('reloads once, then not again until the game has loaded', () => {
 		const tab = tabStore();
-		expect(reloadOnce(() => tab)).toBe(true);
+		expect(reloadOnce(() => tab, true)).toBe(true);
 		expect([...tab.kept.keys()]).toEqual([RELOADED_KEY]);
-		expect(reloadOnce(() => tab)).toBe(false);
-		expect(reloadOnce(() => tab)).toBe(false);
+		expect(reloadOnce(() => tab, true)).toBe(false);
+		expect(reloadOnce(() => tab, true)).toBe(false);
 		forgetReload(() => tab);
 		expect(tab.kept.size).toBe(0);
-		expect(reloadOnce(() => tab)).toBe(true);
+		expect(reloadOnce(() => tab, true)).toBe(true);
 	});
 
 	it('never reloads by itself in a tab that keeps nothing', () => {
 		const blocked = () => {
 			throw new DOMException('The operation is insecure.', 'SecurityError');
 		};
-		expect(reloadOnce(blocked)).toBe(false);
+		expect(reloadOnce(blocked, true)).toBe(false);
 		expect(() => forgetReload(blocked)).not.toThrow();
 		const full: TabStore = {
 			getItem: () => null,
@@ -95,10 +95,17 @@ describe('reloading once', () => {
 			},
 			removeItem: () => {}
 		};
-		expect(reloadOnce(() => full)).toBe(false);
+		expect(reloadOnce(() => full, true)).toBe(false);
 		// One that takes the mark and keeps nothing.
 		const forgetful: TabStore = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
-		expect(reloadOnce(() => forgetful)).toBe(false);
+		expect(reloadOnce(() => forgetful, true)).toBe(false);
+	});
+
+	it('never reloads by itself in a browser that knows it is offline, and leaves the tab unmarked', () => {
+		const tab = tabStore();
+		expect(reloadOnce(() => tab, false)).toBe(false);
+		expect(tab.kept.size).toBe(0);
+		expect(reloadOnce(() => tab, true)).toBe(true);
 	});
 });
 
@@ -119,7 +126,12 @@ describe("index.html, when boot.ts's own script did not run", () => {
 	}
 
 	/** Runs the page's inline script against a page `started` or not, a tab, and a browser that reads the game or not. */
-	function run(options: { started: boolean; tab: () => TabStore; reads?: boolean }): Run {
+	function run(options: {
+		started: boolean;
+		tab: () => TabStore;
+		reads?: boolean;
+		online?: boolean;
+	}): Run {
 		const listeners: Record<string, ((event: unknown) => void)[]> = {};
 		const card = () => ({ style: { display: 'none' }, querySelectorAll: () => [] });
 		const cards: Record<string, { style: { display: string } }> = {
@@ -158,7 +170,11 @@ describe("index.html, when boot.ts's own script did not run", () => {
 		const context = {
 			document,
 			window,
-			navigator: { userAgent: 'Mozilla/5.0 (Macintosh)', maxTouchPoints: 0 },
+			navigator: {
+				userAgent: 'Mozilla/5.0 (Macintosh)',
+				maxTouchPoints: 0,
+				onLine: options.online ?? true
+			},
 			location: { reload: () => void result.reloads++ },
 			...(options.reads === false
 				? {
@@ -186,7 +202,7 @@ describe("index.html, when boot.ts's own script did not run", () => {
 		expect([first.reloads, first.shown]).toEqual([1, []]);
 		expect([...tab.kept.keys()]).toEqual([RELOADED_KEY]);
 		// boot.ts reads the same mark: it would not reload again either.
-		expect(reloadOnce(() => tab)).toBe(false);
+		expect(reloadOnce(() => tab, true)).toBe(false);
 
 		const second = run({ started: false, tab: () => tab });
 		second.load();
@@ -217,6 +233,13 @@ describe("index.html, when boot.ts's own script did not run", () => {
 		});
 		page.load();
 		expect([page.reloads, page.shown]).toEqual([0, ['not-loaded']]);
+	});
+
+	it('shows the card at once, and leaves the tab unmarked, in a browser that knows it is offline', () => {
+		const tab = tabStore();
+		const page = run({ started: false, tab: () => tab, online: false });
+		page.load();
+		expect([page.reloads, page.shown, tab.kept.size]).toEqual([0, ['not-loaded'], 0]);
 	});
 
 	it('shows the too-old card, not this one, to a browser that cannot read the game', () => {
