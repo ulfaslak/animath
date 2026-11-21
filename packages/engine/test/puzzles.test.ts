@@ -935,13 +935,14 @@ describe('difficulty mapping', () => {
 
 	// A higher difficulty is only harder if its kind's ladder asks something else there. Two equal
 	// steps once made a tern's Long Trip ask the same clocks on easy and medium, medium hitting
-	// harder; a step inside the one below (ice blocks' 9 in 8, floors' 3 in 2) let a medium attack
-	// ask an easy one's very puzzle. Two checks, because a sample sees only so much:
+	// harder; a step inside the one below (floors and fences' 3 in 2, 8 in 7 and 10 in 9) let a
+	// medium attack ask only puzzles an easy one asks. Two checks, because a sample sees only so much:
 	// - from the same seed two steps that ask alike draw the same puzzles, however many they hold;
 	// - a step all of whose puzzles the step below draws too is inside it. A sample of the step
 	//   below holds all its puzzles only where they are some thousands at most (a box of ice
 	//   blocks, floors and fences), so a step inside one of a million sums is left to its kind's
-	//   own ladder test (`skillBandsFall` above, `puzzle-kinds.test.ts`).
+	//   own ladder test (`skillBandsFall` above, `puzzle-kinds.test.ts`), and so is one form of a
+	//   step inside the step below's while its other form asks something new (ice blocks' 9).
 	it('every kind: each difficulty asks a puzzle the one below never does', () => {
 		const [ABOVE, BELOW, MOST] = [400, 4_000, 250_000];
 		const repeats: string[] = [];
