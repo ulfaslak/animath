@@ -69,6 +69,11 @@
 	 * size or the font change. The room is the first box around the prompt: the
 	 * column beside the pad, or the card. `narrow` tells the card's own
 	 * fitting, which listens for a class that comes or goes, to measure again.
+	 *
+	 * It watches what `fit.ts` watches: the card's outer size, which what it
+	 * holds never changes (the line's and the column's do, and watching them
+	 * resized what was watched), and in the card a class (the pad came, a
+	 * step), `data-fit` or the words.
 	 */
 	function fitWidth(line: HTMLElement): () => void {
 		const room = () => {
@@ -89,15 +94,17 @@
 			if (narrow) line.style.fontSize = `${Math.floor((width / need) * 1000) / 1000}em`;
 			line.classList.toggle('narrow', narrow);
 		};
-		// The line, its prompt, and each box up to the card: a column that comes with the pad
-		// is one of them, and a card resized is the last.
+		const card = line.closest<HTMLElement>('.card') ?? room();
 		const size = new ResizeObserver(refit);
-		for (let el: HTMLElement | null = line; el; el = el.parentElement) {
-			size.observe(el);
-			if (el.classList.contains('card')) break;
-		}
+		if (card) size.observe(card, { box: 'border-box' });
 		const words = new MutationObserver(refit);
-		words.observe(line, { subtree: true, childList: true, characterData: true });
+		words.observe(card ?? line, {
+			subtree: true,
+			childList: true,
+			characterData: true,
+			attributes: true,
+			attributeFilter: ['class', 'data-fit']
+		});
 		document.fonts?.addEventListener('loadingdone', refit);
 		refit();
 		return () => {
