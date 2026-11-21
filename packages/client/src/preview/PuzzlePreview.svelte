@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { puzzleTopics } from '@mathgame/engine';
+	import { fit } from '../fit';
 	import { press, unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
 	import { kindGlyph, wholePanel } from '../kinds';
@@ -17,6 +18,8 @@
 	 */
 	const topic = $derived(puzzleTopics([preview.kind], preview.difficulty)[0] ?? 'add');
 	const wide = $derived(wholePanel(preview.kind));
+	/** `BattlePanel`'s steps, so a crowded puzzle fits here as it does there. */
+	const PUZZLE_STEPS = ['close', 'small', 'least'] as const;
 
 	function key(name: string) {
 		return (e: PointerEvent) => {
@@ -38,7 +41,11 @@
 	<!-- `solo`: with the number pad, a short screen gives the puzzle the whole panel, as a battle does. -->
 	<div class="panel" class:wide class:solo={touch.on}>
 		{#if !wide}<div class="card blank"></div>{/if}
-		<div class="card puzzle" class:correct={preview.judged?.correct === true}>
+		<div
+			class="card puzzle"
+			class:correct={preview.judged?.correct === true}
+			{@attach fit(PUZZLE_STEPS)}
+		>
 			{#if preview.puzzle}
 				<PuzzlePanel
 					puzzle={preview.puzzle}
@@ -108,22 +115,6 @@
 			grid-template-columns: 1fr 1fr;
 		}
 	}
-	@media (max-height: 560px) {
-		.panel {
-			gap: 8px;
-			padding-bottom: calc(8px + var(--safe-bottom));
-		}
-		.puzzle {
-			padding: 5px 12px;
-			gap: 6px;
-		}
-		.panel.solo {
-			grid-template-columns: 1fr;
-		}
-		.panel.solo .blank {
-			display: none;
-		}
-	}
 	.card {
 		background: var(--panel-bg);
 		border-radius: var(--radius);
@@ -147,5 +138,39 @@
 	}
 	.puzzle.correct {
 		background: color-mix(in srgb, var(--good) 22%, var(--panel-bg));
+	}
+	/* `BattlePanel`'s fit steps (`PUZZLE_STEPS`), as they stand. */
+	.puzzle:global([data-fit~='close']) {
+		gap: 4px;
+		padding-block: 4px;
+	}
+	.puzzle:global([data-fit~='close']) :global(.question) {
+		gap: 3px;
+	}
+	.puzzle:global([data-fit~='small']) {
+		--hint-size: 20px;
+	}
+	.puzzle:global([data-fit~='least']) {
+		--hint-size: 17px;
+	}
+	.puzzle:global([data-fit~='least']) :global(.answer) {
+		font-size: 28px;
+	}
+	/* A phone held sideways, after the rules it changes, as in `BattlePanel`. */
+	@media (max-height: 560px) {
+		.panel {
+			gap: 8px;
+			padding-bottom: calc(8px + var(--safe-bottom));
+		}
+		.puzzle {
+			padding: 5px 12px;
+			gap: 6px;
+		}
+		.panel.solo {
+			grid-template-columns: 1fr;
+		}
+		.panel.solo .blank {
+			display: none;
+		}
 	}
 </style>

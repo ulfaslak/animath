@@ -26,6 +26,7 @@
 	import { t } from '../copy';
 	import { rowKey, unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
+	import { fit } from '../fit';
 	import { kindList, wholePanel } from '../kinds';
 	import { messageWords, whose, words } from '../lines';
 	import { animalWords, nameOf, speciesName } from '../names';
@@ -67,6 +68,16 @@
 	 * match's notes over the screen (`MatchNotes`) and, when Escape asks it,
 	 * "Leave the match?" (`MatchLeave`).
 	 */
+	/**
+	 * The puzzle card's look, fitted to the card (`fit.ts`) a step at a time
+	 * and only while what it holds is still too tall: its lines closer, then
+	 * the hint a size smaller, then the hint and the answer at their smallest.
+	 * A phone's card is 220 px tall, and beside its pad a picture's longest
+	 * question (four lines of a kroner sum in Danish) with its hint up would
+	 * otherwise run over the card's top and bottom.
+	 */
+	const PUZZLE_STEPS = ['close', 'small', 'least'] as const;
+
 	/** The other player, in a friendly match. */
 	const vs = $derived(battle.vs);
 	const front = $derived(battle.party[battle.front] ?? null);
@@ -517,7 +528,11 @@
 		</div>
 	{/if}
 
-	<div class="card puzzle" class:correct={battle.judged?.correct === true}>
+	<div
+		class="card puzzle"
+		class:correct={battle.judged?.correct === true}
+		{@attach fit(PUZZLE_STEPS)}
+	>
 		{#if battle.puzzle && vs && battle.turn === 'opponent'}
 			<!-- The other player's puzzle, watched while they think: never its answer, nor what they type. -->
 			<PuzzlePanel
@@ -908,6 +923,28 @@
 	}
 	.puzzle.correct {
 		background: color-mix(in srgb, var(--good) 22%, var(--panel-bg));
+	}
+	/*
+	 * The steps `fit` takes, in order, while what the card holds is still
+	 * taller than the card (`PUZZLE_STEPS`). `close`: the lines closer.
+	 */
+	.puzzle:global([data-fit~='close']) {
+		gap: 4px;
+		padding-block: 4px;
+	}
+	.puzzle:global([data-fit~='close']) :global(.question) {
+		gap: 3px;
+	}
+	/* `small`: the hint a size smaller (`HintView`), as the druid's crowded card has it. */
+	.puzzle:global([data-fit~='small']) {
+		--hint-size: 20px;
+	}
+	/* `least`: the hint and the answer at their smallest, the druid's least. */
+	.puzzle:global([data-fit~='least']) {
+		--hint-size: 17px;
+	}
+	.puzzle:global([data-fit~='least']) :global(.answer) {
+		font-size: 28px;
 	}
 	.soft {
 		font-weight: 800;
