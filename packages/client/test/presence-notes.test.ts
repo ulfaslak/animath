@@ -107,6 +107,14 @@ describe('arrival notes', () => {
 		expect(KNOWN_SECONDS).toBeGreaterThan(LEAVE_GRACE_SECONDS);
 	});
 
+	it('take names as one player by the key one account is kept by, not by their case alone', () => {
+		const notes = new ArrivalNotes();
+		notes.roster(['Straße', 'Ｎｉｎｉ'], 0);
+		notes.roster(['STRASSE', 'Nini'], 1);
+		notes.roster([], 2);
+		expect(said(run(notes, 2, 2 + LEAVE_GRACE_SECONDS + 5))).toEqual(['left:STRASSE+Nini']);
+	});
+
 	it('start afresh in another world: its people are no news, and nobody from the last is missed', () => {
 		const notes = new ArrivalNotes();
 		notes.roster(['Ada'], 0);

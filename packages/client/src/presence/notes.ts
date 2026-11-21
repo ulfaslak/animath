@@ -1,3 +1,5 @@
+import { nameKey } from '@mathgame/engine';
+
 /**
  * The little notes at the top of the screen when someone comes into the
  * player's world or leaves it ([[UI_SPEC]] § Explore mode, "Playing
@@ -47,10 +49,11 @@ interface Waiting {
 	since: number;
 }
 
-/** Names are one player whatever their case: `Ada` and `ada` are the same. */
-function keyOf(name: string): string {
-	return name.normalize('NFC').toLowerCase();
-}
+/**
+ * Names are one player by the engine's `nameKey`, the key one account is
+ * kept by: `Ada` and `ada` are the same, and so are `Straße` and `STRASSE`.
+ */
+const keyOf = nameKey;
 
 export class ArrivalNotes {
 	/** Who is in the world, by key, with their name as shown. */
