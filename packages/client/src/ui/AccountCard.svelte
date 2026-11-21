@@ -7,6 +7,7 @@
 	} from '@mathgame/engine';
 	import { t } from '../copy';
 	import { REVEAL_KEY, unfocusable } from '../input/press';
+	import { DOUBLE_TAP_MS } from '../input/taps';
 	import { touch } from '../input/touch.svelte';
 	import { nameRefusal } from '../names';
 	import {
@@ -204,10 +205,20 @@
 		}
 	}
 
+	/** The box a finger or a mouse last went down on. */
+	let aimed: HTMLInputElement | null = null;
+	/** When the card came up (it is made as it opens). */
+	const shownAt = performance.now();
+
 	/**
 	 * The box for `field`: focused while it takes the typing (and again if it
 	 * loses the focus, so a tablet's keyboard stays up), and made the one that
-	 * takes it when a finger or a click focuses it.
+	 * takes it when it is focused, by a finger, a click, or a screen reader.
+	 * Except just after the card came up (`DOUBLE_TAP_MS`) for a box no
+	 * pointer went down on: after a tap a browser sends a mousedown of its
+	 * own where the finger was, which focuses whatever box opened under it (a
+	 * phone's New password row lies under the card's second box). That focus
+	 * moves nothing, and the lit box takes it back (`refocus`).
 	 */
 	const box = (field: AccountField) => (input: HTMLInputElement) => {
 		if (account.field === field) {
@@ -215,16 +226,22 @@
 			// A new name's box holds the name the player has, picked whole: typing replaces it.
 			if (field === 'name' && account.card === 'name') input.select();
 		}
+		const aim = () => {
+			aimed = input;
+		};
 		const take = () => {
-			if (account.field !== field) account.field = field;
+			const echo = aimed !== input && performance.now() - shownAt < DOUBLE_TAP_MS;
+			if (!echo && account.field !== field) account.field = field;
 		};
 		const refocus = () =>
 			requestAnimationFrame(() => {
 				if (account.card !== null && account.field === field && input.isConnected) input.focus();
 			});
+		input.addEventListener('pointerdown', aim);
 		input.addEventListener('focus', take);
 		input.addEventListener('blur', refocus);
 		return () => {
+			input.removeEventListener('pointerdown', aim);
 			input.removeEventListener('focus', take);
 			input.removeEventListener('blur', refocus);
 		};
@@ -370,19 +387,26 @@
 </div>
 
 <style>
+	/* The card is centred by its auto margins, not by the grid's centring: a card taller than
+	   the screen (a phone held sideways, away from home) then starts at the top, and the shade
+	   scrolls to its buttons, where a centred one would hang off both edges, out of reach. */
 	.shade {
 		position: absolute;
 		inset: 0;
-		display: grid;
-		place-items: center;
+		display: flex;
+		flex-direction: column;
+		overflow-y: auto;
 		background: rgba(45, 42, 50, 0.45);
 		padding: calc(16px + var(--safe-top)) calc(16px + var(--safe-right))
 			calc(16px + var(--safe-bottom)) calc(16px + var(--safe-left));
 		pointer-events: auto;
 	}
+	.account-card {
+		margin: auto;
+	}
 	/* On a touch screen the card is at the top, so a tablet's keyboard leaves the boxes in view. */
-	.shade.typing {
-		place-items: start center;
+	.shade.typing .account-card {
+		margin: 0 auto auto;
 	}
 	.card {
 		background: var(--panel-bg);
@@ -509,5 +533,38 @@
 		font-weight: 600;
 		font-size: 16px;
 		opacity: 0.7;
+	}
+	/* A short screen (`SHORT_SCREEN`, a phone held sideways): the same card, closer together, so a
+	   card of two boxes fits a phone 375 px tall; one of three scrolls. */
+	@media (max-height: 560px) {
+		.shade {
+			padding-top: calc(8px + var(--safe-top));
+			padding-bottom: calc(8px + var(--safe-bottom));
+		}
+		.account-card {
+			padding: 10px 18px 10px;
+		}
+		.heading {
+			font-size: 22px;
+			margin-bottom: 2px;
+		}
+		p {
+			font-size: 16px;
+			margin-bottom: 4px;
+		}
+		.field {
+			margin-top: 4px;
+		}
+		.label {
+			margin-bottom: 2px;
+		}
+		.note {
+			margin-top: 6px;
+			padding: 4px 10px;
+		}
+		.card-buttons,
+		.keys {
+			margin-top: 8px;
+		}
 	}
 </style>
