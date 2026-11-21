@@ -29,8 +29,8 @@ import {
 } from '../state/title.svelte';
 
 /**
- * The title ([[UI_SPEC]] § Title): the menu (Continue, New game, the
- * settings), the confirm before a new game puts a saved one away, the
+ * The title ([[UI_SPEC]] § Title): the menu (Continue, New game, "I have
+ * an account", the settings), the confirm before a new game puts a saved one away, the
  * player's name box, the starters side by side, and the name box for the one
  * picked.
  *

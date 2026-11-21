@@ -90,7 +90,8 @@ interface FlightOnScreen {
  * Enter is sent as `interact` (after the keyboard's quiet moment); what came
  * of it is the authority's to say. When it cleared a tile (`tile-cleared`),
  * the world on screen takes the change and the chop plays: the trainer's
- * swing, the tree tipping or the rock cracking, its sound as the tool lands.
+ * swing, the tree tipping, the rock cracking or the ice block shattering,
+ * its sound as the tool lands.
  * The party column's picks become party
  * intents: a number key, or a click or tap on a card, `lead-species` for that
  * card's species (its first animal standing goes first); an animal on an
@@ -403,7 +404,7 @@ export class ExploreController {
 		);
 	}
 
-	/** A tile cleared, on screen: the world takes the change, and the chop or the crack plays. */
+	/** A tile cleared, on screen: the world takes the change, and the chop, the crack or the shatter plays. */
 	private clearTile(event: TileCleared): void {
 		this.edits = this.edits.with(event.pos).without(event.regrown);
 		this.renderer.cleared(event.pos, event.tool, this.facing, this.edits, event.regrown);

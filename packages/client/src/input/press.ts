@@ -9,7 +9,7 @@ import { DOCTOR_TABS, type DoctorTab } from '../doctor/tabs';
  * pointer is never a second path to an action: Go is Enter, Back is Escape, the number pad's
  * 7 is the 7 key, the D-pad's arrow is the arrow key held down.
  *
- * A pointer can also name what it touched, which no key can: six key
+ * A pointer can also name what it touched, which no key can: seven key
  * names of its own, read by the screens that have such things.
  * - `row:<i>`: row `i` of the list on screen. What that does is the
  *   screen's to say: the doctor and the pause menu do the row at once; the
@@ -17,9 +17,10 @@ import { DOCTOR_TABS, type DoctorTab } from '../doctor/tabs';
  *   (Enter) does it.
  * - `option:<i>`: option `i` of a second list beside the rows: in the pause
  *   menu an animal's or a card's options and a card's animals, the Worlds
- *   screen's buttons, the animal book's cards and Who's here's players; the
- *   doctor's confirm before a hand-over; a friendly match's two buttons on its
- *   result and on "Leave the match?". A key
+ *   screen's buttons, the animal book's cards, My puzzles' rows, Who's here's
+ *   players and the Log out question's two rows; the doctor's confirm before a
+ *   hand-over, his surprise's two buttons and the told animal's "Thank you!";
+ *   a friendly match's two buttons on its result and on "Leave the match?". A key
  *   says what it touched, never where it sits, so two lists a pointer can
  *   reach at once never share one (#45: the team's `row:0` was read as the
  *   options' first, Make active).
@@ -27,8 +28,9 @@ import { DOCTOR_TABS, type DoctorTab } from '../doctor/tabs';
  *   medium, 3 hard). It sets the level; it does not attack.
  * - `language:<code>`: a language on a Language row (the pause menu's, the
  *   title's).
- * - `tab:<id>`: a tab of the doctor's card (`heal`, `home`, `shop`, `fly`).
+ * - `tab:<id>`: a tab of the doctor's card (`heal`, `home`, `shop`, `ask`, `fly`).
  * - `land:<id>`: a land's tab in the animal book (`nordland`, `arctic`).
+ * - `reveal`: the account card's button that shows the password as typed, or hides it.
  *
  * The explore HUD's party column names what it shows by what it is, never
  * by its place, since a drag can re-sort the column under a resting finger:
@@ -38,7 +40,6 @@ import { DOCTOR_TABS, type DoctorTab } from '../doctor/tabs';
  * - `open:<speciesId>`: a card of several animals on a touch screen, which
  *   opens it to show them (and closes it again).
  * - `move:<speciesId>:<to>`: a card dropped at place `to` of the column.
- * - `reveal`: the account card's button that shows the password as typed, or hides it.
  *
  * No keyboard sends these names: a key's `key` is one character or a named
  * key such as `ArrowUp`.
