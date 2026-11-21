@@ -11,6 +11,10 @@ import { BUILD_TARGET, colorMixFallbacks, oldBrowsers, paletteOf } from './brows
 const tunnel = process.env.TUNNEL === '1';
 // API_PORT points the proxy at another API server, e.g. a worktree's own.
 const apiPort = process.env.API_PORT ?? '3000';
+/** The folders the dev server serves files from: the client, the engine, and the clone's installed libraries. */
+const DEV_SERVER_SERVES = ['.', '../engine', '../../node_modules'].map((path) =>
+	fileURLToPath(new URL(path, import.meta.url))
+);
 // The commit being built, which the image's build sets (Dockerfile) and
 // index.html carries as `<meta name="animath-build">`, beside the server's
 // /api/health: the two builds are one. `dev` everywhere else.
@@ -209,6 +213,19 @@ export default defineConfig({
 		port: 5180,
 		strictPort: true,
 		allowedHosts: tunnel ? true : undefined,
+		// What the dev server hands out from outside the client (`/@fs/…`): the
+		// engine it imports and the installed libraries, nothing else in the
+		// clone. Vite's default is the whole workspace, and behind the tunnel that
+		// put every file `fs.deny` does not name on the internet, terraform's state
+		// and its Hetzner API token among them. Vite checks the path a request
+		// names, not where a link in it leads, and pnpm links every workspace
+		// package into node_modules (`.pnpm/node_modules/@mathgame/server`), so
+		// the server's package is denied by name too; Vite's own four first,
+		// which a `deny` of ours replaces.
+		fs: {
+			allow: DEV_SERVER_SERVES,
+			deny: ['.env', '.env.*', '*.{crt,pem}', '**/.git/**', '**/@mathgame/server/**']
+		},
 		proxy: {
 			// The API, WebSocket upgrades included (the presence socket at `/api/ws`),
 			// as nginx passes them on in production. It sees the Host the browser

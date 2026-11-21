@@ -1,7 +1,10 @@
 #cloud-config
 
 # The server's first boot: a deploy user that logs in with the deploy key,
-# Docker, and security updates applied daily. The repo is cloned afterwards,
+# Docker, and security updates applied daily. It runs once, on a new server:
+# a change here is made on the running server by hand, with the same content
+# (.claude/commands/redeploy.md § Changing the server's own setup), and
+# Terraform ignores it (main.tf). The repo is cloned afterwards,
 # with a read-only deploy key (.claude/commands/redeploy.md): the repo is
 # private, so an HTTPS clone here would fail.
 
@@ -30,6 +33,18 @@ write_files:
     content: |
       APT::Periodic::Update-Package-Lists "1";
       APT::Periodic::Unattended-Upgrade "1";
+  # An update that needs a restart (a kernel, the C library) gets one, at
+  # 04:00 UTC, before any kid in Denmark is up. Without it the updates wait,
+  # installed and not running: on 2026-11-21 four kernels had, for 54 days.
+  - path: /etc/apt/apt.conf.d/52-animath-reboot
+    content: |
+      Unattended-Upgrade::Automatic-Reboot "true";
+      Unattended-Upgrade::Automatic-Reboot-Time "04:00";
+  # Keys only. No user here has a password, but bots try one all day.
+  - path: /etc/ssh/sshd_config.d/10-keys-only.conf
+    content: |
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
 
 runcmd:
   # Install Docker

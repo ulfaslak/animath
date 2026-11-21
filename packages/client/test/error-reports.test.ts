@@ -4,10 +4,12 @@ import {
 	errorReporter,
 	errorReports,
 	listenTo,
+	MAX_POLICY_REPORTS,
 	MAX_REPORTS,
 	postReport,
 	scrubbed,
 	thrownBy,
+	violationOf,
 	type ErrorReport,
 	type ErrorReports
 } from '../src/error-reports';
@@ -404,7 +406,7 @@ describe('the page', () => {
 				listeners.push({ type, listener, down: down === true })
 		} as unknown as Window;
 		const sent: ErrorReport[] = [];
-		listenTo(page, (report) => sent.push(report));
+		const reports = listenTo(page, (report) => sent.push(report));
 		// On the page itself every listener hears it, whichever way it listens.
 		const fire = (type: string, event: Record<string, unknown>) => {
 			for (const l of listeners) if (l.type === type) l.listener({ target: page, ...event });
@@ -412,7 +414,7 @@ describe('the page', () => {
 		const fireDown = (type: string, target: unknown) => {
 			for (const l of listeners) if (l.type === type && l.down) l.listener({ target });
 		};
-		return { sent, fire, fireDown };
+		return { sent, fire, fireDown, reports };
 	}
 
 	it('reports what nothing caught on it, without a cookie, as it happens', () => {
@@ -439,10 +441,103 @@ describe('the page', () => {
 			src: 'https://animath.xyz/immutable/index-abc.js?v=1#x'
 		});
 		fireDown('error', { tagName: 'IMG', src: 'https://animath.xyz/favicon.svg' });
-		fireDown('error', { tagName: 'LINK', href: 'https://fonts.googleapis.com/css2' });
+		fireDown('error', { tagName: 'LINK', href: 'https://animath.xyz/immutable/index-abc.css' });
 		expect(sent.map((r) => [r.message, r.stack])).toEqual([
 			['a script did not run', '/immutable/index-abc.js']
 		]);
+	});
+
+	it("tells a security policy's refusal by its rule and a keyword, never an address, and where only in the page's own script", () => {
+		const ORIGIN = 'https://animath.xyz';
+		const told = (event: Record<string, unknown>) => violationOf(event, ORIGIN);
+		expect(
+			told({
+				effectiveDirective: 'img-src',
+				blockedURI: 'https://filter.some-school.dk/inject/pupil-17.png?u=anna',
+				sourceFile: 'https://animath.xyz/immutable/index-abc.js?v=1',
+				lineNumber: 3,
+				columnNumber: 14,
+				disposition: 'report'
+			})
+		).toEqual({
+			message: "the page's security policy would refuse img-src: another address",
+			where: 'https://animath.xyz/immutable/index-abc.js?v=1:3:14'
+		});
+		expect(
+			told({
+				effectiveDirective: 'script-src-elem',
+				blockedURI: 'inline',
+				sourceFile: 'https://animath.xyz/',
+				lineNumber: 40,
+				disposition: 'enforce'
+			})
+		).toEqual({
+			message: "the page's security policy refused script-src-elem: inline",
+			where: 'https://animath.xyz/:40:0'
+		});
+		// A script from somewhere else says nothing about the game, and its address may say whose network it is.
+		expect(
+			told({
+				effectiveDirective: 'script-src-elem',
+				blockedURI: 'https://filter.some-school.dk/a.js',
+				sourceFile: 'https://filter.some-school.dk/inject/pupil-17.js',
+				lineNumber: 1,
+				disposition: 'report'
+			})
+		).toEqual({
+			message: "the page's security policy would refuse script-src-elem: another address",
+			where: ''
+		});
+		// The page's own address only, not one that starts the same.
+		expect(
+			told({
+				effectiveDirective: 'img-src',
+				blockedURI: 'data',
+				sourceFile: 'https://animath.xyz.evil.example/x.js'
+			})?.where
+		).toBe('');
+		expect(
+			violationOf(
+				{
+					effectiveDirective: 'img-src',
+					blockedURI: 'data',
+					sourceFile: 'https://animath.xyz/x.js'
+				},
+				''
+			)?.where
+		).toBe('');
+		for (const extension of [
+			{ blockedURI: 'inline', sourceFile: 'chrome-extension://abcdefghijklmnop/content.js' },
+			{ blockedURI: 'safari-web-extension://1234/icon.png' },
+			{ blockedURI: 'moz-extension://1234/icon.png' },
+			{ blockedURI: 'inline', sourceFile: 'webkit-masked-url://hidden/' }
+		]) {
+			expect(
+				told({ effectiveDirective: 'style-src-elem', disposition: 'report', ...extension })
+			).toBeNull();
+		}
+	});
+
+	it("sends a tab's security-policy notices on a budget of their own, beside its errors', in the page's mode", () => {
+		const { sent, fire, reports } = listening();
+		reports.setContext({ mode: () => 'battle', words: () => [] });
+		for (const blockedURI of ['inline', 'eval', 'data', 'blob']) {
+			fire('securitypolicyviolation', {
+				effectiveDirective: 'img-src',
+				blockedURI,
+				disposition: 'report'
+			});
+		}
+		for (const message of ['a is undefined', 'b is undefined', 'c is undefined']) {
+			fire('error', { error: new TypeError(message), message: `Uncaught TypeError: ${message}` });
+		}
+		expect(sent.map((r) => [r.message, r.mode])).toEqual([
+			["the page's security policy would refuse img-src: inline", 'battle'],
+			['TypeError: a is undefined', 'battle'],
+			['TypeError: b is undefined', 'battle'],
+			['TypeError: c is undefined', 'battle']
+		]);
+		expect(MAX_POLICY_REPORTS).toBe(1);
 	});
 
 	it('posts a report as JSON without the cookie, and lets a failed post go', async () => {

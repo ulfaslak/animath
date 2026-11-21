@@ -65,11 +65,13 @@ http {
         ssl_ciphers HIGH:!aNULL:!MD5;
         ssl_prefer_server_ciphers on;
 
-        # HSTS starts at 5 minutes, not a year: a TLS mistake on a new domain
-        # then locks browsers out for minutes, not months. Raise it once HTTPS
-        # has been steady: 300 -> 86400 -> 604800 -> 2592000 -> 31536000;
-        # includeSubDomains last; never `preload`. (lawcel's ramp.)
-        add_header Strict-Transport-Security "max-age=300" always;
+        # HSTS climbs, rather than starting at a year: a TLS mistake on a new
+        # domain then locks browsers out for days, not months. The ramp:
+        # 300 -> 86400 -> 604800 -> 2592000 -> 31536000; includeSubDomains
+        # last; never `preload`. (lawcel's ramp.) A week since 2026-11-21,
+        # after eight steady weeks; a year once a certificate has renewed by
+        # itself (AGENTS/DEFERRED.md).
+        add_header Strict-Transport-Security "max-age=604800" always;
 
         include /etc/nginx/mathgame/app.conf;
     }

@@ -145,6 +145,21 @@ docker compose -f docker-compose.prod.yml ps
 
 The app loses its database for the seconds Postgres restarts; the game plays on in the browser. A new **major** version (18 to 19) cannot start on the old one's data: restore that dump into the new version instead (§ Restore from a backup, into a fresh volume).
 
+## Changing the server's own setup
+
+`terraform/cloud-init.yml` runs once, at a new server's first boot, and Terraform ignores a change to it (a new `user_data` would replace the server, its database with it: `main.tf`'s `lifecycle`). So a PR that changes it makes the same change on the running server by hand, after the merge, with each `write_files` entry's content as it stands in the file:
+
+```bash
+ssh -i ~/.ssh/mathgame_deploy deploy@animath.xyz 'sudo tee /etc/apt/apt.conf.d/52-animath-reboot >/dev/null' <<'EOF'
+Unattended-Upgrade::Automatic-Reboot "true";
+Unattended-Upgrade::Automatic-Reboot-Time "04:00";
+EOF
+```
+
+An sshd file is tested before sshd takes it, and a second login is tried while the first stays open: `sudo sshd -t && sudo systemctl reload ssh`, then `ssh … deploy@animath.xyz true` from another terminal. `terraform plan` from the primary clone says "No changes" afterwards.
+
+**Restarts.** An update that needs a restart (a kernel, the C library) leaves `/var/run/reboot-required`, and the server restarts itself at 04:00 UTC (`52-animath-reboot`). To restart sooner, at an hour no kid plays: `sudo reboot`. The game is gone for about a minute (nginx's 502 page says so, and reloads itself) and the containers come back by themselves (`restart: always`); then `curl -fsS https://animath.xyz/api/health`.
+
 ## Logs and a look inside
 
 On the server, in `~/mathgame`:

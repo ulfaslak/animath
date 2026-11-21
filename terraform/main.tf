@@ -84,4 +84,11 @@ resource "hcloud_server" "mathgame" {
   user_data = templatefile("${path.module}/cloud-init.yml", {
     deploy_public_key = file(pathexpand(var.ssh_public_key_path))
   })
+
+  # A new user_data replaces the server, its database with it, and cloud-init
+  # runs only at a first boot anyway: a change to cloud-init.yml is for the
+  # next server, and is made on this one by hand (cloud-init.yml's header).
+  lifecycle {
+    ignore_changes = [user_data]
+  }
 }
