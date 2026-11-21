@@ -1912,7 +1912,7 @@ account:
     title: Et nyt navn
     guestText: De andre spillere kan se dit navn over dig.
     text: Dit navn er det, du logger ind med, så husk dit nye!
-    awayText: Dit navn er det, du logger ind med. Skriv også din hemmelige kode.
+    awayText: Du logger ind med dit navn. Skriv også din hemmelige kode.
     label: Nyt navn
     go: Gem
     keys: Enter gem · Esc tilbage

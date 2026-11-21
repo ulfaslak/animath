@@ -2215,7 +2215,7 @@ account:
     title: A new name
     guestText: The other players see your name over you.
     text: Your name is what you log in with, so remember your new one!
-    awayText: Your name is what you log in with. Type your secret password too.
+    awayText: You log in with your name. Type your secret password too.
     label: New name
     go: Save
     keys: Enter save · Esc back
