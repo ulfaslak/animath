@@ -34,6 +34,29 @@ describe('arrival notes', () => {
 		expect(said(run(notes, 6, 30))).toEqual(['arrived:Cy', 'left:Bo']);
 	});
 
+	it('a player who takes a new name is the same player: nobody came and nobody went', () => {
+		const notes = new ArrivalNotes();
+		notes.roster(['Ada', 'Bo'], 0, [], ['a1', 'b1']);
+		notes.roster(['Ada', 'Bobby'], 6, [], ['a1', 'b1']);
+		expect(run(notes, 6, 30)).toEqual([]);
+		// Their socket reopens for the new name: a roster without them between is no goodbye either.
+		notes.roster(['Ada'], 31, [], ['a1']);
+		notes.roster(['Ada', 'Bob'], 33, [], ['a1', 'b1']);
+		expect(run(notes, 31, 60)).toEqual([]);
+		// And once gone, they went home by the name they had last.
+		notes.roster(['Ada'], 61, [], ['a1']);
+		expect(said(run(notes, 61, 90))).toEqual(['left:Bob']);
+	});
+
+	it('a new name on a new id is someone new; a name on a new id (the server restarted) is the same as ever', () => {
+		const notes = new ArrivalNotes();
+		notes.roster(['Ada', 'Bo'], 0, [], ['a1', 'b1']);
+		notes.roster(['Ada', 'Bo', 'Cy'], 6, [], ['a1', 'b1', 'c1']);
+		expect(said(run(notes, 6, 20))).toEqual(['arrived:Cy']);
+		notes.roster(['Ada', 'Bo', 'Cy'], 21, [], ['a2', 'b2', 'c2']);
+		expect(run(notes, 21, 40)).toEqual([]);
+	});
+
 	it('wait the grace before someone went home: a reload, a hiccup or a restart is no goodbye', () => {
 		const notes = new ArrivalNotes();
 		notes.roster(['Ada', 'Bo'], 0);
