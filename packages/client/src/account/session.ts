@@ -116,6 +116,22 @@ export function moveGuestGameIn(store: KeyValueStore, name: string): boolean {
 }
 
 /**
+ * The password gate logged in past the guest game, and the server has it now,
+ * kept with the account (`keepGame`): the guest game's text `text` is put
+ * away here too, among the games put away (`KEYS.previous`, as
+ * `moveGuestGameIn` puts it away), and the guest's key emptied, so the next
+ * logout leads to the title's login rather than back to the gate. A guest key
+ * that holds other text now (another tab played on since it was sent) stays
+ * as it is: the server has only the older text. False when nothing moved.
+ */
+export function putGuestGameAway(store: KeyValueStore, text: string): boolean {
+	if (store.get(KEYS.save) !== text) return false;
+	if (!setAside(store, KEYS.previous, text, MAX_PUT_AWAY)) return false;
+	store.remove(KEYS.save);
+	return true;
+}
+
+/**
  * Just logged in to `name`, which holds `theirs` on the server (null: no
  * save there yet): this browser's copy of the account's game becomes the
  * one that is further along, as the autosave settles it (the higher `seq`;

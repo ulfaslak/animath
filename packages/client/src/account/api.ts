@@ -455,6 +455,37 @@ export async function renameAccount(
 	return { kind: 'offline' };
 }
 
+/**
+ * Hand `doc`, the guest game the password gate passes over, to `name`'s
+ * account on the server, to keep among its set-aside games (never as its
+ * save). True only on the server's own yes: it holds the game now (kept just
+ * now, or held already). Anything else, a refusal included, is no: the guest
+ * game stays where it is.
+ */
+export async function keepGame(
+	name: string,
+	doc: unknown,
+	base = '/api',
+	timeoutMs?: number
+): Promise<boolean> {
+	const res = await send(
+		`${base}/account/keep`,
+		{
+			method: 'POST',
+			headers: { ...JSON_TYPE, ...naming(name) },
+			body: JSON.stringify(doc)
+		},
+		timeoutMs
+	);
+	if (!res) return false;
+	if (res.status === 200 && isStored(res.body)) return true;
+	const error = errorOf(res.body);
+	if ((res.status === 400 || res.status === 413) && error !== undefined) {
+		refused('a guest game to keep', res);
+	}
+	return false;
+}
+
 /** `name`'s account's save, for `Autosave` (`accountSaveServer`) and for logging in. */
 export async function getAccountSave(
 	name: string,

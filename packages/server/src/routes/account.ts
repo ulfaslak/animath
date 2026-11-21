@@ -36,6 +36,7 @@ import {
 	SAVE_FROM_NEWER_BUILD,
 	SAVE_MAX_BYTES,
 	STORED_FROM_NEWER_BUILD,
+	keepAccountGame,
 	writeAccountSave
 } from '../save.js';
 import {
@@ -66,13 +67,16 @@ import { acceptWelcome, welcomeState } from '../welcome.js';
  *   POST /api/account/name      { name, password? }       → 200 { user: { name } } | 409 name taken | 403
  *   GET  /api/account/save                                → 200 SaveV6 | 404 no save yet
  *   PUT  /api/account/save      SaveV6                    → 200 { ok: true } | 409 { error, save }
+ *   POST /api/account/keep      SaveV6                    → 200 { ok: true }: kept with the account
  *   GET  /api/account/welcome   (x-animath-welcome: token) → 200 { name } | 410 used or expired | 404
  *   POST /api/account/welcome   { token, password }       → 200 { user: { name }, save } + cookie
  *
  * Every POST and PUT must be JSON from a page of this site (`sameOriginJson`).
  * The save routes answer only for the account the request names
  * (`ACCOUNT_HEADER`, 400 without it): 401 without a live session, or with
- * another account's. Logout with the header ends only that account's session
+ * another account's. `/keep` is a save route too: the guest game the
+ * password gate passed over at a login, kept among the account's set-aside
+ * saves (`keepAccountGame`), never as its save. Logout with the header ends only that account's session
  * and sends no cookie; without it, it ends whatever session there is and
  * clears the cookie. Login and register are
  * rate limited per address and per name (429 with `Retry-After`). A save a
@@ -556,6 +560,20 @@ export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 			if (written.kind === 'newer') {
 				return c.json({ error: STORED_FROM_NEWER_BUILD, save: written.stored }, 409);
 			}
+			return c.json({ ok: true });
+		})
+		// Counted with the save PUTs, and checked as one: a kept game is one the account can be
+		// given back, as its save.
+		.post('/keep', requireSession, savesLimited, tooBig(SAVE_MAX_BYTES), async (c) => {
+			const body = await readJson(c);
+			if (body === undefined) return c.json({ error: 'body is not valid JSON' }, 400);
+			const checked = validateSaveWrite(body);
+			if (!checked.ok) {
+				if (checked.reason === 'newer') return c.json({ error: SAVE_FROM_NEWER_BUILD }, 503);
+				return c.json({ error: 'bad save', detail: checked.error }, 400);
+			}
+			const kept = await keepAccountGame(c.get('user').id, checked.value);
+			if (kept.kind === 'gone') return c.json({ error: 'not logged in' }, 401);
 			return c.json({ ok: true });
 		})
 		.get('/welcome', async (c) => {

@@ -3,9 +3,11 @@ import {
 	isNewerSave,
 	readSave,
 	replacesAnotherGame,
+	saveLineage,
+	saveSeq,
 	type SaveWrite
 } from '@mathgame/engine';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { db } from './db/index.js';
 import { accountSaveBackups, accountSaves, users } from './db/schema.js';
 
@@ -45,6 +47,90 @@ export const STORED_FROM_NEWER_BUILD = 'the stored save is from a newer version 
  * and cannot fill the disk.
  */
 export const ACCOUNT_BACKUP_BYTES = 2 * 1024 * 1024;
+
+/**
+ * Why a game is among an account's set-aside saves (`account_save_backups`):
+ * `replaced`, another game, or an older build's save of this one, took its
+ * place; `unreadable`, this build could not read it; `guest`, the guest game
+ * the password gate passed over when it logged this browser in to the
+ * account (`keepAccountGame`).
+ */
+export type KeptReason = 'replaced' | 'unreadable' | 'guest';
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * Copies `data` to the account's set-aside saves, then drops the oldest ones
+ * past `ACCOUNT_BACKUP_BYTES`, always keeping the newest. Runs inside the
+ * caller's transaction, with the account's row locked.
+ */
+async function keepAside(tx: Tx, userId: string, data: unknown, reason: KeptReason): Promise<void> {
+	await tx.insert(accountSaveBackups).values({ userId, data, reason });
+	await tx.execute(sql`
+		delete from account_save_backups
+		where user_id = ${userId}
+		  and id in (
+			select id from (
+				select id, sum(pg_column_size(data)) over (order by id desc) as kept
+				from account_save_backups where user_id = ${userId}
+			) newest_first
+			where kept > ${ACCOUNT_BACKUP_BYTES}
+			  and id <> (select max(id) from account_save_backups where user_id = ${userId})
+		  )`);
+}
+
+export type KeepResult =
+	/** Kept among the account's set-aside saves. */
+	| { kind: 'kept' }
+	/**
+	 * The account holds this game already: its own save is the same game, as
+	 * far along or further, or this very document is among its set-aside saves.
+	 * Nothing is written.
+	 */
+	| { kind: 'held' }
+	/** The account is gone (deleted while this request was on its way). */
+	| { kind: 'gone' };
+
+/**
+ * Keeps `doc`, a guest game the password gate passed over, among the
+ * account's set-aside saves (`guest`), within `ACCOUNT_BACKUP_BYTES`, so the
+ * grown-up can bring it back by hand. The account's own save is never
+ * touched. A game the account holds already (`held`) is not kept twice: the
+ * same lineage as its save at no higher `seq` is that game, not as far
+ * along; and a page that did not hear the answer sends the same document
+ * again at the next gate. The account's row is locked, as for a write, so
+ * the save compared with is the one stored.
+ */
+export async function keepAccountGame(userId: string, doc: SaveWrite): Promise<KeepResult> {
+	return db.transaction(async (tx) => {
+		const [user] = await tx
+			.select({ id: users.id })
+			.from(users)
+			.where(eq(users.id, userId))
+			.for('no key update');
+		if (!user) return { kind: 'gone' };
+		const [row] = await tx
+			.select({ data: accountSaves.data })
+			.from(accountSaves)
+			.where(eq(accountSaves.userId, userId));
+		if (row && saveLineage(row.data) === doc.lineage && doc.seq <= saveSeq(row.data)) {
+			return { kind: 'held' };
+		}
+		const [twin] = await tx
+			.select({ id: accountSaveBackups.id })
+			.from(accountSaveBackups)
+			.where(
+				and(
+					eq(accountSaveBackups.userId, userId),
+					sql`${accountSaveBackups.data} = ${JSON.stringify(doc)}::jsonb`
+				)
+			)
+			.limit(1);
+		if (twin) return { kind: 'held' };
+		await keepAside(tx, userId, doc, 'guest');
+		return { kind: 'kept' };
+	});
+}
 
 export type AccountWriteResult =
 	| { kind: 'saved' }
@@ -95,22 +181,7 @@ export async function writeAccountSave(
 			return { kind: isNewerSave(stored) ? 'newer' : 'stale', stored };
 		}
 		if (replacesAnotherGame(stored, doc)) {
-			await tx.insert(accountSaveBackups).values({
-				userId,
-				data: stored,
-				reason: readSave(stored).ok ? 'replaced' : 'unreadable'
-			});
-			await tx.execute(sql`
-				delete from account_save_backups
-				where user_id = ${userId}
-				  and id in (
-					select id from (
-						select id, sum(pg_column_size(data)) over (order by id desc) as kept
-						from account_save_backups where user_id = ${userId}
-					) newest_first
-					where kept > ${ACCOUNT_BACKUP_BYTES}
-					  and id <> (select max(id) from account_save_backups where user_id = ${userId})
-				  )`);
+			await keepAside(tx, userId, stored, readSave(stored).ok ? 'replaced' : 'unreadable');
 		}
 		await tx
 			.insert(accountSaves)
