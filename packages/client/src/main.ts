@@ -11,7 +11,13 @@ import { AccountController } from './account/controller';
 import { NUDGE_STEPS, SaveNudge } from './account/nudge';
 import { ReadyWatch, keepingCursors } from './account/ready';
 import { noteNextStart, restartWith, takeAccountNote } from './account/restart';
-import { currentAccount, forgetLogout, gameKeys, logoutPending } from './account/session';
+import {
+	currentAccount,
+	forgetLogout,
+	gameKeys,
+	logoutPending,
+	moveAccountGame
+} from './account/session';
 import { forgetWelcome, takeWelcomeToken, welcomeFrom } from './account/welcome';
 import { sfx } from './audio/sfx.svelte';
 import { LocalAuthority, mintId } from './authority/local';
@@ -113,7 +119,9 @@ account.name = current?.name ?? null;
  * [[INVARIANTS]] § Server): the account's save goes to the server only
  * while it says the session is this account's.
  */
-const sessionCheck = current ? new SessionCheck(current.name, heardSession) : null;
+const sessionCheck = current
+	? new SessionCheck(current.name, heardSession, undefined, (name) => heardRenamed(name))
+	: null;
 
 /** The session ended before there was anywhere to say so: the title says it when it opens. */
 let sessionEndedUnsaid = false;
@@ -125,9 +133,11 @@ let sessionEndedUnsaid = false;
  * message line mid-game.
  */
 function heardSession(answer: SessionAnswer, home = false): void {
+	// The page is starting again (the account took a new name, say): nothing more to say here.
+	if (reloading) return;
 	if (answer === 'offline' || account.session === answer) return;
 	account.session = answer;
-	// The pause menu offers a new password only on the account's own browser.
+	// On the account's own browser a new password or a new name asks for nothing more.
 	account.home = answer === 'live' && home;
 	if (answer !== 'ended') return;
 	// A land's starters are the game under way: the message line says it, as mid-game.
@@ -203,6 +213,14 @@ const accountController = new AccountController({
 		pauseController.close();
 		hud.accountNotice('newPassword');
 	},
+	// A guest's new name is the game's: the authority takes it (`choose-name`), and every page
+	// of the game hears it as any name chosen, the others in the world too.
+	nameChosen: (name) => {
+		authority.dispatch({ type: 'choose-name', name });
+		pauseController.close();
+		hud.accountNotice('newName');
+	},
+	renamedElsewhere: (name) => heardRenamed(name),
 	gateStepsAside: () => {
 		const passing = gated;
 		gated = null;
@@ -219,8 +237,25 @@ const pauseController = new PauseController(authority, {
 	makeAccount: () => accountController.openRegister('pause'),
 	logIn: () => accountController.openLogin('pause'),
 	newPassword: () => accountController.openPassword(),
+	newName: () => accountController.openName(),
 	logOut: () => void accountController.logOut()
 });
+
+/**
+ * The account this page plays took a new name on another page (another
+ * tablet or computer, another tab): the server answers for it by the new name
+ * only, and keeps the old one for it. The game is saved as it stands, moves to
+ * the new name in this browser (`moveAccountGame`), and the page starts again
+ * in it, saying the new name. Once: a page starting again hears nothing more.
+ */
+function heardRenamed(name: string): void {
+	const from = account.name;
+	if (reloading || from === null || !store) return;
+	autosave.flush();
+	moveAccountGame(store, from, name);
+	reloading = true;
+	restartWith('renamed', name);
+}
 
 /**
  * The server said whether it can keep an account now (`account/ready.ts`):
@@ -768,8 +803,8 @@ void autosave.boot().then((plan) => {
 		});
 		return;
 	}
-	// Just logged in, or an account just made, or another device's newer save taken: straight
-	// back into the game, with the account's own words instead of "Welcome back!".
+	// Just logged in, an account just made, another device's newer save taken, or the account's
+	// new name: straight back into the game, with the account's own words instead of "Welcome back!".
 	if (accountNote !== null && plan.game && plan.game.name !== null) {
 		startNotice = undefined;
 		continueGame(plan.game);

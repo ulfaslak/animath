@@ -150,6 +150,48 @@ export function takeAccountGame(store: KeyValueStore, name: string, theirs: unkn
 }
 
 /**
+ * The account `from` is called `to` now: the kid picked a new name on this
+ * page, or on another one and this page heard it. This browser's copy of its
+ * game moves to the new name's keys with the new name in it (a copy from a
+ * newer build, or one this build cannot read, moves as it is), and the
+ * browser plays the account by its new name if it played it by the old one.
+ * The new name's keys hold a copy already only when the account had that
+ * name before; then the two settle as at a login (`takeAccountGame`), and
+ * the copy that gives way is kept aside there. The old key is emptied only
+ * once its copy is kept under the new one; the old name's set-aside copies
+ * stay where they are. False when the browser could not be pointed at the new
+ * name (its storage refuses writes).
+ */
+export function moveAccountGame(store: KeyValueStore, from: string, to: string): boolean {
+	const was = currentAccount(store);
+	const pointed = was === null || nameKey(was.name) !== nameKey(from) || logInHere(store, to);
+	const old = gameKeys({ name: from });
+	const keys = gameKeys({ name: to });
+	const text = store.get(old.save);
+	if (text === null) return pointed;
+	const doc = parseJson(text);
+	const readable = readSave(doc).ok && typeof doc === 'object' && doc !== null;
+	const moved = readable ? JSON.stringify({ ...(doc as Record<string, unknown>), name: to }) : text;
+	if (old.save === keys.save) {
+		// Only the case or the spacing changed: the same keys, the new name in the game.
+		if (moved !== text) store.set(keys.save, moved);
+		return pointed;
+	}
+	const there = store.get(keys.save);
+	let kept: boolean;
+	if (there === null) kept = store.set(keys.save, moved);
+	else if (there === moved) kept = true;
+	else {
+		if (readable) takeAccountGame(store, to, JSON.parse(moved));
+		kept =
+			store.get(keys.save) === moved ||
+			setAside(store, readable ? keys.replaced : keys.unreadable, moved);
+	}
+	if (kept) store.remove(old.save);
+	return pointed;
+}
+
+/**
  * How long a logout note a login or a registration holds keeps a starting
  * page from sending it: longer than either can take. A held note older than
  * that belongs to a page that went away mid-request, and is sent again.

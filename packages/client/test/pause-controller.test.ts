@@ -13,7 +13,7 @@ import type { CueName } from '../src/audio/cues';
 import { sfx } from '../src/audio/sfx.svelte';
 import { LocalAuthority } from '../src/authority/local';
 import { language } from '../src/copy';
-import { parseParty } from '../src/flags';
+import { flags, parseParty } from '../src/flags';
 import { landKey, languageKey, optionKey, rowKey } from '../src/input/press';
 import { PauseController, type PauseHooks } from '../src/pause/controller';
 import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
@@ -255,11 +255,13 @@ describe('pause menu', () => {
 			expect(accountRows()).toEqual(['makeAccount', 'logIn']);
 			account.ready = false;
 			expect(accountRows()).toEqual([]);
+			// A guest's new name needs no server: it is the game's alone.
 			expect(menuItems()).toEqual([
 				'worlds',
 				'players',
 				'language',
 				'sound',
+				'newName',
 				'resume',
 				'quit',
 				'puzzles',
@@ -276,28 +278,39 @@ describe('pause menu', () => {
 		}
 	});
 
-	it('offers a new password only on the account’s own browser, logged in, while the server can keep it', () => {
+	it('offers an account a new name and a new password while logged in and the server can keep them, home or not', () => {
 		const accountRows = () =>
 			menuItems().filter(
-				(i) => i === 'makeAccount' || i === 'logIn' || i === 'newPassword' || i === 'logOut'
+				(i) =>
+					i === 'newName' ||
+					i === 'makeAccount' ||
+					i === 'logIn' ||
+					i === 'newPassword' ||
+					i === 'logOut'
 			);
 		try {
 			account.name = 'Ida';
 			account.session = 'live';
-			expect(accountRows()).toEqual(['logOut']);
+			expect(accountRows()).toEqual(['newName', 'newPassword', 'logOut']);
 			account.home = true;
-			expect(accountRows()).toEqual(['newPassword', 'logOut']);
-			expect(lineOf('newPassword')).toEqual(['newPassword', 'logOut']);
+			expect(accountRows()).toEqual(['newName', 'newPassword', 'logOut']);
+			expect(lineOf('newPassword')).toEqual(['newName', 'newPassword', 'logOut']);
 			account.ready = false;
 			expect(accountRows()).toEqual(['logOut']);
 			account.ready = true;
+			account.session = 'unknown';
+			expect(accountRows()).toEqual(['logOut']);
 			account.session = 'ended';
 			expect(accountRows()).toEqual(['logIn', 'logOut']);
-			// A guest has no account to change.
+			// A guest has no account to change, only the game's own name.
 			account.name = null;
 			account.session = 'unknown';
-			expect(accountRows()).toEqual(['makeAccount', 'logIn']);
+			expect(accountRows()).toEqual(['newName', 'makeAccount', 'logIn']);
+			// A throwaway game keeps nothing, not even a name.
+			flags.throwaway = true;
+			expect(accountRows()).toEqual([]);
 		} finally {
+			flags.throwaway = false;
 			account.name = null;
 			account.session = 'unknown';
 			account.home = false;
@@ -311,24 +324,37 @@ describe('pause menu', () => {
 		);
 		expect(lines).toEqual([
 			['worlds', 'players'],
-			['makeAccount', 'logIn'],
+			['newName', 'makeAccount', 'logIn'],
 			['resume', 'quit'],
 			['puzzles', 'book']
 		]);
-		for (const [left, right] of lines as [MenuItem, MenuItem][]) {
+		for (const line of lines) {
 			pause.reset();
 			const { press, downTo, sent } = setup();
-			// Each pair is two neighbours: down walks from one to the other as any rows.
-			expect(menuItems().indexOf(right)).toBe(menuItems().indexOf(left) + 1);
-			press('Escape', ...downTo(left));
-			expect(press('ArrowRight').prevented).toBe(true);
-			expect(pause.cursor).toBe(at(right));
+			// A line is neighbours: down walks from one to the next as any rows.
+			for (let i = 1; i < line.length; i++)
+				expect(menuItems().indexOf(line[i]!)).toBe(menuItems().indexOf(line[0]!) + i);
+			press('Escape', ...downTo(line[0]!));
+			// Right (or D) steps along to the line's end, and stays there.
+			for (let i = 1; i < line.length; i++) {
+				expect(press(i % 2 ? 'ArrowRight' : 'd').prevented).toBe(true);
+				expect(pause.cursor).toBe(at(line[i]!));
+			}
 			press('d');
-			expect(pause.cursor).toBe(at(right));
-			press('ArrowLeft');
-			expect(pause.cursor).toBe(at(left));
+			press('ArrowRight');
+			expect(pause.cursor).toBe(at(line.at(-1)!));
+			// Left (or A) steps back to its start, and stays there.
+			for (let i = line.length - 2; i >= 0; i--) {
+				press(i % 2 ? 'a' : 'ArrowLeft');
+				expect(pause.cursor).toBe(at(line[i]!));
+			}
 			press('a');
-			expect([pause.open, pause.screen, pause.cursor, sent]).toEqual([true, 'list', at(left), []]);
+			expect([pause.open, pause.screen, pause.cursor, sent]).toEqual([
+				true,
+				'list',
+				at(line[0]!),
+				[]
+			]);
 		}
 	});
 

@@ -12,6 +12,7 @@ import {
 	logInHere,
 	logOutHere,
 	logoutPending,
+	moveAccountGame,
 	moveGuestGameIn,
 	releaseLogout,
 	rememberLogout,
@@ -260,6 +261,93 @@ describe('logging in', () => {
 		takeAccountGame(store, 'Ida', JSON.parse(saveText(30)));
 		logInHere(store, 'Ida');
 		expect(store.get(KEYS.save)).toBe(guest);
+	});
+});
+
+describe('an account with a new name', () => {
+	const ida = () => gameKeys({ name: 'Ida' });
+	const ella = () => gameKeys({ name: 'Ella' });
+
+	it('moves its game to the new name’s keys with the new name in it, and the browser with it', () => {
+		logInHere(store, 'Ida');
+		store.set(ida().save, saveText(12));
+		const kept = saveText(3, 'older');
+		store.set(ida().replaced, kept);
+		expect(moveAccountGame(store, 'Ida', 'Ella')).toBe(true);
+		expect(currentAccount(store)).toEqual({ name: 'Ella' });
+		const moved = JSON.parse(store.get(ella().save)!);
+		expect([moved.name, moved.seq, moved.lineage]).toEqual(['Ella', 12, 'game-a']);
+		expect(store.get(ida().save)).toBeNull();
+		// The old name's set-aside copies stay where they are.
+		expect(store.get(ida().replaced)).toBe(kept);
+	});
+
+	it('leaves the browser on another account it plays now, and moves only the renamed one’s game', () => {
+		logInHere(store, 'Bo');
+		const bo = saveText(40, 'bo', 'Bo');
+		store.set(gameKeys({ name: 'Bo' }).save, bo);
+		store.set(ida().save, saveText(12));
+		moveAccountGame(store, 'Ida', 'Ella');
+		expect(currentAccount(store)).toEqual({ name: 'Bo' });
+		expect(store.get(gameKeys({ name: 'Bo' }).save)).toBe(bo);
+		expect(JSON.parse(store.get(ella().save)!).name).toBe('Ella');
+		// A guest browser, too, stays a guest.
+		store.remove(ACCOUNT_KEYS.current);
+		moveAccountGame(store, 'Ella', 'Ida');
+		expect(currentAccount(store)).toBeNull();
+	});
+
+	it('only a new case or spacing: the same keys, the new name in the game', () => {
+		logInHere(store, 'ida');
+		store.set(gameKeys({ name: 'ida' }).save, saveText(12, 'game-a', 'ida'));
+		moveAccountGame(store, 'ida', 'Ida');
+		expect(currentAccount(store)).toEqual({ name: 'Ida' });
+		expect(ida().save).toBe(gameKeys({ name: 'ida' }).save);
+		expect(JSON.parse(store.get(ida().save)!).name).toBe('Ida');
+	});
+
+	it('moves a copy this build cannot read as it is', () => {
+		const newer = JSON.stringify({ version: 99, seq: 1, name: 'Ida' });
+		store.set(ida().save, newer);
+		moveAccountGame(store, 'Ida', 'Ella');
+		expect(store.get(ella().save)).toBe(newer);
+		expect(store.get(ida().save)).toBeNull();
+	});
+
+	it('back to a name the account had: the copy further along stays, the other is kept aside', () => {
+		// Ella's keys hold the game from before the account was called Ida.
+		store.set(ella().save, saveText(5, 'game-a', 'Ella'));
+		store.set(ida().save, saveText(12));
+		moveAccountGame(store, 'Ida', 'Ella');
+		expect(JSON.parse(store.get(ella().save)!).seq).toBe(12);
+		expect(JSON.parse(store.get(ella().replaced)!).seq).toBe(5);
+		expect(store.get(ida().save)).toBeNull();
+		// And the other way: this browser's old-name copy is behind, so it is the one kept aside.
+		store.data.clear();
+		store.set(ella().save, saveText(20, 'game-a', 'Ella'));
+		store.set(ida().save, saveText(12));
+		moveAccountGame(store, 'Ida', 'Ella');
+		expect(JSON.parse(store.get(ella().save)!).seq).toBe(20);
+		const aside = JSON.parse(store.get(ella().replaced)!);
+		expect([aside.seq, aside.name]).toEqual([12, 'Ella']);
+		expect(store.get(ida().save)).toBeNull();
+	});
+
+	it('empties the old key only once the game is kept under the new one', () => {
+		logInHere(store, 'Ida');
+		const text = saveText(12);
+		store.set(ida().save, text);
+		store.failWrites = true;
+		expect(moveAccountGame(store, 'Ida', 'Ella')).toBe(false);
+		expect(store.get(ida().save)).toBe(text);
+		expect(store.get(ella().save)).toBeNull();
+	});
+
+	it('with no game here, only the browser moves', () => {
+		logInHere(store, 'Ida');
+		expect(moveAccountGame(store, 'Ida', 'Ella')).toBe(true);
+		expect(currentAccount(store)).toEqual({ name: 'Ella' });
+		expect([...store.data.keys()]).toEqual([ACCOUNT_KEYS.current]);
 	});
 });
 

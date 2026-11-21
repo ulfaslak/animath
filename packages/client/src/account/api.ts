@@ -46,22 +46,45 @@ export type LoginResult =
 	| { kind: 'refused' }
 	| { kind: 'offline' };
 
-/** A new password picked on the account's own browser. */
+/**
+ * A new password: on the account's own browser it needs nothing more, on
+ * any other the password now.
+ */
 export type PasswordResult =
 	| { kind: 'changed' }
 	| { kind: 'bad-password'; reason: PasswordRefusal }
-	/** This browser is not the account's own. */
+	/** This browser is not the account's own, and no password now came with it. */
 	| { kind: 'not-home' }
+	/** The password now was not the account's. */
+	| { kind: 'wrong' }
 	| { kind: 'logged-out' }
+	/** The account took a new name somewhere else first: this page plays it by its old one. */
+	| { kind: 'renamed'; name: string }
+	| { kind: 'too-many'; retryAfter: number }
+	| { kind: 'refused' }
+	| { kind: 'offline' };
+
+/** A new name, as `PasswordResult` is a new password: `name` as the server keeps it. */
+export type RenameResult =
+	| { kind: 'renamed'; name: string }
+	| { kind: 'bad-name'; reason: NameRejection }
+	| { kind: 'taken' }
+	| { kind: 'not-home' }
+	| { kind: 'wrong' }
+	| { kind: 'logged-out' }
+	| { kind: 'renamed-before'; name: string }
 	| { kind: 'too-many'; retryAfter: number }
 	| { kind: 'refused' }
 	| { kind: 'offline' };
 
 /**
  * Who the session cookie belongs to: an account's name, or `null` for nobody;
- * `home`: this browser is that account's own (`home.ts` on the server).
+ * `home`: this browser is that account's own (`home.ts` on the server);
+ * `renamed`: the account the page named is this one, which has a new name
+ * since (`name`).
  */
-export type WhoResult = { kind: 'user'; name: string | null; home: boolean } | { kind: 'offline' };
+export type WhoResult =
+	{ kind: 'user'; name: string | null; home: boolean; renamed: boolean } | { kind: 'offline' };
 
 /** What a welcome link is, as the server says: whose (and only that), or why it won't do. */
 export type WelcomeLook =
@@ -87,6 +110,8 @@ const ERRORS = {
 	taken: 'name taken',
 	wrong: 'wrong name or password',
 	notHome: 'not home',
+	wrongPassword: 'wrong password',
+	renamed: 'account renamed',
 	tooMany: 'too many tries',
 	notLoggedIn: 'not logged in',
 	noSave: 'no save yet',
@@ -116,6 +141,16 @@ function field(body: unknown, key: string): unknown {
 function userName(body: unknown): string | null {
 	const name = field(field(body, 'user'), 'name');
 	return typeof name === 'string' ? name : null;
+}
+
+/**
+ * The name the account has now, from the server's `401 account renamed`: the
+ * page named its account by a name it had before. Null for any other answer.
+ */
+export function renamedTo(res: { status: number; body: unknown }): string | null {
+	if (res.status !== 401 || errorOf(res.body) !== ERRORS.renamed) return null;
+	const name = field(res.body, 'name');
+	return typeof name === 'string' && name !== '' ? name : null;
 }
 
 /** How long a `429` says to wait, in seconds (a minute when it does not say). */
@@ -302,19 +337,33 @@ export async function accountsReady(base = '/api', timeoutMs?: number): Promise<
  * Who this browser's session cookie belongs to. Asked once as the page
  * starts, before anything else that reads the session goes to the account
  * routes (`accountsReady` reads no cookie and sends none): its answer may
- * send the cookie again ([[INVARIANTS]] § Server).
+ * send the cookie again ([[INVARIANTS]] § Server). `playing`: the account
+ * this page plays, named so the server can say it has a new name since.
  */
-export async function whoAmI(base = '/api', timeoutMs?: number): Promise<WhoResult> {
-	const res = await send(`${base}/account/me`, {}, timeoutMs);
+export async function whoAmI(
+	base = '/api',
+	timeoutMs?: number,
+	playing?: string
+): Promise<WhoResult> {
+	const res = await send(
+		`${base}/account/me`,
+		playing === undefined ? {} : { headers: naming(playing) },
+		timeoutMs
+	);
 	if (res?.status !== 200 || typeof res.body !== 'object' || res.body === null) {
 		return { kind: 'offline' };
 	}
 	const user = field(res.body, 'user');
-	if (user === null) return { kind: 'user', name: null, home: false };
+	if (user === null) return { kind: 'user', name: null, home: false, renamed: false };
 	const name = userName(res.body);
 	return name === null
 		? { kind: 'offline' }
-		: { kind: 'user', name, home: field(user, 'home') === true };
+		: {
+				kind: 'user',
+				name,
+				home: field(user, 'home') === true,
+				renamed: field(user, 'renamed') === true
+			};
 }
 
 /**
@@ -328,15 +377,21 @@ export async function homeAccounts(base = '/api', timeoutMs?: number): Promise<s
 }
 
 /**
- * A new password for `name`'s account, picked on its own browser, where the
- * page is logged in to it. Every other browser logged in to it is logged out.
+ * A new password for `name`'s account, where the page is logged in to it:
+ * on its own browser with nothing more, on any other with the password now
+ * (`current`). Every other browser logged in to it is logged out.
  */
 export async function changePassword(
 	name: string,
 	password: string,
+	current?: string,
 	base = '/api'
 ): Promise<PasswordResult> {
-	const res = await post(`${base}/account/password`, { password }, naming(name));
+	const res = await post(
+		`${base}/account/password`,
+		current === undefined ? { password } : { password, current },
+		naming(name)
+	);
 	if (!res) return { kind: 'offline' };
 	const error = errorOf(res.body);
 	const reason = field(res.body, 'reason');
@@ -345,7 +400,10 @@ export async function changePassword(
 		return { kind: 'bad-password', reason };
 	}
 	if (res.status === 403 && error === ERRORS.notHome) return { kind: 'not-home' };
+	if (res.status === 403 && error === ERRORS.wrongPassword) return { kind: 'wrong' };
 	if (res.status === 401 && error === ERRORS.notLoggedIn) return { kind: 'logged-out' };
+	const now = renamedTo(res);
+	if (now !== null) return { kind: 'renamed', name: now };
 	if (res.status === 429 && error === ERRORS.tooMany) {
 		return { kind: 'too-many', retryAfter: retryAfter(res.body) };
 	}
@@ -355,18 +413,62 @@ export async function changePassword(
 	return { kind: 'offline' };
 }
 
+/**
+ * A new name for `name`'s account, where the page is logged in to it: on its
+ * own browser with nothing more, on any other with the password (`password`).
+ * Every browser logged in to it stays logged in; the server keeps the old
+ * name for the account, and tells a page still playing by it the new one.
+ */
+export async function renameAccount(
+	name: string,
+	to: string,
+	password?: string,
+	base = '/api'
+): Promise<RenameResult> {
+	const res = await post(
+		`${base}/account/name`,
+		password === undefined ? { name: to } : { name: to, password },
+		naming(name)
+	);
+	if (!res) return { kind: 'offline' };
+	const error = errorOf(res.body);
+	const reason = field(res.body, 'reason');
+	if (res.status === 200) {
+		const kept = userName(res.body);
+		return kept === null ? { kind: 'offline' } : { kind: 'renamed', name: kept };
+	}
+	if (res.status === 400 && error === ERRORS.badName && isNameRejection(reason)) {
+		return { kind: 'bad-name', reason };
+	}
+	if (res.status === 409 && error === ERRORS.taken) return { kind: 'taken' };
+	if (res.status === 403 && error === ERRORS.notHome) return { kind: 'not-home' };
+	if (res.status === 403 && error === ERRORS.wrongPassword) return { kind: 'wrong' };
+	if (res.status === 401 && error === ERRORS.notLoggedIn) return { kind: 'logged-out' };
+	const now = renamedTo(res);
+	if (now !== null) return { kind: 'renamed-before', name: now };
+	if (res.status === 429 && error === ERRORS.tooMany) {
+		return { kind: 'too-many', retryAfter: retryAfter(res.body) };
+	}
+	if (res.status >= 400 && res.status < 500 && error !== undefined) {
+		return refused('a new name', res);
+	}
+	return { kind: 'offline' };
+}
+
 /** `name`'s account's save, for `Autosave` (`accountSaveServer`) and for logging in. */
 export async function getAccountSave(
 	name: string,
 	base = '/api',
 	timeoutMs?: number
-): Promise<ServerRead> {
+): Promise<ServerRead | { kind: 'renamed'; name: string }> {
 	const res = await send(`${base}/account/save`, { headers: naming(name) }, timeoutMs);
 	if (!res) return { kind: 'offline' };
 	const error = errorOf(res.body);
 	if (res.status === 200 && isStoredSave(res.body)) return { kind: 'found', doc: res.body };
 	if (res.status === 404 && error === ERRORS.noSave) return { kind: 'none' };
 	if (res.status === 401 && error === ERRORS.notLoggedIn) return { kind: 'logged-out' };
+	const now = renamedTo(res);
+	if (now !== null) return { kind: 'renamed', name: now };
 	return { kind: 'offline' };
 }
 
@@ -381,11 +483,18 @@ export type SessionAnswer = 'live' | 'ended' | 'offline';
  * another tab) says so and saves in the browser; each save request also
  * names its account, which the server checks as it answers, since the cookie
  * can change hands after the check.
+ *
+ * An account that took a new name on another page since this one started is
+ * told to `onRenamed`, once, with the name, by this check or by any save
+ * request: the page plays it by the old name, which the server answers for no
+ * more, so nothing more is sent, and the page moves its game to the new one.
  */
 export class SessionCheck {
 	private answer: Promise<SessionAnswer> | null = null;
 
 	private readonly key: string;
+
+	private renamedTo: string | null = null;
 
 	constructor(
 		/** The account this page plays. */
@@ -395,13 +504,18 @@ export class SessionCheck {
 		 * is the account's own.
 		 */
 		private readonly heard: (answer: SessionAnswer, home: boolean) => void = () => {},
-		private readonly base = '/api'
+		private readonly base = '/api',
+		private readonly onRenamed: (name: string) => void = () => {}
 	) {
 		this.key = nameKey(name);
 	}
 
 	check(): Promise<SessionAnswer> {
-		this.answer ??= whoAmI(this.base).then((who) => {
+		this.answer ??= whoAmI(this.base, undefined, this.name).then((who) => {
+			if (who.kind === 'user' && who.renamed && who.name !== null) {
+				this.renamed(who.name);
+				return 'ended';
+			}
 			const answer: SessionAnswer =
 				who.kind === 'offline'
 					? 'offline'
@@ -414,6 +528,17 @@ export class SessionCheck {
 			return answer;
 		});
 		return this.answer;
+	}
+
+	/**
+	 * The server said the account is called `name` now: nothing more goes as
+	 * the old name, and the page hears it once.
+	 */
+	renamed(name: string): void {
+		this.answer = Promise.resolve('ended');
+		if (this.renamedTo !== null) return;
+		this.renamedTo = name;
+		this.onRenamed(name);
 	}
 }
 
@@ -444,7 +569,10 @@ export function accountSaveServer(session: SessionCheck, base = '/api'): SaveSer
 			if (answer === 'offline') return { kind: 'offline' };
 			const left = deadline === undefined ? undefined : deadline - Date.now();
 			if (left !== undefined && left <= 0) return { kind: 'offline' };
-			return getAccountSave(session.name, base, left);
+			const read = await getAccountSave(session.name, base, left);
+			if (read.kind !== 'renamed') return read;
+			session.renamed(read.name);
+			return { kind: 'logged-out' };
 		},
 		async putSave(doc, keepalive = false): Promise<ServerWrite> {
 			const answer = await session.check();
@@ -461,6 +589,11 @@ export function accountSaveServer(session: SessionCheck, base = '/api'): SaveSer
 			if (res.status === 200 && isStored(res.body)) return { kind: 'saved' };
 			if (res.status === 409 && error !== undefined) return { kind: 'conflict' };
 			if (res.status === 401 && error === ERRORS.notLoggedIn) return { kind: 'logged-out' };
+			const now = renamedTo(res);
+			if (now !== null) {
+				session.renamed(now);
+				return { kind: 'logged-out' };
+			}
 			if ((res.status === 400 || res.status === 413) && error !== undefined) {
 				return { kind: 'refused', error };
 			}

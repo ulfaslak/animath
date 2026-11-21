@@ -134,6 +134,8 @@ describe('relit', () => {
 			players: 'players',
 			language: 'language',
 			sound: 'sound',
+			// A guest's new name is the game's alone: it stays when the server can keep no account.
+			newName: 'newName',
 			// A lit row that went: the next one still there, Keep playing.
 			makeAccount: 'resume',
 			logIn: 'resume',

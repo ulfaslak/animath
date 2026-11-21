@@ -13,8 +13,9 @@ import type { CookieOptions } from './sessions.js';
  * before homes, or after the admin's `clear-home`) takes a browser only while
  * that browser is the one place it is logged in: a stale session on a school
  * computer, beside the kid's own, takes nothing. There the account's name
- * alone logs in, and only there can the kid pick a new password. Logging in
- * anywhere else never moves it; only the admin can.
+ * alone logs in, and a new password or a new name needs nothing more
+ * (anywhere else, the password too). Logging in anywhere else never moves
+ * it; only the admin can.
  *
  * The browser holds a random key (256 bits) in an HttpOnly cookie of its own,
  * sent only to the account routes; the account keeps its SHA-256

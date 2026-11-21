@@ -1,11 +1,18 @@
 <script lang="ts">
-	import { MAX_NAME_LENGTH, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '@mathgame/engine';
+	import {
+		MAX_NAME_LENGTH,
+		MIN_NAME_LENGTH,
+		PASSWORD_MAX_LENGTH,
+		PASSWORD_MIN_LENGTH
+	} from '@mathgame/engine';
 	import { t } from '../copy';
 	import { REVEAL_KEY, unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
 	import { nameRefusal } from '../names';
 	import {
 		account,
+		awayFromHome,
+		cardBoxes,
 		loginByNameAlone,
 		type AccountField,
 		type AccountProblem,
@@ -17,10 +24,13 @@
 	 * game on screen (`register`; from Continue on a guest's game, the gate,
 	 * `from: 'gate'`, with its own words), log in to one (`login`; on the
 	 * account's own browser by the name alone, one box), pick the password of
-	 * the account a welcome link opens (`welcome`), or a new password on the
-	 * account's own browser (`password`). Two boxes, the
-	 * name and a secret password, a button that shows the password as typed,
-	 * and under them the password rule, or kindly why the card did not go on.
+	 * the account a welcome link opens (`welcome`), a new password for the
+	 * account the page plays (`password`), or a new name for the player
+	 * (`name`). Its boxes (`cardBoxes`): the name and a secret password, and
+	 * away from the account's own browser the password now for a new name or a
+	 * new password; a button beside each password that shows it as typed;
+	 * and under them the password's or the name's rule, or kindly why the
+	 * card did not go on.
 	 * The welcome card's name is the account's, shown and never typed; while
 	 * the server is asked about the link, or when the link is spent or the
 	 * server does not answer, the card has no boxes, only what to do instead.
@@ -37,13 +47,17 @@
 	const MAX_TYPED_PASSWORD = 2 * PASSWORD_MAX_LENGTH;
 
 	const registering = $derived(account.card === 'register');
-	/** A new password on the account's own browser: its name shown, never typed. */
+	/** A new password: the account's name shown, never typed. */
 	const renewing = $derived(account.card === 'password');
+	/** A new name for the player. */
+	const naming = $derived(account.card === 'name');
+	/** A change to the account away from its own browser: the password now is asked too. */
+	const away = $derived((renewing || naming) && awayFromHome());
 	/** The welcome card's content, or null on another card. */
 	const welcome = $derived(account.card === 'welcome' ? account.welcome : null);
 	/** The boxes are up: every card but a welcome card with no account to open. */
 	const boxes = $derived(welcome === null || welcome.phase === 'ready');
-	/** A new password is picked (a new account, a welcome, a new one at home), not an old one typed. */
+	/** A new password is picked (a new account, a welcome, a new one), not an old one typed. */
 	const choosing = $derived(registering || renewing || welcome !== null);
 	/** The name is the account's own, shown and never typed. */
 	const fixedName = $derived(
@@ -51,6 +65,8 @@
 	);
 	/** Logging in on this browser's own account: the name alone, no password box. */
 	const nameAlone = $derived(loginByNameAlone());
+	/** The boxes that take typing, in order; the welcome card's and a new password's name is shown above them. */
+	const fields = $derived(cardBoxes());
 
 	interface Words {
 		heading: string;
@@ -78,10 +94,24 @@
 			if (renewing) {
 				return {
 					heading: t('account.newPassword.title'),
-					text: t('account.newPassword.text'),
+					text: away ? t('account.newPassword.awayText') : t('account.newPassword.text'),
 					back: t('account.back'),
 					go: t('account.newPassword.go'),
-					keys: t('account.newPassword.keys')
+					keys: away ? t('account.newPassword.awayKeys') : t('account.newPassword.keys')
+				};
+			}
+			if (naming) {
+				return {
+					heading: t('account.newName.title'),
+					text:
+						account.name === null
+							? t('account.newName.guestText')
+							: away
+								? t('account.newName.awayText')
+								: t('account.newName.text'),
+					back: t('account.back'),
+					go: t('account.newName.go'),
+					keys: away ? t('account.newName.awayKeys') : t('account.newName.keys')
 				};
 			}
 			if (registering && account.from === 'gate') {
@@ -159,6 +189,10 @@
 					: t('account.problem.passwordLong', { max: PASSWORD_MAX_LENGTH });
 			case 'wrong':
 				return t('account.problem.wrong');
+			case 'wrong-current':
+				return t('account.problem.wrongCurrent');
+			case 'logged-out':
+				return t('account.problem.loggedOut');
 			case 'too-many':
 				return t('account.problem.tooMany', { count: problem.minutes });
 			case 'offline':
@@ -176,7 +210,11 @@
 	 * takes it when a finger or a click focuses it.
 	 */
 	const box = (field: AccountField) => (input: HTMLInputElement) => {
-		if (account.field === field) input.focus();
+		if (account.field === field) {
+			input.focus();
+			// A new name's box holds the name the player has, picked whole: typing replaces it.
+			if (field === 'name' && account.card === 'name') input.select();
+		}
 		const take = () => {
 			if (account.field !== field) account.field = field;
 		};
@@ -203,9 +241,9 @@
 			<p>{words.text}</p>
 		{/if}
 		{#if boxes}
-			<label class="field">
-				<span class="label">{t('account.name')}</span>
-				{#if fixedName !== null}
+			{#if fixedName !== null}
+				<label class="field">
+					<span class="label">{t('account.name')}</span>
 					<!-- The account's own name: shown, never typed, and there for a password manager. -->
 					<input
 						class="box fixed"
@@ -215,61 +253,92 @@
 						readonly
 						tabindex="-1"
 					/>
-				{:else}
-					<input
-						class="box"
-						class:active={account.field === 'name'}
-						type="text"
-						bind:value={account.nameDraft}
-						maxlength={MAX_TYPED_NAME}
-						autocomplete="username"
-						autocapitalize="words"
-						autocorrect="off"
-						spellcheck="false"
-						enterkeyhint="next"
-						readonly={account.busy}
-						{@attach box('name')}
-					/>
-				{/if}
-			</label>
-			{#if !nameAlone}
-				<label class="field">
-					<span class="label"
-						>{renewing ? t('account.newPassword.label') : t('account.password')}</span
-					>
-					<span class="secret">
-						<input
-							class="box"
-							class:active={account.field === 'password'}
-							type={account.reveal ? 'text' : 'password'}
-							bind:value={account.passwordDraft}
-							maxlength={MAX_TYPED_PASSWORD}
-							autocomplete={choosing ? 'new-password' : 'current-password'}
-							autocapitalize="off"
-							autocorrect="off"
-							spellcheck="false"
-							enterkeyhint={choosing ? 'done' : 'go'}
-							readonly={account.busy}
-							{@attach box('password')}
-						/>
-						<button
-							type="button"
-							class="reveal"
-							aria-pressed={account.reveal}
-							data-press={REVEAL_KEY}
-							{@attach unfocusable}
-						>
-							{account.reveal ? t('account.hide') : t('account.show')}
-						</button>
-					</span>
 				</label>
 			{/if}
+			{#each fields as field (field)}
+				{#if field === 'name'}
+					<label class="field">
+						<span class="label">{naming ? t('account.newName.label') : t('account.name')}</span>
+						<input
+							class="box"
+							class:active={account.field === 'name'}
+							type="text"
+							bind:value={account.nameDraft}
+							maxlength={MAX_TYPED_NAME}
+							autocomplete={naming ? 'off' : 'username'}
+							autocapitalize="words"
+							autocorrect="off"
+							spellcheck="false"
+							enterkeyhint={fields.length > 1 ? 'next' : 'done'}
+							readonly={account.busy}
+							{@attach box('name')}
+						/>
+					</label>
+				{:else}
+					{@const current = field === 'current'}
+					<label class="field">
+						<span class="label"
+							>{current
+								? t('account.current')
+								: renewing
+									? t('account.newPassword.label')
+									: t('account.password')}</span
+						>
+						<span class="secret">
+							{#if current}
+								<input
+									class="box"
+									class:active={account.field === 'current'}
+									type={account.reveal ? 'text' : 'password'}
+									bind:value={account.currentDraft}
+									maxlength={MAX_TYPED_PASSWORD}
+									autocomplete="current-password"
+									autocapitalize="off"
+									autocorrect="off"
+									spellcheck="false"
+									enterkeyhint={naming ? 'done' : 'next'}
+									readonly={account.busy}
+									{@attach box('current')}
+								/>
+							{:else}
+								<input
+									class="box"
+									class:active={account.field === 'password'}
+									type={account.reveal ? 'text' : 'password'}
+									bind:value={account.passwordDraft}
+									maxlength={MAX_TYPED_PASSWORD}
+									autocomplete={choosing ? 'new-password' : 'current-password'}
+									autocapitalize="off"
+									autocorrect="off"
+									spellcheck="false"
+									enterkeyhint={choosing ? 'done' : 'go'}
+									readonly={account.busy}
+									{@attach box('password')}
+								/>
+							{/if}
+							<button
+								type="button"
+								class="reveal"
+								aria-pressed={account.reveal}
+								data-press={REVEAL_KEY}
+								{@attach unfocusable}
+							>
+								{account.reveal ? t('account.hide') : t('account.show')}
+							</button>
+						</span>
+					</label>
+				{/if}
+			{/each}
 			{#if account.problem}
 				<div class="note refused" role="alert">{problemWords(account.problem)}</div>
 			{:else if account.busy}
 				<div class="note">{t('account.busy')}</div>
 			{:else if choosing}
 				<div class="note">{t('account.passwordRule', { min: PASSWORD_MIN_LENGTH })}</div>
+			{:else if naming}
+				<div class="note">
+					{t('playerName.rule', { min: MIN_NAME_LENGTH, max: MAX_NAME_LENGTH })}
+				</div>
 			{:else if nameAlone}
 				<div class="note">{t('account.login.home')}</div>
 			{:else}

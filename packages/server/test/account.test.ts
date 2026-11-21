@@ -1673,6 +1673,11 @@ describe('a new name', () => {
 			expect(res.status).toBe(409);
 			expect(await res.json()).toEqual({ error: 'name taken' });
 		}
+		// An old name logs nobody in, with the right password or the name alone on the account's own browser.
+		const byOld = await new Browser().login(first);
+		expect([byOld.status, await byOld.json()]).toEqual([401, { error: 'wrong name or password' }]);
+		const atHome = await a.request('POST', '/login', { name: first, home: true });
+		expect([atHome.status, await atHome.json()]).toEqual([401, { error: 'not home' }]);
 		const { browser: b, name: bName } = await account();
 		const taking = await b.rename(first.toLowerCase());
 		expect(taking.status).toBe(409);

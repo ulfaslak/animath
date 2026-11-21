@@ -11,8 +11,11 @@
  *   newer save this page took; into it.
  * - `loggedOut`: logged out; the title, with the guest game if there is one,
  *   saying the account's game is safe and offering to log in to it again.
+ * - `renamed`: the account has a new name (picked here, or on another page,
+ *   which this one heard), under which this browser keeps its game now; back
+ *   into it.
  */
-const ACCOUNT_NOTES = ['saved', 'welcome', 'movedAhead', 'loggedOut'] as const;
+const ACCOUNT_NOTES = ['saved', 'welcome', 'movedAhead', 'loggedOut', 'renamed'] as const;
 export type AccountNote = (typeof ACCOUNT_NOTES)[number];
 
 /** A note for the next start, and the account it is about when it names one. */
