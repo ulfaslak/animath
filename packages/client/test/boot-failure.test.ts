@@ -230,9 +230,8 @@ describe("index.html, when boot.ts's own script did not run", () => {
 		const card = /<div\s+id="not-loaded"[\s\S]*?<\/button>/.exec(page)?.[0] ?? '';
 		const said = card.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
 		for (const lang of LANGUAGES) {
-			const notLoaded = (COPY as Record<string, { app: { notLoaded: Record<string, string> } }>)[
-				lang
-			]!.app.notLoaded;
+			const copy = COPY[lang] as unknown as { app: { notLoaded: Record<string, string> } };
+			const notLoaded = copy.app.notLoaded;
 			expect(said, lang).toContain(notLoaded.title);
 			expect(said, lang).toContain(notLoaded.retry);
 		}
