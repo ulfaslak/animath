@@ -123,6 +123,16 @@ describe('arrival notes', () => {
 		expect(run(notes, 1, 40)).toEqual([]);
 	});
 
+	// A note up as a trip began once stayed over the new world, where its friend was not.
+	it('drop a note still up when the world changes: it was about the last one', () => {
+		const notes = new ArrivalNotes();
+		notes.roster(['Ada'], 0);
+		notes.roster(['Ada', 'Bo'], 1);
+		expect(notes.tick(1, true)?.names).toEqual(['Bo']);
+		notes.newWorld();
+		expect(notes.tick(1.5, true)).toBeNull();
+	});
+
 	it('say someone flew away, not went home, when they were last seen taking the plane', () => {
 		const notes = new ArrivalNotes();
 		notes.roster(['Ada', 'Bo', 'Cy', 'Di'], 0);

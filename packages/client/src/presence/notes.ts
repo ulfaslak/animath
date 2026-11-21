@@ -71,8 +71,12 @@ export class ArrivalNotes {
 	private hiddenAt = Number.NEGATIVE_INFINITY;
 	private ids = 0;
 
-	/** Another world: nobody there is news until its first roster, and nobody from the last one is missed. */
+	/**
+	 * Another world: nobody there is news until its first roster, nobody from
+	 * the last one is missed, and a note still up about it goes.
+	 */
 	newWorld(): void {
+		if (this.shown?.kind !== 'elsewhere') this.shown = null;
 		this.present.clear();
 		this.lastSeen.clear();
 		this.missing.clear();
