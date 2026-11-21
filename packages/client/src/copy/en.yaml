@@ -1448,11 +1448,11 @@ explore:
   needAxe: You need an axe to chop trees. The druid sells one!
   # The first bump into a rock without the pickaxe, and Enter facing one.
   needPickaxe: You need a pickaxe to break rocks. The druid sells one!
-  # The first bump into an ice block without the ice pick, and Enter facing one.
-  # Leaving the druid's card just after buying the skis: how to ski.
   # Leaving the druid's card just after buying the dog sled: who pulls it.
   sledHow: Make a reindeer or an Arctic wolf your active animal, and it pulls you on your sled!
+  # Leaving the druid's card just after buying the skis: how to ski.
   skiHow: Hold an arrow to go faster and faster on the snow. Let go and you glide on!
+  # The first bump into an ice block without the ice pick, and Enter facing one.
   needIcePick: You need an ice pick to break ice blocks. The druid sells one!
   # Enter facing a fishing hole without the fishing rod.
   needRod: You need a fishing rod to fish here. The druid sells one!
@@ -1976,8 +1976,8 @@ items:
     use: Ride on big animals.
   arctic-axe:
     name: Arctic axe
-    the: the arctic axe
-    your: your arctic axe
+    the: the Arctic axe
+    your: your Arctic axe
     use: Chops down spruces.
   ice-pick:
     name: Ice pick
@@ -2361,7 +2361,8 @@ presence:
   flewTwo: '{name} and {other} flew away'
   flewMany: '{name} and {count} more flew away'
   # Under the names beside an arrow at the edge of the screen, when more than four
-  # players are out of sight that way: the first three are named, and this many more.
+  # players are out of sight that way: the first three are named, and this many more
+  # (on a phone held sideways, more than two: one named).
   arrowMore: '+{count} more'
   # This window stopped showing you to the others: you went on in another window.
   elsewhere: "You're playing in another window."
@@ -2573,9 +2574,9 @@ book:
   seenFree: You met {animal.a}, and it counts as set free!
   # One never met that the druid told about (where.* follows it, on the same line).
   told: The druid told you about {animal.a}.
-  # The key reminder under the book.
   # Under the book while the cursor is on the lands' tabs over the cards.
   lands: Pick a land to see its animals!
+  # The key reminder under the book.
   keys: ↑ ↓ ← → choose · Esc back
 # Where an animal is met, as the druid tells it (doctor.ask) and the animal book shows it for
 # an animal he told about: one line for each way to meet it, read off the game's own rules.
