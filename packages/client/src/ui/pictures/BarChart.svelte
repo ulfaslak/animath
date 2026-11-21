@@ -18,7 +18,12 @@
 		Math.min(MAX_BAR_LINES, Math.max(5, Math.ceil(Math.max(...values, 0) / scale)))
 	);
 
-	const LEFT = 44;
+	/**
+	 * Where the axis stands: room on its left for the numbers. A phone's are
+	 * 32 px, and a top line of 100 (tens, at 10) needs more room than two
+	 * digits, or its 1 is cut off at the picture's edge and the top reads "00".
+	 */
+	const LEFT = $derived(String(lines * scale).length > 2 ? 66 : 44);
 	const RIGHT = 290;
 	const TOP = 12;
 	const BOTTOM = 214;

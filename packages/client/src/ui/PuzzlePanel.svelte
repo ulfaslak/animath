@@ -127,8 +127,9 @@
 			<!-- Read aloud whole: a fraction as "3/5", a bar's mark by its name. -->
 			<div class="ask">
 				<span class="spoken">{questionText(parts)}</span><span aria-hidden="true"
-					>{#each parts as part, i (i)}{#if 'text' in part}{part.text}{:else if 'fraction' in part}<span
-								class="fraction"
+					>{#each parts as part, i (i)}{#if 'text' in part}{#if part.aside}<span class="aside"
+									>{part.text}</span
+								>{:else}{part.text}{/if}{:else if 'fraction' in part}<span class="fraction"
 								><span class="top">{part.fraction[0]}</span><span class="bottom"
 									>{part.fraction[1]}</span
 								></span
