@@ -5,7 +5,8 @@
  * a keyboard. It prints each piece that leaves its card or the safe area,
  * each button (Back, the number pad's keys, the tabs, Set free and Bye, the
  * confirm's choices) cut or covered, each piece of the right-hand side over
- * another, and the doctor's line under the badge or the tokens, and exits
+ * another, each number or word of a puzzle's picture under 16 px on the
+ * screen, and the doctor's line under the badge or the tokens, and exits
  * non-zero when anything is. A screenshot of one state shows one state:
  * #154, #160, #161, #162 and #166 each found a state or a size the check
  * before them had not looked at.
@@ -32,7 +33,8 @@
  * bear's sequence) and the longest sums in words (units), which must break
  * only between words; the paraglider's price (the priciest tool); balances and
  * rewards of four and five digits (a hand-over of 999 bears brings 29,970);
- * each beat after a right answer, when the doctor's lines are longest; and
+ * each beat after a right answer, when the doctor's lines are longest, and
+ * the reward after a picture puzzle of each kind, beside the list; and
  * the tabs' own sides with every line they can show at once.
  */
 import { chromium } from 'playwright-core';
@@ -227,6 +229,28 @@ const STATES = {
 		healed: { amounts: { 0: 100, 1: 90, 2: 40 }, n: 1 },
 		line: { say: 'healed', animal: bears[0], others: 2, someoneStillHurt: false }
 	}),
+	// A picture puzzle's reward: the list is back beside the right-hand side, and the
+	// doctor's cheer over it is at its longest. Each picture kind, as the heals above ask it.
+	...Object.fromEntries(
+		[
+			['thermometer(1, -10, 12)', 2, 'thermometer'],
+			['kroner(0, 0, 1, 1, 2, 1, 0, 0, 0, 0, 0)', 47, 'kroner'],
+			['fraction(1, 3, 12)', 4, 'fraction'],
+			['shape(1, 4, 3, 0, 0, 1)', 14, 'shape'],
+			['barchart(2, 1, 0, 2, 4, 3, 10, 10, 10, 0)', 13, 'barchart'],
+			['clock(0, 11, 30, 0, 0)', 690, 'clock'],
+			['numberline(0, 1000, 10, 5, 7, 1)', 7500, 'numberline'],
+			['blocks(0, 6, 5, 6)', 180, 'blocks']
+		].map(([prompt, answer, kind]) => [
+			`heal-reward-${kind}`,
+			right(heal(prompt, answer, kind, 3), {
+				party: TEAM.map(well),
+				healed: { amounts: { 0: 100, 1: 90, 2: 40 }, n: 1 },
+				line: { say: 'healed', animal: bears[0], others: 2, someoneStillHurt: true },
+				...(kind === 'clock' ? { input: '11:30' } : {})
+			})
+		])
+	),
 	'home-list': {
 		party: TEAM,
 		tab: 'home',
@@ -591,6 +615,14 @@ function measure(safe) {
 				if (over(a.r, b.r)) out.push(`overlap: ${name(a.el)} / ${name(b.el)}`);
 			}
 		info.fit = side.dataset.fit ?? '';
+		// A picture's numbers and words as big as any text, 16 px at least ([[DESIGN]] §
+		// Accessibility): an SVG draws them at its own scale, so measure them on the screen.
+		for (const el of side.querySelectorAll('.picture-slot text')) {
+			if (!shown(el)) continue;
+			const m = el.getScreenCTM();
+			const px = parseFloat(getComputedStyle(el).fontSize) * Math.hypot(m.a, m.b);
+			if (px < 15.5) out.push(`picture text ${name(el)} is ${px.toFixed(1)} px`);
+		}
 	}
 	// The doctor's line keeps off the badge and the tokens, and inside its card.
 	const talk = card.querySelector('.talk');

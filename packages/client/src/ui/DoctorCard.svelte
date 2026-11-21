@@ -1422,12 +1422,16 @@
 	 * While a right answer's reward plays (`done`), the puzzle keeps only the
 	 * sum, the answer and "Correct!": the pad, the story and Back are done
 	 * with (Back would say bye while a beat plays), and the druid's
-	 * cheer over the card can take three lines.
+	 * cheer over the card can take three lines. A picture puzzle keeps its
+	 * question in words and drops its picture: beside the list, which comes
+	 * back for the reward, a phone's half card drew a number line's numbers
+	 * at 10 px and a tablet's a bar chart's at 14, under any text's 16.
 	 */
 	.puzzle.done :global(.pad),
 	.puzzle.done :global(.story),
 	.puzzle.done :global(.back),
-	.puzzle.done :global(.note) {
+	.puzzle.done :global(.note),
+	.puzzle.done :global(.picture-slot) {
 		display: none;
 	}
 	/*
