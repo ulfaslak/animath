@@ -31,7 +31,8 @@
  *                 registry's order; 0 by default): all 50 unlock The Arctic, and 49 leave one
  *                 catch to the druid's surprise; caught=all-shrew is every one but the shrew
  *   wild=brown-rat:1  the game opens in a battle against this wild animal, at this HP (full
- *                 when left out), its lead the party's first
+ *                 when left out), its lead the party's first; on the water for an animal that
+ *                 only swims (wild=walrus with party=narwhal and boat)
  *   freed=50      how many of Nordland's species they have set free (its first ones, in the
  *                 registry's order; 0 by default)
  *   touch         a touch tablet (the touch controls on)
@@ -104,6 +105,7 @@
 import {
 	ANIMALS,
 	EMPTY_BOOK,
+	canFightIn,
 	LAND_IDS,
 	defaultStarter,
 	getLand,
@@ -399,11 +401,15 @@ function saveOf(p: Player): string {
 			solved: p.solved,
 			...(p.wild
 				? {
-						battle: startBattle(party, {
-							id: `wild-${p.label}`,
-							speciesId: p.wild.speciesId,
-							hp: p.wild.hp ?? getAnimal(p.wild.speciesId).maxHp
-						})
+						battle: startBattle(
+							party,
+							{
+								id: `wild-${p.label}`,
+								speciesId: p.wild.speciesId,
+								hp: p.wild.hp ?? getAnimal(p.wild.speciesId).maxHp
+							},
+							{ realm: canFightIn(p.wild.speciesId, 'land') ? 'land' : 'water' }
+						)
 					}
 				: {})
 		},
