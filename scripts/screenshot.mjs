@@ -60,7 +60,7 @@
  * facing with `?debug` in the URL), the party cards (and an open card's
  * animals), the puzzles solved, tokens, tools and world in the corner, and
  * the coordinates in the other; in the pause menu its
- * rows, the animal book's row, the picked animal's options and the name box (with whether it has
+ * rows, the tiles on its title line, the Settings screen's rows, the picked animal's options and the name box (with whether it has
  * the focus); in the animal book its counts, what the lit card says, and every card (`Fox✓`
  * caught, `Fox` seen, `?` never seen, a `♥` after one set free, the lit one in brackets); at the doctor the doctor's line, the tokens, the tabs, the
  * tab's list and what its right-hand side says; and in a battle
@@ -454,7 +454,17 @@ async function describe() {
 		})
 	);
 	if (pauseRows.length) lines.push(`pause: ${pauseRows.join(' | ')}`);
-	// The animal book's row on the menu's title line, lit in brackets.
+	// The Settings screen: its rows and Back on its title line, the lit one in brackets.
+	const settingRows = await page
+		.locator('.menu .settings .row, .menu .title-line .setting-back')
+		.evaluateAll((els) =>
+			els.map((el) => {
+				const text = el.textContent.replace(/\s+/g, ' ').trim();
+				return el.classList.contains('lit') ? `[${text}]` : text;
+			})
+		);
+	if (settingRows.length) lines.push(`settings: ${settingRows.join(' | ')}`);
+	// The tiles on the menu's title line (My puzzles, the book, Settings), lit in brackets.
 	const bookRow = await page.locator('.menu .title-line .row').evaluateAll((els) =>
 		els.map((el) => {
 			const text = el.textContent.replace(/\s+/g, ' ').trim();
