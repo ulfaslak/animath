@@ -899,15 +899,18 @@ describe('the password gate', () => {
 		['a game it refuses', { status: 400, json: { error: 'bad save', detail: 'party' } }],
 		['a session gone meanwhile', { status: 401, json: { error: 'not logged in' } }],
 		['an older server', { status: 503, json: { error: 'this save is newer' } }]
-	])('a server that does not take it (%s) leaves the guest game where it is; the login goes on', async (_, answer) => {
-		vi.spyOn(console, 'error').mockImplementation(() => {});
-		const { store, requests, restarts, guest } = await logInAtGate(answer);
-		expect(requests.some((r) => r.url === '/api/account/keep')).toBe(true);
-		expect(store.get(KEYS.save)).toBe(guest);
-		expect(store.get(KEYS.previous)).toBeNull();
-		expect(currentAccount(store)).toEqual({ name: 'Pip' });
-		expect(restarts).toEqual(['welcome']);
-	});
+	])(
+		'a server that does not take it (%s) leaves the guest game where it is; the login goes on',
+		async (_, answer) => {
+			vi.spyOn(console, 'error').mockImplementation(() => {});
+			const { store, requests, restarts, guest } = await logInAtGate(answer);
+			expect(requests.some((r) => r.url === '/api/account/keep')).toBe(true);
+			expect(store.get(KEYS.save)).toBe(guest);
+			expect(store.get(KEYS.previous)).toBeNull();
+			expect(currentAccount(store)).toEqual({ name: 'Pip' });
+			expect(restarts).toEqual(['welcome']);
+		}
+	);
 
 	it('a guest game played on in another tab while it was sent stays the guest’s', async () => {
 		const later = saveText(10, 'Pip', 'guest');

@@ -411,16 +411,29 @@ The login, register and new-name limits are counted in the API process's memory,
 
 **Accounts in the browser.** The storage keys (a guest's `animath.save`, the logged-in `animath.account` (`{ name }`), the account's `animath.account.<nameKey, URI-encoded>.save` and set-aside keys, `animath.nudge` (`{ lineage, next }`)) are in [[ARCHITECTURE]], the `storage.ts` row; logging out removes only the pointer, so the account's copy waits for the next login. Open a saved game with `?steps=10` and the save card comes every ten steps, a game played before included (its next card at most ten steps on; a throwaway game, `?new`, has no card and no account rows). The title just after a logout reads the tab's `sessionStorage` note (`animath.accountNote` = `loggedOut`, the account's name in `animath.accountNote.name`): put both there before the page loads (`context.addInitScript`, once) to see that title without making an account. To try two devices, a throwaway Playwright script opens two contexts against your own API (each its own storage and cookie), and `docker compose -p mathgame exec -T postgres psql …` on your own database shows what the server holds. A page whose account's save on the server was written by a newer build reloads within its limit ([[INVARIANTS]] § A page that is behind takes no play), then shows the behind card ("A new version of the game is ready."): set that save's `version` to 99 in your own database to try it.
 
-**Getting a kid's account game back.** What an account's save replaced (another game, from New game on the title, or one the server could not read) is in `account_save_backups`. Put one back with a `seq` far above the current save's, in the document and in its column (the browser's own save can be ahead of the server's copy, and at its next start the browser takes the server's game only when its `seq` is higher):
+**Getting a kid's account game back.** What an account's save replaced (another game, from New game on the title, or one the server could not read: `reason` `replaced` or `unreadable`) is in `account_save_backups`, and so is the guest game the password gate logged in past (`guest`: a game played without logging in, on a browser that is the account's own, which the kid could not reach again once the gate logged in to the account instead; [[UI_SPEC]] § Accounts). Nothing in the game reads them. Run the SQL in `psql` on the database: here `docker compose -p mathgame exec -T postgres psql -U postgres -d mathgame` (§ Database), in production `cd ~/mathgame && docker compose -f docker-compose.prod.yml exec -T postgres psql -U mathgame -d mathgame` over SSH (§ Prod access). List the account's set-aside games, oldest first, to find the one the kid means:
 
 ```sql
-select b.id, b.reason, b.created_at, b.data->>'seq' as seq, b.data->'party' as party
+select b.id, b.reason, b.created_at, b.data->>'name' as name, b.data->>'seq' as seq, b.data->'party' as party
   from account_save_backups b join users u on u.id = b.user_id where u.name = '<name>' order by b.id;
-update account_saves
-   set data = jsonb_set(b.data, '{seq}', to_jsonb(account_saves.seq + 1000000)),
-       seq = account_saves.seq + 1000000, updated_at = now()
-  from account_save_backups b where b.id = <backup id> and account_saves.user_id = b.user_id;
 ```
+
+Then either **make it the account's game**: its game as it is now goes to the set-aside games first, and the chosen one takes its place with the account's name and a `seq` far above the current save's, in the document and in its column (the browser's own save can be ahead of the server's copy, and at its next start the browser takes the server's game only when its `seq` is higher):
+
+```sql
+begin;
+insert into account_save_backups (user_id, data, reason)
+  select s.user_id, s.data, 'replaced'
+    from account_saves s join account_save_backups b on b.user_id = s.user_id where b.id = <backup id>;
+update account_saves
+   set data = jsonb_set(jsonb_set(b.data, '{seq}', to_jsonb(account_saves.seq + 1000000)), '{name}', to_jsonb(u.name)),
+       seq = account_saves.seq + 1000000, updated_at = now()
+  from account_save_backups b join users u on u.id = b.user_id
+ where b.id = <backup id> and account_saves.user_id = b.user_id;
+commit;
+```
+
+Or **give it an account of its own**, so the kid keeps both: write its `data` to a file (`psql … -At -c "select data from account_save_backups where id = <backup id>" > ~/animath-exports/<name>-kept-<backup id>.json`, then `chmod 600`) and import that with a new name (§ Moving a kid's game to production, step 2, `import-save --name <new name>`), which makes the account with a welcome link.
 
 ### Moving a kid's game to production
 
