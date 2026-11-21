@@ -46,7 +46,29 @@ export function fit(steps: readonly string[]): (card: HTMLElement) => () => void
 	};
 }
 
-/** What the card holds reaches past its padding box, down or across. */
+/** More than this past the card's padding box is past it: `scripts/doctor-fit.mjs` measures the same. */
+const TOLERANCE = 0.5;
+
+/**
+ * What the card holds reaches past its padding box, on any side. Its scroll
+ * size is a whole number of pixels and says nothing of what a centred card
+ * holds up past its top or left of its left side, so each piece it holds is
+ * measured too, to a fraction of a pixel: by the scroll size alone, Hint sat
+ * 1.1 px past a druid's card on a phone (#250).
+ */
 function overflows(card: HTMLElement): boolean {
-	return card.scrollHeight > card.clientHeight + 1 || card.scrollWidth > card.clientWidth + 1;
+	if (card.scrollHeight > card.clientHeight + 1 || card.scrollWidth > card.clientWidth + 1)
+		return true;
+	const box = card.getBoundingClientRect();
+	const style = getComputedStyle(card);
+	const left = box.left + parseFloat(style.borderLeftWidth) - TOLERANCE;
+	const right = box.right - parseFloat(style.borderRightWidth) + TOLERANCE;
+	const top = box.top + parseFloat(style.borderTopWidth) - TOLERANCE;
+	const bottom = box.bottom - parseFloat(style.borderBottomWidth) + TOLERANCE;
+	for (const piece of card.querySelectorAll('*')) {
+		const r = piece.getBoundingClientRect();
+		if (r.width < TOLERANCE && r.height < TOLERANCE) continue; // not drawn
+		if (r.left < left || r.right > right || r.top < top || r.bottom > bottom) return true;
+	}
+	return false;
 }
