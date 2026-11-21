@@ -326,6 +326,21 @@ describe('an account with a new name', () => {
 		expect(store.get(ida().save)).toBeNull();
 	});
 
+	it('another game under the new name (a deleted account had it) gives way, however far along, and is kept aside', () => {
+		logInHere(store, 'Ida');
+		const sibling = saveText(900, 'game-b', 'Ella');
+		store.set(ella().save, sibling);
+		store.set(ida().save, saveText(12));
+		expect(moveAccountGame(store, 'Ida', 'Ella')).toBe(true);
+		expect(JSON.parse(store.get(ella().save)!)).toMatchObject({
+			seq: 12,
+			lineage: 'game-a',
+			name: 'Ella'
+		});
+		expect(store.get(ella().replaced)).toBe(sibling);
+		expect(store.get(ida().save)).toBeNull();
+	});
+
 	it('back to a name the account had: the copy further along stays, the other is kept aside', () => {
 		// Ella's keys hold the game from before the account was called Ida.
 		store.set(ella().save, saveText(5, 'game-a', 'Ella'));

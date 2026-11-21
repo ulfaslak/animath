@@ -1,4 +1,4 @@
-import { nameKey, readSave, saveSeq } from '@mathgame/engine';
+import { nameKey, readSave, saveLineage, saveSeq } from '@mathgame/engine';
 import {
 	ACCOUNT_KEYS,
 	KEYS,
@@ -155,9 +155,13 @@ export function takeAccountGame(store: KeyValueStore, name: string, theirs: unkn
  * game moves to the new name's keys with the new name in it (a copy from a
  * newer build, or one this build cannot read, moves as it is), and the
  * browser plays the account by its new name if it played it by the old one.
- * The new name's keys hold a copy already only when the account had that
- * name before; then the two settle as at a login (`takeAccountGame`), and
- * the copy that gives way is kept aside there. The old name's set-aside
+ * The new name's keys can hold a copy already: this game, when another tab
+ * followed first or the account had that name before, and then the two
+ * settle as at a login (`takeAccountGame`, the copy that gives way kept
+ * aside there); or another game, when an account that had the name was
+ * deleted since (a sibling's, on a family computer), which is never this
+ * account's newest, however far along: it is kept aside, and this game takes
+ * the keys. The old name's set-aside
  * copies stay where they are.
  *
  * All or nothing, so that no play is left under keys no page reads: the
@@ -191,7 +195,11 @@ export function moveAccountGame(store: KeyValueStore, from: string, to: string):
 	if (wrote) {
 		if (!store.set(keys.save, moved)) return false;
 	} else if (there !== moved) {
-		if (readable) takeAccountGame(store, to, JSON.parse(moved));
+		const theirs = parseJson(there);
+		const another = readable && readSave(theirs).ok && saveLineage(theirs) !== saveLineage(doc);
+		if (another) {
+			if (!setAside(store, keys.replaced, there) || !store.set(keys.save, moved)) return false;
+		} else if (readable) takeAccountGame(store, to, JSON.parse(moved));
 		const kept =
 			store.get(keys.save) === moved ||
 			setAside(store, readable ? keys.replaced : keys.unreadable, moved);
