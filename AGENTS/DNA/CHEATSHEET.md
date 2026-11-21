@@ -228,7 +228,7 @@ Everything below is a click with a mouse or a tap with a finger, and each is the
 | Fishing hole (a dark round in the ice, a rim of snow) | No. Walking or sliding into it stops you in front of it, facing it; with the fishing rod, Enter fishes (below). |
 | Ice block (a glassy blue block, on snow, on the ice or afloat) | No, not even in the boat. The ice pick breaks it (below). |
 | Rock (a dark boulder capped with snow) | No, never: The Arctic sells no pickaxe. |
-| Spruce (taiga) | No. The arctic axe chops it. |
+| Spruce (taiga) | No. The Arctic axe chops it. |
 | Water, deep water | Only in the boat, as in Nordland. |
 
 **Sliding.** A step onto the ice slides you on the way you stepped, tile after tile at a smooth even pace, feet together, until something stops you, with or without anything you own:
@@ -240,7 +240,7 @@ Everything below is a click with a mouse or a tap with a finger, and each is the
 - From a standstill on the ice, a step onto the ice slides again; a step onto snow is an ordinary step. A step into the boat from the ice ends the slide on the water.
 - **The paraglider** comes down on the ice and you stand there, no slide; never on an ice block or into a hole.
 
-**The Arctic's shop** (at any Arctic druid, in **ice dollars**; the coin and the prices: [[PRODUCT]] §4 "The Arctic's shop"): the arctic axe, ice pick, fishing rod (`?items=fishing-rod` to try it in a throwaway game), skis, boat, paraglider and dog sled. Your Nordland axe, pickaxe and harness stay in Nordland.
+**The Arctic's shop** (at any Arctic druid, in **ice dollars**; the coin and the prices: [[PRODUCT]] §4 "The Arctic's shop"): the Arctic axe, ice pick, fishing rod (`?items=fishing-rod` to try it in a throwaway game), skis, boat, paraglider and dog sled. Your Nordland axe, pickaxe and harness stay in Nordland.
 - **Arctic axe**: face a spruce, Enter (Touch: Chop) chops it; snow is left. It looks different from Nordland's: a red handle, a blue blade.
 - **Ice pick**: face an ice block, Enter (Touch: Break) breaks it into shards with a glassy crack. On the snow it leaves snow and a few chips of ice; on a frozen lake or the sea ice it leaves a **new fishing hole**; out on the water, water. Breaking a block you slid into on the ice turns it into a hole you already face: fish right away. Bumping into a block without the pick says the druid sells one, once a game.
 - **Skis** (red, with poles; on your feet whenever you stand on the snow, never in the boat or the air): hold an arrow and you speed up: two walking steps, then gliding with no stride, snow spraying behind, then quicker, then top speed, the spray bigger the faster, about 7 tiles from a standstill (`?land=arctic&items=skis`, and hold Right from the spawn's tent row: (−18, 5) in World 1 has 30 tiles of snow to the right). Letting go coasts, a quarter turn slows you, turning back or anything in the way stops you ([[PRODUCT]] §4 "The Arctic's shop", Skis). A tap is still one tile, two taps two: walk precisely near holes and the druid. Mashing an arrow is as good as holding it. On a tablet hold the D-pad's arm.

@@ -1,6 +1,7 @@
 import pg, { type QueryConfig } from 'pg';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import {
+	ACCOUNT_COLUMNS,
 	ACCOUNT_TABLES,
 	AccountsReady,
 	READY_QUERY_TIMEOUT_MS,
@@ -20,14 +21,39 @@ import { pool } from '../src/db/index.js';
 afterAll(() => pool.end());
 
 describe('accountTablesReady', () => {
-	it("is yes on a database with every account table: the routes' own users, sessions and saves", async () => {
+	it("is yes on a database with every account table: the routes' own users, sessions, saves and welcome links", async () => {
 		expect([...ACCOUNT_TABLES].sort()).toEqual([
 			'account_save_backups',
 			'account_saves',
 			'sessions',
-			'users'
+			'users',
+			'welcome_tokens'
 		]);
+		expect(ACCOUNT_COLUMNS).toContainEqual(['users', 'home_hash']);
 		expect(await accountTablesReady()).toBe(true);
+	});
+
+	// The local database once stood at `0005` while the build read `users.home_hash` (`0006`):
+	// ready said yes, and every register and login was a 500.
+	it('is no where a table lacks a column the routes read, as before a later migration', async () => {
+		const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+		await client.connect();
+		const behind = `accounts_behind_${process.pid}_${Math.floor(Math.random() * 1e9)}`;
+		const ask = (text: string, values: unknown[]) => client.query(text, values);
+		try {
+			// The accounts' tables as they are, in a schema of their own, then one column short.
+			await client.query(`create schema ${behind}`);
+			for (const table of ACCOUNT_TABLES)
+				await client.query(`create table ${behind}.${table} (like public.${table})`);
+			await client.query(`set search_path to ${behind}`);
+			expect(await accountTablesReady(ask)).toBe(true);
+			await client.query(`alter table ${behind}.users drop column home_hash`);
+			expect(await accountTablesReady(ask)).toBe(false);
+		} finally {
+			await client.query('reset search_path');
+			await client.query(`drop schema if exists ${behind} cascade`);
+			await client.end();
+		}
 	});
 
 	it('is no where the tables are not found as the routes find them, as before the migration', async () => {

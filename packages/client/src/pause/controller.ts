@@ -73,6 +73,15 @@ export interface PauseHooks {
  * (`goTo`, the presence controller's: it asks the server where they are,
  * then the authority to put the player there).
  *
+ * The account's rows (`menuItems`): "Make an account", "Log in" and "New
+ * password" open the account card over the menu, which has the keys again
+ * once the card goes; "Log out" asks first, on the right ("No, stay logged
+ * in" lit first), after a quiet moment, since a kid who has forgotten their
+ * password can't come back.
+ *
+ * "My puzzles", beside the book on the title line, opens in the menu's
+ * place: a row per topic, one lit, the record shown and nothing done.
+ *
  * The animal book, the row on the menu's title line, opens in the menu's
  * place: a card for every species, lit one at a time. The arrows walk the
  * cards as they are laid out (`book.columns` to a row), a tap lights one,

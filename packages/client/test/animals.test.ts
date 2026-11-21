@@ -87,7 +87,7 @@ describe('figures', () => {
 		});
 	}
 
-	it('sizes by tier: on land the smallest a tier-1 animal and the biggest a tier-5 one, at sea the whale biggest, and two tiers up always bigger', () => {
+	it('sizes by tier: on land the smallest a tier-1 animal and the biggest a tier-5 one, at sea the blue whale biggest, and two tiers up always bigger', () => {
 		const volumes = new Map(ANIMALS.map((s) => [s.id, volume(bounds(buildAnimalMesh(s.id)))]));
 		const onLand = ANIMALS.filter((s) => s.realms.includes('land'));
 		const atSea = ANIMALS.filter((s) => !s.realms.includes('land'));

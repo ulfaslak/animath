@@ -2,8 +2,8 @@ import * as THREE from 'three';
 
 /**
  * Figures drawn in few draw calls (#152). A figure (an animal, a trainer, the
- * boat and the glider a trainer carries) is built from primitives, a mesh per
- * part in the part's colour, and drawn like that a trainer with an animal
+ * boat and the glider a trainer carries, the plane) is built from
+ * primitives, a mesh per part in the part's colour, and drawn like that a trainer with an animal
  * following cost about fifty draw calls a frame, every part drawn twice (on
  * screen and in the sun's shadow): ten friends on screen took a slow tablet
  * from 21 frames a second to 13.
@@ -16,10 +16,12 @@ import * as THREE from 'three';
  * is there twice, once each way round, so the one material draws the front of
  * everything and the pixels are the same. The merged shape is shared by every
  * figure of its kind (its `key`: a species, a trainer's look, a boat's trim, a
- * glider's colour), and freed with the last of them (`release`).
+ * glider's colour, the plane on skis or floats), and freed with the last of
+ * them (`release`).
  *
  * The parts that move on their own are joints (`markJoint`): a trainer's arms
- * and legs, a bird's wings, the wolf's tail, the boat's pennant. How they
+ * and legs, a bird's wings, the wolf's tail, the boat's pennant, the plane's
+ * propeller. How they
  * stay apart is the `mode`:
  *   - `skinned`: the whole figure is one mesh, and each joint is a bone of it,
  *     named and placed as the joint was, so the animations that turn, stretch
@@ -28,7 +30,7 @@ import * as THREE from 'three';
  *     shadow. The animals and the trainers.
  *   - `grouped`: each joint stays a group of its own with its parts merged in
  *     it, for figures whose parts show and hide (the glider's roll, its wing
- *     and their lines). The boat and the glider.
+ *     and their lines). The boat, the glider and the plane.
  *
  * The merged figure measures as the parts did: `Box3.setFromObject` reads a
  * box per mesh, and each mesh's is set to what the parts' own boxes made it
@@ -50,7 +52,7 @@ export function markJoint<T extends THREE.Object3D>(node: T): T {
 const isJoint = (o: THREE.Object3D): boolean => o.userData.joint === true;
 
 /** How a merged figure keeps its joints apart: bones of one mesh, or a mesh per group. */
-export type MergeMode = 'skinned' | 'grouped';
+type MergeMode = 'skinned' | 'grouped';
 
 /**
  * How far a skinned figure's joints may reach beyond its box as built, as a

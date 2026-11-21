@@ -107,12 +107,30 @@ describe('arrival notes', () => {
 		expect(KNOWN_SECONDS).toBeGreaterThan(LEAVE_GRACE_SECONDS);
 	});
 
+	it('take names as one player by the key one account is kept by, not by their case alone', () => {
+		const notes = new ArrivalNotes();
+		notes.roster(['Straße', 'Ｎｉｎｉ'], 0);
+		notes.roster(['STRASSE', 'Nini'], 1);
+		notes.roster([], 2);
+		expect(said(run(notes, 2, 2 + LEAVE_GRACE_SECONDS + 5))).toEqual(['left:STRASSE+Nini']);
+	});
+
 	it('start afresh in another world: its people are no news, and nobody from the last is missed', () => {
 		const notes = new ArrivalNotes();
 		notes.roster(['Ada'], 0);
 		notes.newWorld();
 		notes.roster(['Zed', 'Yo'], 1);
 		expect(run(notes, 1, 40)).toEqual([]);
+	});
+
+	// A note up as a trip began once stayed over the new world, where its friend was not.
+	it('drop a note still up when the world changes: it was about the last one', () => {
+		const notes = new ArrivalNotes();
+		notes.roster(['Ada'], 0);
+		notes.roster(['Ada', 'Bo'], 1);
+		expect(notes.tick(1, true)?.names).toEqual(['Bo']);
+		notes.newWorld();
+		expect(notes.tick(1.5, true)).toBeNull();
 	});
 
 	it('say someone flew away, not went home, when they were last seen taking the plane', () => {

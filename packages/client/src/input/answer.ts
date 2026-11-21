@@ -22,7 +22,7 @@ import type { AnswerForm } from '@mathgame/engine';
  * Either way, H asks for the puzzle's hint (`hint`) and types nothing: the
  * screen shows it, when its puzzle has one (`hint.ts`).
  */
-export const MAX_ANSWER_LENGTH = 7;
+const MAX_ANSWER_LENGTH = 7;
 
 export interface AnswerKey {
 	/** The answer text after the key. */

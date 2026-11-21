@@ -32,6 +32,7 @@ import { WatchedFights } from '../src/render/fights';
 import { OtherPlayers } from '../src/render/others';
 import { Poofs } from '../src/render/poof';
 import type { KeyValueStore } from '../src/save/storage';
+import { account } from '../src/state/account.svelte';
 import { battle } from '../src/state/battle.svelte';
 import { game } from '../src/state/game.svelte';
 import { hud } from '../src/state/hud.svelte';
@@ -39,6 +40,7 @@ import { pause } from '../src/state/pause.svelte';
 import { plane } from '../src/state/plane.svelte';
 import { title } from '../src/state/title.svelte';
 import { presence } from '../src/state/presence.svelte';
+import { travel } from '../src/state/travel.svelte';
 import { testStarter } from './minted';
 import { runAway } from './run-away';
 
@@ -767,6 +769,58 @@ describe('presence on the page', () => {
 		forgetful.socket().onclose?.({});
 		forgetful.frame();
 		expect(forgetful.reloads()).toBe(0);
+	});
+
+	it('never reloads for a newer version under the save card, an account card or a trip’s cover', () => {
+		const s = setup();
+		s.start();
+		s.connect();
+		s.socket().say({ t: 'refresh', v: PROTOCOL_VERSION + 1 });
+		s.socket().readyState = 3;
+		s.socket().onclose?.({});
+		const covers: [string, () => void][] = [
+			['the save card', () => (account.prompt = true)],
+			// A password half typed on the card the save card opened.
+			['an account card', () => (account.card = 'register')],
+			['a trip', () => (travel.cover = { closing: true, p: 0.5, x: 0, y: 0, calm: false })]
+		];
+		for (const [what, cover] of covers) {
+			cover();
+			s.frame();
+			expect([what, s.reloads()]).toEqual([what, 0]);
+			account.prompt = false;
+			account.card = null;
+			travel.reset();
+		}
+		s.frame();
+		expect(s.reloads()).toBe(1);
+	});
+
+	it('keeps a note waiting under a land’s starters, and shows it once they are gone', () => {
+		const s = setup();
+		s.start();
+		s.connect();
+		const roster = (names: string[]): ServerMessage => ({
+			t: 'roster',
+			world: 1,
+			land: 'nordland',
+			players: names.map((name, i) => ({
+				pid: `friend000${i}`,
+				name,
+				bearing: 4,
+				steps: 1,
+				busy: 'explore'
+			}))
+		});
+		s.socket().say(roster([]));
+		s.frame();
+		title.open = true;
+		s.socket().say(roster(['Bo']));
+		for (let i = 0; i < 20; i++) s.frame();
+		expect(presence.note).toBeNull();
+		title.open = false;
+		s.frame();
+		expect(presence.note).toMatchObject({ kind: 'arrived', names: ['Bo'] });
 	});
 
 	it('gives friends far off the same way one arrow with every name, nearest first (#140)', () => {

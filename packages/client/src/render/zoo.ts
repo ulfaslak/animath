@@ -38,7 +38,8 @@ export class Zoo {
  *
  * The grid is `zooColumns` wide, read left to right and then row by row down
  * the screen, its rows two tiles apart so a tall figure never hides the one
- * behind it, and the player's own row left empty between the middle two.
+ * behind it, and the player's own row left empty between the middle two (with
+ * an odd number of rows, just above the middle one).
  */
 export function buildZoo(seed: number, origin: GridPos, tired = false): THREE.Group[] {
 	const spots = zooSpots(seed, origin, ANIMALS.length);

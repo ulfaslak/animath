@@ -54,8 +54,8 @@ export function applyPartyIntent(
  * `realm`, in the order it refuses in: it can't fight there (out on the
  * water, it can't swim; on land, it lives in the sea), it is tired, or it
  * leads there already. Null when it would be chosen, and for an animal not in
- * the party (refused as `unknown-animal`). What the pause menu greys "Go
- * first" by, so it offers only what the engine accepts.
+ * the party (refused as `unknown-animal`). What the pause menu greys "Make
+ * active" by, so it offers only what the engine accepts.
  */
 export function leadRefusal(
 	party: readonly AnimalInstance[],

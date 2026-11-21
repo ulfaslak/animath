@@ -108,7 +108,7 @@ export type WelcomeResult =
 			sessionToken: string;
 			/** The account's save as stored, or null with none. */
 			save: unknown;
-			/** This browser is the account's home now (it had none: always, unless the admin set one). */
+			/** This browser is the account's home now (an account waiting for its link has none, so always). */
 			home: boolean;
 	  }
 	| { kind: 'used' }

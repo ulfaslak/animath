@@ -152,7 +152,7 @@ export const accountSaveBackups = pgTable(
 			.notNull()
 			.references(() => users.id, { onDelete: 'cascade' }),
 		data: jsonb('data').notNull(),
-		/** `replaced` (another game took its place) or `unreadable` (this build could not read it). */
+		/** `replaced` (another game, or an older build's save of this one, took its place) or `unreadable` (this build could not read it). */
 		reason: text('reason').notNull(),
 		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 	},

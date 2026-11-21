@@ -9,7 +9,7 @@
 
 	/**
 	 * One card of the party: every animal of one species, stacked (UI_SPEC §
-	 * Explore mode, "Party cards"). One animal shows as itself, its name and
+	 * Explore mode, "Party HUD"). One animal shows as itself, its name and
 	 * its HP bar. Several show as a stack, with cards peeking out behind: the
 	 * species' name, how many ("×4"), how they are ("3 ready · 1 tired soon ·
 	 * 1 tired", `stackSummary`), and a slim bar of all their HP together;

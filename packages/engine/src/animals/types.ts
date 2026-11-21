@@ -39,7 +39,7 @@ export interface AnimalSpec {
 	realms: readonly Realm[];
 	/**
 	 * The biomes whose sky it flies over, where it may notice a kid on the
-	 * glider (`skyTable`): only for a species that flies, and its `habitats`
+	 * glider (`skyTableAt`): only for a species that flies, and its `habitats`
 	 * unless it says otherwise (`skiesOf`). The sea eagle also hunts over the
 	 * deep water, the sea.
 	 */

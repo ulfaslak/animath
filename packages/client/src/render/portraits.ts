@@ -40,7 +40,7 @@ export type PortraitRenderer = Pick<
 >;
 
 /** Turns the drawn pixels, RGBA rows bottom up, `DRAWN` a side, into the picture the page shows. */
-export type PortraitEncoder = (pixels: Uint8Array, size: number) => string;
+type PortraitEncoder = (pixels: Uint8Array, size: number) => string;
 
 export class PortraitStudio {
 	private readonly scene = new THREE.Scene();

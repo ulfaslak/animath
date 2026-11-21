@@ -565,14 +565,26 @@ async function openPage(p: Player): Promise<void> {
 /**
  * Past the title: Continue, once its row is there and takes keys; a tap on it
  * for a touch player (a key from a real keyboard would switch their touch
- * controls off).
+ * controls off). With `--api` against a server that keeps accounts, Continue
+ * on a guest's game opens the password gate over the title instead
+ * ([[DECISIONS]] § Accounts): the player is left there, said so, for the
+ * steps to pick a password (`type:`, then `Enter`) or go Back.
  */
 async function continueGame(p: Player, page: Page): Promise<void> {
 	await page.waitForSelector('.menu-card .row', { timeout: 30_000 });
 	await page.waitForTimeout(1200);
 	if (p.touch) await page.locator('.menu-card .row').first().tap();
 	else await page.keyboard.press('Enter');
-	await page.waitForSelector('.menu-card', { state: 'detached', timeout: 30_000 });
+	// A string, not a function: tsx's helpers are not in the page (see DESCRIBE).
+	const past = await page.waitForFunction(
+		`document.querySelector('.account-card') ? 'gate' : document.querySelector('.menu-card') ? null : 'game'`,
+		undefined,
+		{ timeout: 30_000 }
+	);
+	if ((await past.jsonValue()) === 'gate') {
+		console.log(`${p.label}: at the password gate (Continue on a guest's game, --api)`);
+		return;
+	}
 	await page.waitForTimeout(800);
 }
 

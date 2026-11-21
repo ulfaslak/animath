@@ -104,7 +104,7 @@ export const WATER_TOP = 0.2;
 export const ICE_TOP = 0.36;
 
 /** Whether a tile is The Arctic's, which draws its water, rocks and trees its own way. */
-export function isArcticTile(tile: Tile): boolean {
+function isArcticTile(tile: Tile): boolean {
 	return BIOME_POLE[tile.biome] !== null;
 }
 
@@ -742,7 +742,7 @@ function decorateArctic(
 			const r = 0.32 + rng.next() * 0.18;
 			const turn: [number, number, number] = [0, rng.next() * Math.PI, 0];
 			const colour = rng.chance(0.5) ? ARCTIC_COLORS.rock : ARCTIC_COLORS.rockLight;
-			// Cliffs stand taller on the shore and the fell; a nunatak out of the ice sheet too.
+			// Cliffs stand taller on the shore and the fell.
 			const tall = tile.biome === 'bird-cliffs' || tile.biome === 'fell' ? 1.35 : 1;
 			props.add('rock', x, top + 0.2 * tall, z, colour, [r, r * tall, r], turn);
 			if (rng.chance(0.75)) {

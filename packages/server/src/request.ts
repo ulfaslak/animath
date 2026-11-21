@@ -99,10 +99,10 @@ function names(origin: URL, host: string): boolean {
  * Whether a request's `Origin` is this site: its host is the one the browser
  * addressed. A browser names the page behind every POST, PUT and WebSocket
  * upgrade in `Origin`; a request with none is not from a browser's page (curl,
- * the admin's tools) and counts as this site. The WebSocket upgrade, a GET
- * that `sameOriginJson` lets through, must ask this itself: a page on another
- * site can open a socket here, and on a same-site subdomain the session
- * cookie goes along.
+ * the admin's tools) and counts as this site. The WebSocket upgrade never
+ * reaches these routes: `presence/socket.ts` checks its `Origin` itself, more
+ * strictly (`pageOf`), since a page on another site can open a socket here,
+ * and on a same-site subdomain the session cookie goes along.
  */
 function fromThisSite(c: Context): boolean {
 	const origin = c.req.header('origin');

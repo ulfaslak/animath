@@ -1,8 +1,8 @@
 import type { SaveWrite } from '@mathgame/engine';
-import { and, eq, getTableName, ne, sql } from 'drizzle-orm';
+import { and, eq, getTableColumns, getTableName, ne, sql } from 'drizzle-orm';
 import type { QueryConfig } from 'pg';
 import { db, pool } from './db/index.js';
-import { accountSaveBackups, accountSaves, sessions, users } from './db/schema.js';
+import { accountSaveBackups, accountSaves, sessions, users, welcomeTokens } from './db/schema.js';
 import { NO_PASSWORD } from './passwords.js';
 import { hashSecret } from './secrets.js';
 import { createSession } from './sessions.js';
@@ -14,13 +14,23 @@ import { createSession } from './sessions.js';
  * rule; the routes check it before anything here runs.
  */
 
-/** The tables accounts keep everything in: migration `0003_accounts` makes them. */
-export const ACCOUNT_TABLES: readonly string[] = [
-	users,
-	sessions,
-	accountSaves,
-	accountSaveBackups
-].map((table) => getTableName(table));
+/** The tables the account routes read: `0003_accounts` makes four, `0004` the welcome links'. */
+const ACCOUNT_SCHEMA = [users, sessions, accountSaves, accountSaveBackups, welcomeTokens];
+
+/** The accounts' tables by name. */
+export const ACCOUNT_TABLES: readonly string[] = ACCOUNT_SCHEMA.map((table) => getTableName(table));
+
+/**
+ * Every column of those tables, as `schema.ts` gives them, so a database a
+ * later migration has not reached (a home's `home_hash`, `0006`) is not
+ * ready either: the routes read every one.
+ */
+export const ACCOUNT_COLUMNS: readonly (readonly [table: string, column: string])[] =
+	ACCOUNT_SCHEMA.flatMap((table) =>
+		Object.values(getTableColumns(table)).map(
+			(column) => [getTableName(table), column.name] as const
+		)
+	);
 
 /** Runs one query, as `pg`'s pool or a client of its own does. */
 export type Ask = (text: string, values: unknown[]) => Promise<{ rows: unknown[] }>;
@@ -36,10 +46,11 @@ export const READY_QUERY_TIMEOUT_MS = 5_000;
 
 /**
  * Whether accounts can work in this database now: it answers, and every
- * table they use is there, found as the routes' queries find them (the
- * `search_path`). A server can run without them: a development database
- * that `pnpm db:migrate` has not reached, or a database that is down. False
- * for either, and for any error.
+ * table they use is there with every column they read (`ACCOUNT_COLUMNS`),
+ * found as the routes' queries find them (the `search_path`). A server can
+ * run without them: a development database that `pnpm db:migrate` has not
+ * reached, all the way or to the newest migration, or a database that is
+ * down. False for either, and for any error.
  */
 export async function accountTablesReady(
 	ask: Ask = (text, values) => {
@@ -53,9 +64,12 @@ export async function accountTablesReady(
 	}
 ): Promise<boolean> {
 	try {
+		// A table not found has no columns, so it counts as missing too.
 		const { rows } = await ask(
-			'select count(*)::int as missing from unnest($1::text[]) as t(name) where to_regclass(quote_ident(t.name)) is null',
-			[ACCOUNT_TABLES]
+			'select count(*)::int as missing from unnest($1::text[], $2::text[]) as c(tbl, col) ' +
+				'where not exists (select 1 from pg_attribute a where a.attrelid = to_regclass(quote_ident(c.tbl)) ' +
+				'and a.attname = c.col and not a.attisdropped)',
+			[ACCOUNT_COLUMNS.map(([table]) => table), ACCOUNT_COLUMNS.map(([, column]) => column)]
 		);
 		const [row] = rows as { missing?: unknown }[];
 		return row?.missing === 0;

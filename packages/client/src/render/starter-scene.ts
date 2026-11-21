@@ -23,8 +23,9 @@ import type { Stage } from './renderer';
  * opens (on a touch screen it moves to the top instead, clear of the
  * tablet's keyboard). The DOM measures the band it leaves the row
  * (`setRoom`), and the row slides up or down into it (a lens shift, so
- * nothing turns or grows), no further than it must: its name tags never
- * slip under the card (#78).
+ * nothing turns), shrunk about the screen's middle first when the band is
+ * too short for it (`fitFor`, never under `MIN_FIT`), no further than it
+ * must: its name tags never slip under the card (#78).
  */
 
 /** Tiles between two animals' centres. */
@@ -79,7 +80,7 @@ export const MIN_FIT = 0.55;
 /**
  * How much to shrink the row about the screen's middle (a camera zoom, 1 as
  * it stands) for a row whose feet and tallest top stand at `row.feet` and
- * `row.top` to fit the band of `room` on a screen `height` tall: 1 when it
+ * `row.top` to fit the band of `room`: 1 when it
  * fits, else just enough, never under `MIN_FIT` (a phone held sideways,
  * where the heading and the card leave the animals a short band).
  */

@@ -1181,9 +1181,10 @@ function nearSightLine(x: number, z: number, spot: THREE.Vector3, r: number): bo
 }
 
 /**
- * The biome's scenery, kept clear of both figures and of the line between
- * them, in the biome's own colours (`BIOME_LOOK`): tall grass everywhere
- * (reeds at the river), plus trees in the forest, boulders on the mountain,
+ * The biome's scenery, kept clear of both figures and of the camera's side of
+ * the player's animal (reeds and the waves' crests also off the line from the
+ * camera to either animal), in the biome's own colours (`BIOME_LOOK`): tall
+ * grass everywhere (reeds at the river), plus trees in the forest, boulders on the mountain,
  * the biggest capped with snow, and a strip of water behind a river bank. Out
  * on the sea, the deep water's surface over the animals' feet, a few crests of
  * waves, and a shore far behind. A fixed scatter, so every battle in a biome

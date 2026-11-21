@@ -57,7 +57,7 @@ export interface ErrorReports {
 	setContext(context: ReportContext): void;
 }
 
-export interface ReporterOptions {
+interface ReporterOptions {
 	send: (report: ErrorReport) => void;
 	build: string;
 	browser: string;
@@ -68,7 +68,7 @@ export interface ReporterOptions {
 }
 
 /** Text the tab keeps (its `sessionStorage`, on the page). Either may throw. */
-export interface ReportMemory {
+interface ReportMemory {
 	read(): string | null;
 	write(text: string): void;
 }
@@ -331,7 +331,7 @@ function deviceOf(userAgent: string, touchPoints: number): string {
 }
 
 /** What an `error` event on the page carries, as `thrownBy` reads it. */
-export interface ErrorEventLike {
+interface ErrorEventLike {
 	error?: unknown;
 	message?: string;
 	filename?: string;

@@ -87,7 +87,7 @@ const SIDES: Record<Direction, [Direction, Direction]> = {
 };
 
 /** Seconds the one following takes to shrink away, and the new lead to grow in. */
-export const SWAP_OUT_SECONDS = 0.2;
+const SWAP_OUT_SECONDS = 0.2;
 export const SWAP_IN_SECONDS = 0.35;
 /** How high each species bounces on a step, in tiles: the small ones bound, the big ones plod. */
 const HOP: Record<string, number> = {
@@ -138,7 +138,8 @@ export const COME_DOWN_SECONDS = 0.35;
 
 /**
  * How the one following goes with the trainer: on its own feet (or swimming)
- * behind them, standing in their boat, or carrying them on its back.
+ * behind them, standing in their boat, carrying them on its back, or
+ * pulling their sled.
  */
 export type Ride = 'follows' | 'boat' | 'mount' | 'pull';
 
@@ -160,7 +161,10 @@ export class Follower {
 	private edits = WorldEdits.none;
 	/** The lead's species: who should be following. Null when every animal is tired. */
 	private wanted: string | null = null;
-	/** How the lead should go: behind on foot or swimming, in the boat, or carrying the trainer. */
+	/**
+	 * How the lead should go: behind on foot or swimming, in the boat,
+	 * carrying the trainer, or pulling their sled.
+	 */
 	private wantRide: Ride = 'follows';
 	private figure: THREE.Group | null = null;
 	/** The species of the figure on screen, and how it goes. */
@@ -349,7 +353,8 @@ export class Follower {
 
 	/**
 	 * Who follows: the lead's species, or null when every animal is tired; and
-	 * how (`ride`): behind the trainer, in their boat, or carrying them.
+	 * how (`ride`): behind the trainer, in their boat, carrying them, or
+	 * pulling their sled.
 	 */
 	lead(speciesId: string | null, ride: Ride = 'follows'): void {
 		this.wanted = speciesId;
