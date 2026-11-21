@@ -11,20 +11,45 @@ import { fit } from '../src/fit';
 
 const STEPS = ['close', 'small', 'bare'] as const;
 
+/** Where a piece of the card is drawn on the screen, a fraction of a pixel included. */
+interface Box {
+	left: number;
+	right: number;
+	top: number;
+	bottom: number;
+	width: number;
+	height: number;
+}
+const at = (top: number, bottom: number, left = 20, right = 280): Box => ({
+	left,
+	right,
+	top,
+	bottom,
+	width: right - left,
+	height: bottom - top
+});
+/** A piece the card holds, drawn where `place` says for the steps taken. */
+type Piece = (taken: string[]) => Box;
+
 /**
- * A card 200 px tall and 300 wide holding `need` px of height and `wide` px of
- * width as designed. Each step it takes gives back its share of `saves`.
+ * A card 200 px tall and 300 wide, at the screen's top left, holding `need` px
+ * of height and `wide` px of width as designed, and `pieces` drawn where each
+ * says. Each step it takes gives back its share of `saves`.
  */
-function card(need: number, wide = 300, saves = [20, 40, 30]) {
+function card(need: number, wide = 300, saves = [20, 40, 30], pieces: Piece[] = []) {
 	const el = {
 		dataset: {} as Record<string, string>,
 		clientHeight: 200,
 		clientWidth: 300,
 		need,
 		wide,
+		pieces,
 		get taken() {
 			return (el.dataset.fit ?? '').split(' ').filter(Boolean);
 		},
+		getBoundingClientRect: () => at(0, el.clientHeight, 0, el.clientWidth),
+		querySelectorAll: () =>
+			el.pieces.map((place) => ({ getBoundingClientRect: () => place(el.taken) })),
 		get scrollHeight() {
 			const given = saves.slice(0, el.taken.length).reduce((a, b) => a + b, 0);
 			return Math.max(el.clientHeight, el.need - given);
@@ -65,6 +90,12 @@ beforeEach(() => {
 	vi.stubGlobal('ResizeObserver', watcher(watchers.resize));
 	vi.stubGlobal('MutationObserver', watcher(watchers.words));
 	vi.stubGlobal('document', { fonts });
+	vi.stubGlobal('getComputedStyle', () => ({
+		borderLeftWidth: '0px',
+		borderRightWidth: '0px',
+		borderTopWidth: '0px',
+		borderBottomWidth: '0px'
+	}));
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -89,6 +120,45 @@ describe('a fitted card', () => {
 		attach(wide);
 		// Too wide until `small` gives back 40 px across.
 		expect(wide.dataset.fit).toBe('close small');
+	});
+
+	it('takes a step for a piece past any side, which the scroll size does not see', () => {
+		// The scroll size is a whole number and counts only down and to the right: a card that
+		// centres what it holds runs it up past its top, and a pixel past the bottom is inside
+		// the scroll size's slack (#250: Hint 1.1 px past a druid's card on a phone).
+		const up = card(200, 300, [20, 40, 30], [(taken) => (taken.length ? at(0, 40) : at(-8, 32))]);
+		attach(up);
+		expect(up.dataset.fit).toBe('close');
+
+		const left = card(
+			200,
+			300,
+			[20, 40, 30],
+			[(taken) => (taken.includes('small') ? at(80, 120, 4, 296) : at(80, 120, -3, 303))]
+		);
+		attach(left);
+		expect(left.dataset.fit).toBe('close small');
+
+		const down = card(
+			200,
+			300,
+			[20, 40, 30],
+			[(taken) => (taken.length ? at(160, 199) : at(161.1, 201.1))]
+		);
+		attach(down);
+		expect(down.dataset.fit).toBe('close');
+	});
+
+	it('takes no step for half a pixel, nor for a piece not drawn', () => {
+		// What `doctor-fit.mjs` lets through, so the two agree on what fits.
+		const half = card(200, 300, [20, 40, 30], [() => at(160.6, 200.4)]);
+		attach(half);
+		expect(half.dataset.fit).toBeUndefined();
+
+		// Put away (`display: none`), a piece has no size, wherever it would be.
+		const away = card(200, 300, [20, 40, 30], [() => at(-50, -50, -50, -50)]);
+		attach(away);
+		expect(away.dataset.fit).toBeUndefined();
 	});
 
 	it('stops after the last step, whatever still does not fit', () => {

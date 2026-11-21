@@ -25,7 +25,12 @@
 	 */
 	const LEFT = $derived(String(lines * scale).length > 2 ? 66 : 44);
 	const RIGHT = 290;
-	const TOP = 12;
+	/**
+	 * Where the top line is: room over it for half its number, which stands
+	 * centred on it. A phone's numbers are 32 high, and at 12 the top one (a
+	 * 6 or a 10) was cut through at the picture's top edge.
+	 */
+	const TOP = 18;
 	const BOTTOM = 214;
 	const step = $derived((BOTTOM - TOP) / lines);
 	/** Every line numbered while they are far enough apart for the numbers (up to 8 lines); else every other. */

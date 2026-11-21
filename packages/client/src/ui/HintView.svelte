@@ -57,11 +57,67 @@
 	const jumps = $derived(
 		hint.form === 'gaps' ? [...hint.gaps.map((g) => (g < 0 ? `−${-g}` : `+${g}`)), '+?'] : []
 	);
+
+	/**
+	 * A pattern with its jumps stays on one line (a jump belongs over its
+	 * comma) and is wider than the pattern alone: over each comma the jump
+	 * needs more room than ", ". Beside the pad on a tablet, or in half a card
+	 * held upright, it ran past its room: the first number off the card, the
+	 * "?" under the pad (#256). So it is a size smaller when it must be, by
+	 * exactly the share it is too wide, measured as `fit.ts` measures a card:
+	 * as designed first, again each time its room, its numbers, its prompt's
+	 * size or the font change. The room is the first box around the prompt: the
+	 * column beside the pad, or the card. `narrow` tells the card's own
+	 * fitting, which listens for a class that comes or goes, to measure again.
+	 *
+	 * It watches what `fit.ts` watches: the card's outer size, which what it
+	 * holds never changes (the line's and the column's do, and watching them
+	 * resized what was watched), and in the card a class (the pad came, a
+	 * step), `data-fit` or the words.
+	 */
+	function fitWidth(line: HTMLElement): () => void {
+		const room = () => {
+			let box = line.parentElement?.parentElement ?? null;
+			while (box && getComputedStyle(box).display === 'contents') box = box.parentElement;
+			return box;
+		};
+		const refit = () => {
+			const box = room();
+			line.style.fontSize = '';
+			if (!box) return;
+			const style = getComputedStyle(box);
+			// A pixel short of the room: `clientWidth` is a whole number, the line is not.
+			const width =
+				box.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - 1;
+			const need = line.getBoundingClientRect().width;
+			const narrow = width > 0 && need > width;
+			if (narrow) line.style.fontSize = `${Math.floor((width / need) * 1000) / 1000}em`;
+			line.classList.toggle('narrow', narrow);
+		};
+		const card = line.closest<HTMLElement>('.card') ?? room();
+		const size = new ResizeObserver(refit);
+		if (card) size.observe(card, { box: 'border-box' });
+		const words = new MutationObserver(refit);
+		words.observe(card ?? line, {
+			subtree: true,
+			childList: true,
+			characterData: true,
+			attributes: true,
+			attributeFilter: ['class', 'data-fit']
+		});
+		document.fonts?.addEventListener('loadingdone', refit);
+		refit();
+		return () => {
+			size.disconnect();
+			words.disconnect();
+			document.fonts?.removeEventListener('loadingdone', refit);
+		};
+	}
 </script>
 
 <span class="spoken">{spoken}</span>
 {#if hint.form === 'gaps'}
-	<span class="gaps" aria-hidden="true"
+	<span class="gaps" aria-hidden="true" {@attach fitWidth}
 		>{#each numbers as n, i (i)}<span class="term">{n}</span><span class="step"
 				>,<span class="jump"
 					><span class="by">{jumps[i]}</span><svg viewBox="0 0 40 12" class="arc"
