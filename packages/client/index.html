@@ -134,6 +134,74 @@
 				</p>
 			</div>
 		</div>
+		<!--
+			For a browser that reads the game but whose first script did not download
+			(or did not run), so boot.ts never marked the page started: the page loads
+			again by itself once, as boot.ts does when the game's own code did not
+			download (boot-failure.ts, the same sessionStorage key), and then shows
+			this card, whose button (or Enter or Space) loads the page again. Its
+			words are app.notLoaded's, English then Danish (boot-failure.test.ts).
+		-->
+		<div
+			id="not-loaded"
+			role="alert"
+			style="
+				display: none;
+				position: fixed;
+				top: 0;
+				right: 0;
+				bottom: 0;
+				left: 0;
+				align-items: center;
+				justify-content: center;
+				padding: 16px;
+				background: #8fd3f4;
+				color: #2d2a32;
+				font:
+					600 20px/1.4 Nunito,
+					system-ui,
+					sans-serif;
+				text-align: center;
+			"
+		>
+			<div
+				style="
+					max-width: 520px;
+					padding: 28px 32px;
+					border-radius: 16px;
+					background: #fffcf5;
+					box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+				"
+			>
+				<img src="/favicon.svg" alt="" width="88" height="88" />
+				<p lang="en" style="margin: 8px 0 0; font-weight: 800; font-size: 24px">
+					Animath didn't load.
+				</p>
+				<p lang="da" style="margin: 4px 0 20px; font-weight: 800; font-size: 24px">
+					Animath ville ikke starte.
+				</p>
+				<button
+					id="not-loaded-retry"
+					type="button"
+					style="
+						min-height: 64px;
+						margin-bottom: 4px;
+						padding: 0 28px;
+						border: 0;
+						border-radius: 32px;
+						background: #ff9f43;
+						box-shadow: 0 4px 0 #d9771f;
+						color: white;
+						font: inherit;
+						font-weight: 800;
+						font-size: 22px;
+						cursor: pointer;
+					"
+				>
+					<span lang="en">Try again</span> · <span lang="da">Prøv igen</span>
+				</button>
+			</div>
+		</div>
 		<script>
 			(function () {
 				var shown = false;
@@ -166,9 +234,42 @@
 						return false;
 					}
 				}
+				// Whether the page may load again by itself, marking the tab when it may:
+				// once, until the game has loaded (boot-failure.ts's reloadOnce). A tab
+				// that keeps nothing never does, since nothing would stop the next, and
+				// nor does a browser that knows it is offline.
+				function reloadOnce() {
+					if (navigator.onLine === false) return false;
+					try {
+						var tab = window.sessionStorage;
+						if (tab.getItem('animath.reloaded') !== null) return false;
+						tab.setItem('animath.reloaded', '1');
+						return tab.getItem('animath.reloaded') !== null;
+					} catch (e) {
+						return false;
+					}
+				}
+				function again() {
+					location.reload();
+				}
+				function notLoaded() {
+					var card = document.getElementById('not-loaded');
+					if (!card) return;
+					card.style.display = 'flex';
+					document.getElementById('not-loaded-retry').onclick = again;
+					document.addEventListener('keydown', function (event) {
+						if (event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
+						if (event.key !== 'Enter' && event.key !== ' ') return;
+						event.preventDefault();
+						again();
+					});
+				}
 				document.addEventListener('animath:too-old', tooOld);
 				document.addEventListener('DOMContentLoaded', function () {
-					if (!document.documentElement.hasAttribute('data-started') && !readsTheGame()) tooOld();
+					if (document.documentElement.hasAttribute('data-started')) return;
+					if (!readsTheGame()) tooOld();
+					else if (reloadOnce()) location.reload();
+					else notLoaded();
 				});
 			})();
 		</script>
