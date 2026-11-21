@@ -17,16 +17,18 @@ import { book, bookLands } from '../state/book.svelte';
 import { game } from '../state/game.svelte';
 import { presence } from '../state/presence.svelte';
 import {
+	MENU_ITEMS,
 	lineOf,
 	WORLD_DIGITS,
 	cardRows,
-	menuItems,
 	partyOptions,
 	pause,
+	settingsRows,
 	worldRows,
 	type BundleOption,
 	type MenuItem,
 	type PartyOption,
+	type Setting,
 	type WorldOption
 } from '../state/pause.svelte';
 
@@ -52,8 +54,9 @@ export interface PauseHooks {
  * The pause menu, opened with Escape in explore: the team's cards in battle
  * order (one per species), where a card can move up or down (which picks who
  * goes first) and its animals can go first, move within the card or get a
- * name; then Worlds, the settings (Language, Sound), and "Keep playing"
- * and "Start screen" side by side. A card of one animal is that animal: picking it opens the
+ * name; then Worlds and Who's here, and "Keep playing" and "Start screen",
+ * each two side by side; and on the title line "My puzzles", the animal
+ * book and Settings. A card of one animal is that animal: picking it opens the
  * animal's options, and its moves move the card. A card of several opens
  * its own screen on the right: its options, then its animals, each of which
  * opens its options.
@@ -75,11 +78,13 @@ export interface PauseHooks {
  * (`goTo`, the presence controller's: it asks the server where they are,
  * then the authority to put the player there).
  *
- * The account's rows (`menuItems`): "New name", "Make an account", "Log in"
- * and "New password" open the account card over the menu, which has the keys again
- * once the card goes; "Log out" asks first, on the right ("No, stay logged
- * in" lit first), after a quiet moment, since a kid who has forgotten their
- * password can't come back.
+ * Settings opens in the menu's place: Language and Sound, which Enter and
+ * left and right change there and then, the account's rows
+ * (`settingsRows`), and Back. "New name", "Make an account", "Log in" and
+ * "New password" open the account card over the menu, which has the keys
+ * again once the card goes; "Log out" asks first, on the right ("No, stay
+ * logged in" lit first), after a quiet moment, since a kid who has
+ * forgotten their password can't come back.
  *
  * "My puzzles", beside the book on the title line, opens in the menu's
  * place: a row per topic, one lit, the record shown and nothing done.
@@ -175,9 +180,11 @@ export class PauseController {
 								? this.bookKey(key)
 								: pause.screen === 'puzzles'
 									? this.puzzlesKey(key)
-									: pause.screen === 'logOut'
-										? this.logOutKey(key)
-										: this.optionsKey(key);
+									: pause.screen === 'settings'
+										? this.settingsKey(key)
+										: pause.screen === 'logOut'
+											? this.logOutKey(key)
+											: this.optionsKey(key);
 		if (handled) e.preventDefault();
 	}
 
@@ -195,7 +202,7 @@ export class PauseController {
 
 	private listKey(key: string): boolean {
 		const cards = bundles(game.party);
-		const items = menuItems();
+		const items = MENU_ITEMS;
 		const rows = cards.length + items.length;
 		// A tap on a row does it at once, as the arrows and Enter would: nothing
 		// here spends anything, and every move can be moved back.
@@ -204,16 +211,6 @@ export class PauseController {
 			if (row >= rows) return true;
 			pause.cursor = row;
 			return this.listKey('Enter');
-		}
-		// A tap on a language on the Language row: that language, whichever is on now.
-		const code = tappedLanguage(key);
-		if (code !== undefined) {
-			pause.cursor = cards.length + items.indexOf('language');
-			if (isLanguage(code) && code !== language.current) {
-				sfx.play('confirm');
-				language.set(code);
-			}
-			return true;
 		}
 		const item = items[pause.cursor - cards.length];
 		switch (key) {
@@ -244,11 +241,10 @@ export class PauseController {
 			case 'd': {
 				const right = key === 'ArrowRight' || key === 'd';
 				if (item === undefined) return false;
-				// Left and right set the setting on its row, even where it shares its line.
-				if (this.settingKey(item, right)) return true;
-				// Rows side by side (Worlds and Who's here, the account's, Keep playing and Start
-				// screen, My puzzles and the book): left and right step between them. Elsewhere they do nothing.
-				const line = lineOf(item, items);
+				// Rows side by side (Worlds and Who's here, Keep playing and Start screen, My
+				// puzzles, the book and Settings): left and right step between them. On a card
+				// they do nothing.
+				const line = lineOf(item);
 				if (line.length < 2) return false;
 				const at = line.indexOf(item);
 				const to = line[Math.min(line.length - 1, Math.max(0, at + (right ? 1 : -1)))]!;
@@ -276,10 +272,6 @@ export class PauseController {
 				pause.screen = 'players';
 				pause.option = 0;
 				break;
-			case 'language':
-				sfx.play('confirm');
-				nextLanguage(1);
-				break;
 			case 'resume':
 				this.close();
 				break;
@@ -289,6 +281,90 @@ export class PauseController {
 				sfx.play('confirm');
 				this.close();
 				this.authority.dispatch({ type: 'leave-game' });
+				break;
+			case 'puzzles':
+				sfx.play('confirm');
+				pause.screen = 'puzzles';
+				pause.option = 0;
+				break;
+			case 'book':
+				sfx.play('confirm');
+				pause.screen = 'book';
+				pause.option = 0;
+				// The page of the land the kid is in, its first card lit.
+				book.land = game.land;
+				book.tabs = false;
+				break;
+			case 'settings':
+				// Settings in the menu's place, Language lit.
+				sfx.play('confirm');
+				pause.screen = 'settings';
+				pause.option = 0;
+				break;
+		}
+	}
+
+	/**
+	 * The Settings screen, in the menu's place: Language, Sound, the account's
+	 * rows (`settingsRows`), and Back on the title line, one cursor over them,
+	 * wrapping. Enter or Space, or a tap, do the row; left and right change
+	 * Language and Sound and mean nothing on the other rows; a tap on a
+	 * language is that language. Escape and Back go back to the team, on the
+	 * Settings row.
+	 */
+	private settingsKey(key: string): boolean {
+		const rows = settingsRows();
+		const tapped = tappedRow(key);
+		if (tapped !== undefined) {
+			if (tapped >= rows.length) return true;
+			pause.option = tapped;
+			return this.settingsKey('Enter');
+		}
+		// A tap on a language on the Language row: that language, whichever is on now.
+		const code = tappedLanguage(key);
+		if (code !== undefined) {
+			pause.option = rows.indexOf('language');
+			if (isLanguage(code) && code !== language.current) {
+				sfx.play('confirm');
+				language.set(code);
+			}
+			return true;
+		}
+		const row = rows[pause.option];
+		switch (key) {
+			case 'ArrowUp':
+			case 'w':
+				pause.option = (pause.option + rows.length - 1) % rows.length;
+				sfx.play('move');
+				return true;
+			case 'ArrowDown':
+			case 's':
+				pause.option = (pause.option + 1) % rows.length;
+				sfx.play('move');
+				return true;
+			case 'Enter':
+			case ' ':
+				if (row) this.chooseSetting(row);
+				return true;
+			case 'ArrowLeft':
+			case 'a':
+			case 'ArrowRight':
+			case 'd':
+				return row === undefined
+					? false
+					: this.settingKey(row, key === 'ArrowRight' || key === 'd');
+			case 'Escape':
+				this.backFromSettings();
+				return true;
+		}
+		return false;
+	}
+
+	private chooseSetting(row: Setting): void {
+		switch (row) {
+			case 'language':
+				sfx.play('confirm');
+				nextLanguage(1);
 				break;
 			case 'sound':
 				this.setSound(!sfx.on);
@@ -314,28 +390,19 @@ export class PauseController {
 				pause.option = 0;
 				this.guard.show();
 				break;
-			case 'puzzles':
+			case 'back':
 				sfx.play('confirm');
-				pause.screen = 'puzzles';
-				pause.option = 0;
-				break;
-			case 'book':
-				sfx.play('confirm');
-				pause.screen = 'book';
-				pause.option = 0;
-				// The page of the land the kid is in, its first card lit.
-				book.land = game.land;
-				book.tabs = false;
+				this.backFromSettings();
 				break;
 		}
 	}
 
 	/**
 	 * Left or right on a setting's row: the next or previous language; sound
-	 * off (left) or on (right). False on a row that is not a setting.
+	 * off (left) or on (right). False on any other row, where they mean nothing.
 	 */
-	private settingKey(item: MenuItem, right: boolean): boolean {
-		switch (item) {
+	private settingKey(row: Setting, right: boolean): boolean {
+		switch (row) {
 			case 'language':
 				sfx.play('confirm');
 				nextLanguage(right ? 1 : -1);
@@ -348,14 +415,16 @@ export class PauseController {
 			case 'logIn':
 			case 'newPassword':
 			case 'logOut':
-			case 'worlds':
-			case 'players':
-			case 'resume':
-			case 'quit':
-			case 'puzzles':
-			case 'book':
+			case 'back':
 				return false;
 		}
+	}
+
+	/** From the Settings screen (or Log out's question on it) back to the team, on the Settings row. */
+	private backFromSettings(): void {
+		pause.screen = 'list';
+		pause.option = 0;
+		pause.cursor = bundles(game.party).length + MENU_ITEMS.indexOf('settings');
 	}
 
 	/**
@@ -501,9 +570,9 @@ export class PauseController {
 	 * players come and go; the cursor stays on the list.
 	 */
 	private playersKey(key: string): boolean {
-		// The team and the settings stay on screen beside the list, and a tap on one of
+		// The team and the rows stay on screen beside the list, and a tap on one of
 		// them does that row, as on the list.
-		if (tappedRow(key) !== undefined || tappedLanguage(key) !== undefined) {
+		if (tappedRow(key) !== undefined) {
 			this.backToList();
 			return this.listKey(key);
 		}
@@ -540,7 +609,7 @@ export class PauseController {
 			}
 			case 'Escape':
 				this.backToList();
-				pause.cursor = bundles(game.party).length + menuItems().indexOf('players');
+				pause.cursor = bundles(game.party).length + MENU_ITEMS.indexOf('players');
 				return true;
 		}
 		return false;
@@ -555,19 +624,20 @@ export class PauseController {
 	 */
 	private logOutKey(key: string): boolean {
 		const back = (): void => {
-			this.backToList();
-			pause.cursor = bundles(game.party).length + menuItems().indexOf('logOut');
+			pause.screen = 'settings';
+			pause.option = settingsRows().indexOf('logOut');
 		};
-		// Logged out meanwhile (another tab): nothing left to ask.
-		if (!menuItems().includes('logOut')) {
-			this.backToList();
+		// Logged out meanwhile (another tab): nothing left to ask, and the cursor on Back.
+		if (!settingsRows().includes('logOut')) {
+			pause.screen = 'settings';
+			pause.option = settingsRows().indexOf('back');
 			return true;
 		}
-		// The team and the rows stay on screen beside the question, and a tap on one of them
-		// does that row, as on the list: not logging out.
+		// The settings stay on screen beside the question, and a tap on one of them does that
+		// row, as on the Settings screen: not logging out.
 		if (tappedRow(key) !== undefined || tappedLanguage(key) !== undefined) {
-			this.backToList();
-			return this.listKey(key);
+			back();
+			return this.settingsKey(key);
 		}
 		const pick = (choice: number): boolean => {
 			if (!this.guard.press()) return true;
@@ -624,7 +694,7 @@ export class PauseController {
 	private cardKey(key: string): boolean {
 		// The team and the settings stay on screen beside the card, and a tap on one of
 		// them does that row, as on the list (as the options do).
-		if (tappedRow(key) !== undefined || tappedLanguage(key) !== undefined) {
+		if (tappedRow(key) !== undefined) {
 			this.backToList();
 			return this.listKey(key);
 		}
@@ -679,7 +749,7 @@ export class PauseController {
 		// The team and the settings stay on screen beside the options, and a tap on
 		// one of them does that row, as on the list: the options close (as Escape
 		// closes them), then the row is done. Never an option of the picked animal (#45).
-		if (tappedRow(key) !== undefined || tappedLanguage(key) !== undefined) {
+		if (tappedRow(key) !== undefined) {
 			this.backToList();
 			return this.listKey(key);
 		}
@@ -946,9 +1016,9 @@ export class PauseController {
 		pause.worldDraft = '';
 		const cards = bundles(game.party).length;
 		const place = bundles(game.party).findIndex((b) => b.speciesId === species);
-		if (from === 'worlds') pause.cursor = cards + menuItems().indexOf('worlds');
-		else if (from === 'book') pause.cursor = cards + menuItems().indexOf('book');
-		else if (from === 'puzzles') pause.cursor = cards + menuItems().indexOf('puzzles');
+		if (from === 'worlds') pause.cursor = cards + MENU_ITEMS.indexOf('worlds');
+		else if (from === 'book') pause.cursor = cards + MENU_ITEMS.indexOf('book');
+		else if (from === 'puzzles') pause.cursor = cards + MENU_ITEMS.indexOf('puzzles');
 		else if (place >= 0) pause.cursor = place;
 		this.settle();
 	}
@@ -968,7 +1038,7 @@ export class PauseController {
 				pause.screen = 'list';
 			} else pause.option = Math.min(pause.option, rows.length - 1);
 		}
-		pause.cursor = Math.min(pause.cursor, bundles(game.party).length + menuItems().length - 1);
+		pause.cursor = Math.min(pause.cursor, bundles(game.party).length + MENU_ITEMS.length - 1);
 	}
 
 	private pickedIndex(): number {

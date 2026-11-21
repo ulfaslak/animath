@@ -21,10 +21,12 @@ import { account } from '../src/state/account.svelte';
 import { book, bookLands } from '../src/state/book.svelte';
 import { game } from '../src/state/game.svelte';
 import {
-	menuItems,
+	MENU_ITEMS,
 	type MenuItem,
 	MENU_LINES,
 	lineOf,
+	settingsRows,
+	type Setting,
 	bundleOptions,
 	partyOptions,
 	pause,
@@ -46,9 +48,13 @@ interface Key extends KeyboardEvent {
 	prevented: boolean;
 }
 
-/** The menu's rows that open a screen of their own: Worlds, Who's here, "My puzzles", the animal book. */
+/** The menu's rows that open a screen of their own: Worlds, Who's here, "My puzzles", the book, Settings. */
 const opens = (item: MenuItem | undefined) =>
-	item === 'worlds' || item === 'players' || item === 'puzzles' || item === 'book';
+	item === 'worlds' ||
+	item === 'players' ||
+	item === 'puzzles' ||
+	item === 'book' ||
+	item === 'settings';
 
 function key(
 	name: string,
@@ -106,8 +112,18 @@ function setup(
 	const cards = () => bundles(game.party).map((b) => b.speciesId);
 	/** Presses of ArrowDown that take the cursor from the top to a menu row. */
 	const downTo = (item: MenuItem) =>
-		Array<string>(bundles(game.party).length + menuItems().indexOf(item)).fill('ArrowDown');
-	return { authority, controller, events, sent, press, species, cards, downTo };
+		Array<string>(bundles(game.party).length + MENU_ITEMS.indexOf(item)).fill('ArrowDown');
+	/**
+	 * Presses that open the menu and Settings (up from the first card reaches its row, the
+	 * last), then take the cursor down to a row of the Settings screen.
+	 */
+	const toSetting = (row: Setting) => [
+		'Escape',
+		'ArrowUp',
+		'Enter',
+		...Array<string>(settingsRows().indexOf(row)).fill('ArrowDown')
+	];
+	return { authority, controller, events, sent, press, species, cards, downTo, toSetting };
 }
 
 beforeEach(() => {
@@ -137,11 +153,11 @@ describe('pause menu', () => {
 		expect(pause.open).toBe(false);
 
 		// Up from the top wraps to the last menu row; down past the team and the
-		// settings lands on "Keep playing", and Enter there closes.
+		// tiles lands on "Keep playing", and Enter there closes.
 		press('Escape', 'ArrowUp');
-		expect(pause.cursor).toBe(game.party.length + menuItems().length - 1);
+		expect(pause.cursor).toBe(game.party.length + MENU_ITEMS.length - 1);
 		press('Escape', 'Escape', ...downTo('resume')); // closed, opened again at the top
-		expect(pause.cursor).toBe(game.party.length + menuItems().indexOf('resume'));
+		expect(pause.cursor).toBe(game.party.length + MENU_ITEMS.indexOf('resume'));
 		press('Enter');
 		expect(pause.open).toBe(false);
 		expect(sent).not.toContainEqual({ type: 'leave-game' });
@@ -149,7 +165,7 @@ describe('pause menu', () => {
 
 	it('walks the list with arrows and W / S, wrapping, and never on auto-repeat', () => {
 		const { controller, press } = setup();
-		const last = game.party.length + menuItems().length - 1;
+		const last = game.party.length + MENU_ITEMS.length - 1;
 		press('Escape');
 		press('s', 's', 'ArrowDown');
 		expect(pause.cursor).toBe(3);
@@ -169,9 +185,9 @@ describe('pause menu', () => {
 	});
 
 	it('"Start screen" closes the menu and leaves the game for the title', () => {
-		const { press, sent, events } = setup();
-		press('Escape', ...Array<string>(game.party.length + menuItems().indexOf('quit')).fill('s'));
-		expect(menuItems()[pause.cursor - game.party.length]).toBe('quit');
+		const { press, sent, events, downTo } = setup();
+		press('Escape', ...downTo('quit'));
+		expect(MENU_ITEMS[pause.cursor - game.party.length]).toBe('quit');
 		const sound = sfx.on;
 		press('Enter');
 		expect(pause.open).toBe(false);
@@ -185,12 +201,45 @@ describe('pause menu', () => {
 		expect(sent.length).toBe(count);
 	});
 
+	it("Settings is the last row, drawn at the top: it opens in the menu's place on Language, and Escape or Back come back to it", () => {
+		const { press, sent } = setup();
+		const row = game.party.length + MENU_ITEMS.indexOf('settings');
+		expect(MENU_ITEMS.at(-1)).toBe('settings');
+		press('Escape', 'ArrowUp');
+		expect(pause.cursor).toBe(row);
+		// Right means nothing on it, the end of its line; left steps to the book beside it.
+		press('ArrowRight');
+		expect(pause.cursor).toBe(row);
+		press('ArrowLeft');
+		expect(pause.cursor).toBe(row - 1);
+		press('ArrowRight', 'Enter');
+		expect([pause.screen, settingsRows()[pause.option]]).toEqual(['settings', 'language']);
+		// Its rows wrap: up from Language is Back (drawn on the title line), and down from Back
+		// is Language again.
+		press('ArrowUp');
+		expect(settingsRows()[pause.option]).toBe('back');
+		press('ArrowDown');
+		expect(settingsRows()[pause.option]).toBe('language');
+		press('Escape');
+		expect([pause.open, pause.screen, pause.cursor]).toEqual([true, 'list', row]);
+		// Back, with the keys or a tap, does the same; a tap on the Settings row opens it.
+		press('Enter', 'w', 'Enter');
+		expect([pause.open, pause.screen, pause.cursor]).toEqual([true, 'list', row]);
+		press(rowKey(0), 'Escape', rowKey(row));
+		expect(pause.screen).toBe('settings');
+		press(rowKey(settingsRows().indexOf('back')));
+		expect([pause.open, pause.screen, pause.cursor, sent]).toEqual([true, 'list', row, []]);
+		press('Escape');
+		expect(pause.open).toBe(false);
+	});
+
 	it('the Sound row: Enter flips it, left turns it off and right on, and the menu stays open', () => {
-		const { press, sent, downTo } = setup();
+		const { press, sent, toSetting } = setup();
 		const cues: CueName[] = [];
 		const stop = sfx.onCue((cue) => cues.push(cue));
-		press('Escape', ...downTo('sound'));
+		press(...toSetting('sound'));
 		expect(sfx.on).toBe(true);
+		cues.length = 0;
 		press('Enter');
 		expect(sfx.on).toBe(false);
 		expect(pause.open).toBe(true);
@@ -203,18 +252,16 @@ describe('pause menu', () => {
 		press(' ');
 		expect(sfx.on).toBe(true);
 		// Turned on, it says so in sound; turned off, only the switch says so.
-		expect(cues.slice(-4)).toEqual(['move', 'move', 'confirm', 'confirm']);
-		expect(pause.screen).toBe('list');
+		expect(cues).toEqual(['confirm', 'confirm']);
+		expect([pause.screen, settingsRows()[pause.option]]).toEqual(['settings', 'sound']);
 		expect(sent).toEqual([]);
 		stop();
 	});
 
 	it('the Language row switches every word at once: Enter, or left and right on the row', () => {
-		const { press } = setup();
+		const { press, toSetting } = setup();
 		language.set('en');
-		const row = game.party.length + menuItems().indexOf('language');
-		press('Escape', ...Array<string>(row).fill('s'));
-		expect(pause.cursor).toBe(row);
+		press(...toSetting('language'));
 		press('Enter');
 		expect(language.current).toBe('da');
 		expect(pause.open).toBe(true); // the menu stays, now in Danish
@@ -226,47 +273,62 @@ describe('pause menu', () => {
 		expect(language.current).toBe('da');
 		press('a');
 		expect(language.current).toBe('en');
-		// Left and right mean nothing on a team row: they are not the menu's.
-		press(...Array<string>(menuItems().indexOf('language') + 1).fill('w'));
-		expect(pause.cursor).toBe(game.party.length - 1);
-		expect(press('ArrowRight').prevented).toBe(false);
-		expect(language.current).toBe('en');
+		expect([pause.screen, settingsRows()[pause.option]]).toEqual(['settings', 'language']);
+		// Left and right mean nothing on the other rows: an account's, Back.
+		for (const row of ['newName', 'makeAccount', 'logIn', 'back'] as const) {
+			press('Escape', 'Escape', ...toSetting(row));
+			expect(settingsRows()[pause.option]).toBe(row);
+			expect(press('ArrowRight').prevented).toBe(false);
+			expect(press('a').prevented).toBe(false);
+			expect([pause.screen, settingsRows()[pause.option], language.current, sfx.on]).toEqual([
+				'settings',
+				row,
+				'en',
+				true
+			]);
+		}
 	});
 
-	it('Language and Sound share a line, and left and right still change them there', () => {
-		const at = (item: MenuItem) => bundles(game.party).length + menuItems().indexOf(item);
-		expect(lineOf('sound')).toEqual(['language', 'sound']);
-		const { press, downTo } = setup();
-		press('Escape', ...downTo('sound'));
-		press('ArrowLeft');
-		expect([sfx.on, pause.cursor]).toEqual([false, at('sound')]);
-		press('ArrowRight');
-		expect([sfx.on, pause.cursor]).toEqual([true, at('sound')]);
-		press('w');
-		expect(pause.cursor).toBe(at('language'));
-		press('ArrowRight');
-		expect([language.current, pause.cursor]).toEqual(['da', at('language')]);
+	it('on the Settings screen a tap does the row, and a tap on a language is that language', () => {
+		const opened: string[] = [];
+		const { press, sent } = setup('squirrel,rabbit,fox', undefined, {
+			newName: () => opened.push('newName'),
+			makeAccount: () => opened.push('makeAccount'),
+			logIn: () => opened.push('logIn')
+		});
+		const at = (row: Setting) => settingsRows().indexOf(row);
+		press('Escape', 'ArrowUp', 'Enter', languageKey('en'));
+		expect([language.current, pause.option]).toEqual(['en', at('language')]);
+		press(languageKey('da'), languageKey('da'));
+		expect(language.current).toBe('da');
+		// A tap on the row's name, not on a language, is Enter on the row: the next one.
+		press(rowKey(at('language')));
+		expect(language.current).toBe('en');
+		press(rowKey(at('sound')));
+		expect([sfx.on, pause.option]).toEqual([false, at('sound')]);
+		// The account's rows open the account card over the menu, which stays as it is.
+		press(rowKey(at('newName')), rowKey(at('makeAccount')), rowKey(at('logIn')));
+		expect(opened).toEqual(['newName', 'makeAccount', 'logIn']);
+		expect([pause.open, pause.screen, pause.option]).toEqual([true, 'settings', at('logIn')]);
+		// A row past the last does nothing.
+		press(rowKey(settingsRows().length));
+		expect([pause.open, pause.screen, pause.option, sent]).toEqual([
+			true,
+			'settings',
+			at('logIn'),
+			[]
+		]);
 	});
 
 	it('offers an account only while the server can keep one; Log out stays either way', () => {
 		const accountRows = () =>
-			menuItems().filter((i) => i === 'makeAccount' || i === 'logIn' || i === 'logOut');
+			settingsRows().filter((i) => i === 'makeAccount' || i === 'logIn' || i === 'logOut');
 		try {
 			expect(accountRows()).toEqual(['makeAccount', 'logIn']);
 			account.ready = false;
 			expect(accountRows()).toEqual([]);
 			// A guest's new name needs no server: it is the game's alone.
-			expect(menuItems()).toEqual([
-				'worlds',
-				'players',
-				'language',
-				'sound',
-				'newName',
-				'resume',
-				'quit',
-				'puzzles',
-				'book'
-			]);
+			expect(settingsRows()).toEqual(['language', 'sound', 'newName', 'back']);
 			account.name = 'Ida';
 			account.session = 'ended';
 			expect(accountRows()).toEqual(['logOut']);
@@ -280,7 +342,7 @@ describe('pause menu', () => {
 
 	it('offers an account a new name and a new password while logged in and the server can keep them, home or not', () => {
 		const accountRows = () =>
-			menuItems().filter(
+			settingsRows().filter(
 				(i) =>
 					i === 'newName' ||
 					i === 'makeAccount' ||
@@ -294,7 +356,6 @@ describe('pause menu', () => {
 			expect(accountRows()).toEqual(['newName', 'newPassword', 'logOut']);
 			account.home = true;
 			expect(accountRows()).toEqual(['newName', 'newPassword', 'logOut']);
-			expect(lineOf('newPassword')).toEqual(['newName', 'newPassword', 'logOut']);
 			account.ready = false;
 			expect(accountRows()).toEqual(['logOut']);
 			account.ready = true;
@@ -306,9 +367,10 @@ describe('pause menu', () => {
 			account.name = null;
 			account.session = 'unknown';
 			expect(accountRows()).toEqual(['newName', 'makeAccount', 'logIn']);
-			// A throwaway game keeps nothing, not even a name.
+			// A throwaway game keeps nothing, not even a name: Language, Sound and Back are left.
 			flags.throwaway = true;
 			expect(accountRows()).toEqual([]);
+			expect(settingsRows()).toEqual(['language', 'sound', 'back']);
 		} finally {
 			flags.throwaway = false;
 			account.name = null;
@@ -317,23 +379,21 @@ describe('pause menu', () => {
 		}
 	});
 
-	it("rows side by side (Worlds and Who's here, the account's, Keep playing and Start screen, My puzzles and the book): left and right step between them", () => {
-		const at = (item: MenuItem) => bundles(game.party).length + menuItems().indexOf(item);
-		const lines = MENU_LINES.map((line) => lineOf(line[0]!)).filter(
-			(line) => line.length > 1 && line[0] !== 'language'
-		);
-		expect(lines).toEqual([
+	it("rows side by side (Worlds and Who's here, Keep playing and Start screen, My puzzles, the book and Settings): left and right step between them", () => {
+		const at = (item: MenuItem) => bundles(game.party).length + MENU_ITEMS.indexOf(item);
+		expect(MENU_LINES.map((line) => lineOf(line[0]!))).toEqual([
 			['worlds', 'players'],
-			['newName', 'makeAccount', 'logIn'],
 			['resume', 'quit'],
-			['puzzles', 'book']
+			['puzzles', 'book', 'settings']
 		]);
-		for (const line of lines) {
+		// Every row is on a line: none stands alone under the team.
+		expect([...MENU_LINES.flat()].sort()).toEqual([...MENU_ITEMS].sort());
+		for (const line of MENU_LINES) {
 			pause.reset();
 			const { press, downTo, sent } = setup();
 			// A line is neighbours: down walks from one to the next as any rows.
 			for (let i = 1; i < line.length; i++)
-				expect(menuItems().indexOf(line[i]!)).toBe(menuItems().indexOf(line[0]!) + i);
+				expect(MENU_ITEMS.indexOf(line[i]!)).toBe(MENU_ITEMS.indexOf(line[0]!) + i);
 			press('Escape', ...downTo(line[0]!));
 			// Right (or D) steps along to the line's end, and stays there.
 			for (let i = 1; i < line.length; i++) {
@@ -377,7 +437,7 @@ describe('pause menu', () => {
 	it('moves an animal up one step at a time, and a mashed Enter stops at the top', () => {
 		const { press, species } = setup();
 		// Up past every menu item to the fox.
-		press('Escape', ...Array<string>(menuItems().length + 1).fill('ArrowUp'), 'Enter');
+		press('Escape', ...Array<string>(MENU_ITEMS.length + 1).fill('ArrowUp'), 'Enter');
 		press('s'); // from "Make active" down to "Move up"
 		expect(pause.option).toBe(1);
 		press('Enter');
@@ -628,7 +688,7 @@ describe('pause menu with cards of several animals', () => {
 			probe.controller.close();
 			for (const [place, card] of list.entries()) {
 				if (card.animals.length < 2) continue;
-				for (let row = 0; row < list.length + menuItems().length; row++) {
+				for (let row = 0; row < list.length + MENU_ITEMS.length; row++) {
 					// With the card's screen open, and with one of its animals picked.
 					for (const deep of [false, true]) {
 						pause.reset();
@@ -638,7 +698,7 @@ describe('pause menu with cards of several animals', () => {
 						press('Escape', rowKey(place));
 						if (deep) press(optionKey(4));
 						press(rowKey(row));
-						const item = menuItems()[row - list.length];
+						const item = MENU_ITEMS[row - list.length];
 						const closes = item === 'resume' || item === 'quit';
 						const target = list[row];
 						const opened = !target
@@ -654,8 +714,9 @@ describe('pause menu with cards of several animals', () => {
 						};
 						const want = {
 							at: closes ? 'closed' : opened,
-							language: item === 'language' ? 'da' : 'en',
-							sound: item !== 'sound',
+							// No row of the list changes a setting: those are on the Settings screen.
+							language: 'en',
+							sound: true,
 							sent: item === 'quit' ? [{ type: 'leave-game' }] : []
 						};
 						if (JSON.stringify(got) !== JSON.stringify(want)) {
@@ -698,27 +759,13 @@ describe('pause menu under a pointer', () => {
 		expect(game.party[1]!.nickname).toBe('Pip');
 		expect(pause.screen).toBe('list');
 		// A tap on the last row, "Keep playing", closes the menu.
-		press(rowKey(game.party.length + menuItems().indexOf('resume')));
+		press(rowKey(game.party.length + MENU_ITEMS.indexOf('resume')));
 		expect(pause.open).toBe(false);
-	});
-
-	it('a tap on a language switches to it; on the one already on, nothing changes', () => {
-		const { press } = setup();
-		const row = game.party.length + menuItems().indexOf('language');
-		press('Escape', languageKey('en'));
-		expect(language.current).toBe('en');
-		expect(pause.cursor).toBe(row);
-		press(languageKey('da'), languageKey('da'));
-		expect(language.current).toBe('da');
-		// A tap on the row's name, not on a language, is Enter on the row: the next one.
-		press(rowKey(row));
-		expect(language.current).toBe('en');
-		expect(pause.open).toBe(true);
 	});
 
 	it('a tap on a row past the last does nothing', () => {
 		const { press, sent } = setup();
-		press('Escape', rowKey(game.party.length + menuItems().length));
+		press('Escape', rowKey(game.party.length + MENU_ITEMS.length));
 		expect(pause.screen).toBe('list');
 		expect(pause.open).toBe(true);
 		expect(sent).toEqual([]);
@@ -727,7 +774,7 @@ describe('pause menu under a pointer', () => {
 	it('with any animal’s options open, a tap on the left does that row as on the list, never an option (#45)', () => {
 		// Every row on the left with every animal's options open, in teams of one to six.
 		// The team's rows and the options share their numbers (the first team row was Go
-		// first), and so do the settings with one animal ("Start screen" was Back).
+		// first), and so do the menu's rows with one animal ("Start screen" was Back).
 		const teams = [
 			'squirrel',
 			'squirrel,rabbit',
@@ -738,7 +785,7 @@ describe('pause menu under a pointer', () => {
 		for (const team of teams) {
 			const size = team.split(',').length;
 			for (let picked = 0; picked < size; picked++) {
-				for (let row = 0; row < size + menuItems().length; row++) {
+				for (let row = 0; row < size + MENU_ITEMS.length; row++) {
 					pause.reset();
 					language.set('en');
 					sfx.set(true);
@@ -746,7 +793,7 @@ describe('pause menu under a pointer', () => {
 					const ids = game.party.map((a) => a.id);
 					press('Escape', rowKey(picked));
 					press(rowKey(row));
-					const item = menuItems()[row - size];
+					const item = MENU_ITEMS[row - size];
 					const closes = item === 'resume' || item === 'quit';
 					const got = {
 						at: pause.open ? [pause.screen, pause.picked, pause.cursor] : 'closed',
@@ -755,16 +802,15 @@ describe('pause menu under a pointer', () => {
 						sent
 					};
 					const want = {
-						// An animal opens its own options; a setting is done on the list, the cursor on it;
-						// Worlds and the animal book open their screens, and Who's here the list of players
-						// on the right.
+						// An animal opens its own options; Worlds, My puzzles, the animal book and
+						// Settings open their screens, and Who's here the list of players on the right.
 						at: closes
 							? 'closed'
 							: row < size
 								? ['options', ids[row], row]
 								: [opens(item) ? item : 'list', null, row],
-						language: item === 'language' ? 'da' : 'en',
-						sound: item !== 'sound',
+						language: 'en',
+						sound: true,
 						sent: item === 'quit' ? [{ type: 'leave-game' }] : []
 					};
 					if (JSON.stringify(got) !== JSON.stringify(want)) {
@@ -776,27 +822,23 @@ describe('pause menu under a pointer', () => {
 		expect(bad).toEqual([]);
 	});
 
-	it('beside the options a language is that language; beside the name box, the left does nothing', () => {
+	it('beside the options no language is on screen to tap; beside the name box, the left does nothing', () => {
 		const { press, sent } = setup();
-		const rows = game.party.length + menuItems().length;
+		const rows = game.party.length + MENU_ITEMS.length;
 		press('Escape', rowKey(2), languageKey('da'));
-		expect(language.current).toBe('da');
-		expect([pause.screen, pause.picked, pause.cursor]).toEqual([
-			'list',
-			null,
-			game.party.length + menuItems().indexOf('language')
-		]);
-		// The fox's name box: a tap on the team or a setting is neither typing nor a row.
-		press(rowKey(2), optionKey(3));
+		expect(language.current).toBe('en');
+		expect([pause.screen, pause.picked]).toEqual(['options', game.party[2]!.id]);
+		// The fox's name box: a tap on the team or a row is neither typing nor a row.
+		press(optionKey(3));
 		expect(pause.screen).toBe('naming');
 		pause.draft = 'Pip';
 		for (let row = 0; row < rows; row++) press(rowKey(row));
-		press(languageKey('en'), optionKey(0));
+		press(languageKey('da'), optionKey(0));
 		expect([pause.open, pause.screen, pause.draft, language.current, sfx.on]).toEqual([
 			true,
 			'naming',
 			'Pip',
-			'da',
+			'en',
 			true
 		]);
 		expect(sent).toEqual([]);
@@ -810,16 +852,15 @@ describe('the animal book', () => {
 		book.hopping = null;
 	});
 
-	it('is the last row, drawn at the top: up from the first card reaches it, Enter opens it on its first card, Escape comes back to it', () => {
+	it('is a row drawn at the top: up from the first card and left from Settings reach it, Enter opens it on its first card, Escape comes back to it', () => {
 		const { press } = setup();
-		const row = bundles(game.party).length + menuItems().indexOf('book');
-		expect(menuItems().at(-1)).toBe('book');
-		press('Escape', 'ArrowUp');
+		const row = bundles(game.party).length + MENU_ITEMS.indexOf('book');
+		press('Escape', 'ArrowUp', 'ArrowLeft');
 		expect(pause.cursor).toBe(row);
-		// Right means nothing on it, the end of its line; left steps to "My puzzles" beside it.
+		// Right steps to Settings beside it; left to "My puzzles" on its other side.
 		press('ArrowRight');
-		expect(pause.cursor).toBe(row);
-		press('ArrowLeft');
+		expect(pause.cursor).toBe(row + 1);
+		press('ArrowLeft', 'ArrowLeft');
 		expect(pause.cursor).toBe(row - 1);
 		press('ArrowRight', 'Enter');
 		expect([pause.screen, pause.option]).toEqual(['book', 0]);
@@ -841,7 +882,7 @@ describe('the animal book', () => {
 			pause.reset();
 			const { press } = setup();
 			book.columns = columns;
-			press('Escape', 'ArrowUp', 'Enter');
+			press('Escape', 'ArrowUp', 'ArrowLeft', 'Enter');
 			const rows = Math.ceil(count / columns);
 			for (let from = 0; from < count; from++) {
 				for (const [key, want] of [
@@ -877,7 +918,7 @@ describe('the animal book', () => {
 		const stop = sfx.onCue((cue) => cues.push(cue));
 		try {
 			const { press } = setup('squirrel,fox');
-			press('Escape', 'ArrowUp', 'Enter');
+			press('Escape', 'ArrowUp', 'ArrowLeft', 'Enter');
 			const fox = bookOrder('nordland').findIndex((a) => a.id === 'fox');
 			const bear = bookOrder('nordland').findIndex((a) => a.id === 'bear');
 			cues.length = 0;
@@ -912,7 +953,7 @@ describe('the animal book', () => {
 		try {
 			const { press } = setup();
 			// In Nordland, with The Arctic not built, there is one page and no tab: up stays put.
-			press('Escape', 'ArrowUp', 'Enter');
+			press('Escape', 'ArrowUp', 'ArrowLeft', 'Enter');
 			expect([book.land, book.tabs]).toEqual(['nordland', false]);
 			cues.length = 0;
 			press('ArrowUp');
@@ -951,7 +992,7 @@ describe('the animal book', () => {
 
 	it('goes with the menu when something else takes the screen, and opens again on the list', () => {
 		const { authority, press } = setup();
-		press('Escape', 'ArrowUp', 'Enter', 'ArrowRight');
+		press('Escape', 'ArrowUp', 'ArrowLeft', 'Enter', 'ArrowRight');
 		expect([pause.screen, pause.option]).toEqual(['book', 1]);
 		authority.dispatch({ type: 'leave-game' });
 		expect([pause.open, pause.screen, pause.option]).toEqual([false, 'list', 0]);
@@ -1057,7 +1098,7 @@ describe('the Worlds screen', () => {
 
 	it('Escape and Back go back to the list, on the Worlds row, and the number is forgotten', () => {
 		const { press, downTo } = setup();
-		const row = bundles(game.party).length + menuItems().indexOf('worlds');
+		const row = bundles(game.party).length + MENU_ITEMS.indexOf('worlds');
 		press('Escape', ...downTo('worlds'), 'Enter', '4', 'Escape');
 		expect([pause.open, pause.screen, pause.cursor, pause.worldDraft]).toEqual([
 			true,
@@ -1092,14 +1133,14 @@ describe('the Worlds screen', () => {
 });
 
 describe('Log out asks first', () => {
-	/** A player logged in to Ida's account, the menu open on Log out; how many times it logged out. */
+	/** A player logged in to Ida's account, Settings open on Log out; how many times it logged out. */
 	function onLogOut() {
 		account.name = 'Ida';
 		let logOuts = 0;
 		const t = setup('squirrel,rabbit,fox', undefined, { logOut: () => logOuts++ });
-		const row = bundles(game.party).length + menuItems().indexOf('logOut');
-		t.press('Escape', ...t.downTo('logOut'));
-		expect(pause.cursor).toBe(row);
+		const row = settingsRows().indexOf('logOut');
+		t.press(...t.toSetting('logOut'));
+		expect([pause.screen, pause.option]).toEqual(['settings', row]);
 		const quiet = () => t.controller.update(PICK_QUIET_SECONDS);
 		return { ...t, row, quiet, logOuts: () => logOuts };
 	}
@@ -1114,7 +1155,7 @@ describe('Log out asks first', () => {
 		expect([pause.screen, pause.option, logOuts()]).toEqual(['logOut', 0, 0]);
 		quiet();
 		press('Enter');
-		expect([pause.screen, pause.cursor, logOuts()]).toEqual(['list', row, 0]);
+		expect([pause.screen, pause.option, logOuts()]).toEqual(['settings', row, 0]);
 
 		press('Enter');
 		quiet();
@@ -1127,14 +1168,14 @@ describe('Log out asks first', () => {
 		press('a', 'w', 'ArrowLeft');
 		expect(pause.option).toBe(0);
 		press('ArrowDown', 'Enter');
-		expect([pause.open, pause.screen, pause.cursor, logOuts()]).toEqual([true, 'list', row, 1]);
+		expect([pause.open, pause.screen, pause.option, logOuts()]).toEqual([true, 'settings', row, 1]);
 	});
 
 	it('Escape is No, and goes back to the Log out row', () => {
 		const { press, row, logOuts } = onLogOut();
 		press('Enter', 'ArrowDown');
 		expect(press('Escape').prevented).toBe(true);
-		expect([pause.open, pause.screen, pause.cursor, logOuts()]).toEqual([true, 'list', row, 0]);
+		expect([pause.open, pause.screen, pause.option, logOuts()]).toEqual([true, 'settings', row, 0]);
 	});
 
 	it('an Enter mashed through, or a tap too soon, never logs out', () => {
@@ -1147,23 +1188,46 @@ describe('Log out asks first', () => {
 		expect([pause.screen, logOuts()]).toEqual(['logOut', 0]);
 		quiet();
 		press(optionKey(1));
-		expect([pause.screen, logOuts()]).toEqual(['list', 1]);
+		expect([pause.screen, logOuts()]).toEqual(['settings', 1]);
 	});
 
-	it('a tap on a row of the list does that row, and logs out nothing', () => {
+	it('a tap on another setting does that row, and logs out nothing', () => {
 		const { press, quiet, logOuts } = onLogOut();
 		press('Enter');
 		quiet();
-		press(rowKey(bundles(game.party).length + menuItems().indexOf('players')));
-		expect([pause.screen, logOuts()]).toEqual(['players', 0]);
+		press(rowKey(settingsRows().indexOf('sound')));
+		expect([pause.screen, settingsRows()[pause.option], sfx.on, logOuts()]).toEqual([
+			'settings',
+			'sound',
+			false,
+			0
+		]);
+		press(rowKey(settingsRows().indexOf('logOut')));
+		quiet();
+		press(languageKey('da'));
+		expect([pause.screen, settingsRows()[pause.option], language.current, logOuts()]).toEqual([
+			'settings',
+			'language',
+			'da',
+			0
+		]);
+		// Back, beside the question, goes back to the team.
+		press(rowKey(settingsRows().indexOf('logOut')));
+		quiet();
+		press(rowKey(settingsRows().indexOf('back')));
+		expect([pause.open, pause.screen, logOuts()]).toEqual([true, 'list', 0]);
 	});
 
-	it('logged out in another tab meanwhile: the question goes, and nothing logs out', () => {
+	it('logged out in another tab meanwhile: the question goes, nothing logs out, and the cursor is on Back', () => {
 		const { press, quiet, logOuts } = onLogOut();
 		press('Enter', 'ArrowDown');
 		quiet();
 		account.name = null;
 		press('Enter');
-		expect([pause.screen, logOuts()]).toEqual(['list', 0]);
+		expect([pause.screen, settingsRows()[pause.option], logOuts()]).toEqual([
+			'settings',
+			'back',
+			0
+		]);
 	});
 });

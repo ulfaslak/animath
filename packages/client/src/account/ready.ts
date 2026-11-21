@@ -1,6 +1,4 @@
-import { bundles } from '@mathgame/engine';
-import { game } from '../state/game.svelte';
-import { menuItems, pause } from '../state/pause.svelte';
+import { pause, settingsRows } from '../state/pause.svelte';
 import { title } from '../state/title.svelte';
 import { accountsReady } from './api';
 
@@ -72,19 +70,18 @@ export class ReadyWatch {
 
 /**
  * Runs `change`, which may add or take away the account's rows, and keeps
- * the pause menu's cursor and the title's on the rows they lit (`relit`).
- * A pause menu row that went leaves the cursor on Keep playing, never on
- * the row after it: after "Log in" comes "Log out", which acts at once. A
- * row the title waits for (`title.awaited`: after a logout, logging in
- * again) takes the title's cursor as it comes.
+ * the Settings screen's cursor and the title's on the rows they lit
+ * (`relit`). A Settings row that went leaves the cursor on Back, never on
+ * the row after it: after "Log in" comes "Log out". A row the title waits
+ * for (`title.awaited`: after a logout, logging in again) takes the title's
+ * cursor as it comes.
  */
 export function keepingCursors(change: () => void): void {
-	const cards = bundles(game.party).length;
-	const items = menuItems();
+	const settings = settingsRows();
 	const rows = title.rows;
 	change();
-	if (pause.cursor >= cards) {
-		pause.cursor = cards + relit(items, menuItems(), pause.cursor - cards, 'resume');
+	if (pause.open && pause.screen === 'settings') {
+		pause.option = relit(settings, settingsRows(), pause.option, 'back');
 	}
 	title.cursor = relit(rows, title.rows, title.cursor);
 	// The row the title waits to light (after a logout, logging in again) takes the cursor as it
@@ -100,8 +97,8 @@ export function keepingCursors(change: () => void): void {
  * Where a cursor goes when the rows it lights change under it (the account's
  * rows come or go): to the row it lit, where that row is now. When that row
  * went, to `safe` when it is shown (a row whose Enter changes nothing that
- * matters, such as Keep playing: a kid mid-press on "Log in" must never land
- * on "Log out"), else to the next one still shown after it, else the last.
+ * matters, such as Back: a kid mid-press on "Log in" must never land on
+ * "Log out"), else to the next one still shown after it, else the last.
  * `cursor` is an index into `before`; the answer is one into `after`. A
  * cursor past the rows (nothing lit) stays where it is.
  */
