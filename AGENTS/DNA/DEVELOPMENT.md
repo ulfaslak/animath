@@ -30,7 +30,7 @@ Health check: `curl localhost:3000/api/health` → `{"ok":true,"db":true,"sha":"
 
 Production shape: `pnpm build` then `pnpm -F @mathgame/server start` serves the built client from `packages/client/dist` and the API from one process, the server bundle under plain `node` as in the image (set `PORT` and `DATABASE_URL` to your own, below). The whole production stack, nginx included, runs on a Mac too (§ Deployment).
 
-The game saves in the browser without the API; the API holds accounts and their saves, and runs presence and friendly matches ([[ARCHITECTURE]] § Saving, § Presence). From a worktree, run your own API on a free port against a database of your own on the same Postgres, never `mathgame` (the kids' games) or a database whose name ends in `_test` (the server tests empty theirs on every run, § Database), and point your Vite at it. The shell's `DATABASE_URL` and `PORT` win over `.env`'s:
+The game saves in the browser without the API; the API holds accounts and their saves, and runs presence and friendly matches ([[ARCHITECTURE]] § Saving, § Presence). From a worktree, run your own API on a free port against a database of your own on the same Postgres, never `mathgame` (the human's own) or a database whose name ends in `_test` (the server tests empty theirs on every run, § Database), and point your Vite at it. The shell's `DATABASE_URL` and `PORT` win over `.env`'s:
 
 ```bash
 docker compose -p mathgame exec -T postgres createdb -U postgres mathgame_<yours>
@@ -431,7 +431,7 @@ Or **give it an account of its own**, so the kid keeps both: write its `data` to
 
 A game the public site cannot read, one in a browser's storage under another address, moves as an account ([[DECISIONS]] § Accounts): copy the save out of that browser, import it on production, and give the kid the welcome link the import prints. Only the admin does this, and the kid's local game is never written to. Once the tunnel's one real game moved (2026-09-27), nothing has needed it; the tables and the export that read the tunnel's games went on 2026-11-21.
 
-1. **Copy the save.** In the browser that holds the game, on the address it was played at, open the developer tools and run `copy(localStorage['animath.save'])`; paste it into a file in `~/animath-exports/` readable by you alone (`chmod 600`), never inside a repository. `describeSave`'s line, which the import prints, says whose game it is.
+1. **Copy the save.** In the browser that holds the game, on the address it was played at, open the developer tools and run `copy(localStorage['animath.save'])` for a guest's game, or `copy(localStorage['animath.account.<key>.save'])` for an account's, `<key>` its name's `nameKey` (the `animath.account` pointer names the one playing, [[ARCHITECTURE]] § Saving, "Keys"); paste it into a file in `~/animath-exports/` readable by you alone (`chmod 600`), never inside a repository. `describeSave`'s line, which the import prints, says whose game it is.
 
 2. **Import**, into production over SSH, the file on stdin. The link's address is `deploy.env`'s domain, handed to the container (`-T`: no terminal, so the file pipes through):
 

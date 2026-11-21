@@ -19,6 +19,10 @@ The same Mac runs lawcel's dev stack, often with several worktrees live at once.
 - **A free port can be taken before your server gets it.** Sibling agents start servers all the time: on 2026-09-27 port 5194 was free at `lsof` time and a sibling's Vite held it seconds later, so `vite preview --strictPort` exited, in the background, and a screenshot pointed at 5194 drew the sibling's build of `main`. After starting a server, read its log for "ready" (or `lsof -a -p <pid> -d cwd`) before pointing anything at the port.
 - **Every Vite you start proxies `/api` to 3000, the primary clone's API, unless `API_PORT` says otherwise**: the worktree dev server above, and `vite preview` of the built client (`pnpm build` first; much faster than the dev server under load), which inherits the dev server's proxy. Any browser on such a page that is not a throwaway game (`?new`, `?party=`, `?zoo`, `?tokens=`, `?shop`) joins the worlds of whoever plays there over presence, and an account made there lands in the human's `mathgame` database, unless the page's API is blocked ([[DEVELOPMENT]] § Looking at the game, "The API is blocked"). To keep every browser on a Vite away from any API, start it with `API_PORT=3999` (a port nothing listens on; the page plays alone and offers no account), e.g. `API_PORT=3999 pnpm -F @mathgame/client exec vite preview --port <free> --strictPort`, or with your own API's port.
 
+## The retired tables' rows
+
+Migration `0008` dropped `players`, `saves` and `save_backups` ([[DECISIONS]] § Saves). Their rows from this Mac's `mathgame` (16 players, 13 saves, 2 set-aside saves) are in `~/animath-archive/mathgame-local-retired-guest-tables-20261121-2314.sql`, mode 0600, a `pg_dump` with the tables' definitions: `psql` it into a database of your own to read a game back. Not in `~/animath-exports/`, whose files are deleted after each import, and not in `~/mathgame-backups/`, which the backup sync manages. Delete it only when the human says so.
+
 ## No `psql` on the PATH
 
 Use `pnpm db:psql -c "<sql>"` (wraps `docker compose exec postgres psql`), or `docker compose exec -T postgres psql -U postgres -d mathgame`.

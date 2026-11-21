@@ -127,7 +127,7 @@ The dumps are in `~/mathgame/backups/` on the server (every 6 hours, 30 days) an
 cd ~/mathgame
 docker compose -f docker-compose.prod.yml exec -T postgres pg_dump -U mathgame -d mathgame -Fc > backups/before-restore_$(date -u +%Y%m%d_%H%M%S).dump
 docker compose -f docker-compose.prod.yml exec -T postgres pg_restore -U mathgame -d mathgame --clean --if-exists --no-owner < backups/<dump>
-docker compose -f docker-compose.prod.yml exec -T postgres psql -U mathgame -d mathgame -c "select count(*) from players; select count(*) from saves;"
+docker compose -f docker-compose.prod.yml exec -T postgres psql -U mathgame -d mathgame -c "select count(*) from users; select count(*) from account_saves;"
 ```
 
 A logged-in kid's browser keeps its own save and sends it with a higher `seq` than an older copy the server holds, so the account catches up by itself as they play ([[DECISIONS]] § Saves). To give one kid a game back instead, see [[DEVELOPMENT]] § Accounts.
@@ -187,4 +187,4 @@ printf '%s' "$PW" | docker compose -f docker-compose.prod.yml exec -T app node d
 docker compose -f docker-compose.prod.yml exec app node dist/admin.mjs delete-account <name> [--yes]
 ```
 
-**Moving a kid's game here** from the server it was played on before (the old tunnel's, on the Mac): export it there and pipe it into `import-save` here, which makes his account with no password and prints a one-time welcome link for him. The exact commands, from the Mac over SSH, are [[DEVELOPMENT]] § Moving a kid's game to production. The link is his key until he uses it: hand it to the human, and never print it into a PR, an issue or a log.
+**Moving a kid's game here** from a browser the site cannot read (another address): copy the save out of that browser and pipe it into `import-save` here, which makes his account with no password and prints a one-time welcome link for him. The exact commands, from the Mac over SSH, are [[DEVELOPMENT]] § Moving a kid's game to production. The link is his key until he uses it: hand it to the human, and never print it into a PR, an issue or a log.
