@@ -1785,6 +1785,10 @@ pause:
   logIn: Log ind
   logOut: Log ud
   newPassword: Ny kode
+  newPlayerName: Nyt navn
+  playerNameTitle: Dit navn
+  playerNameHelp: 'Du hedder {name}. De andre spillere kan se dit navn over dig.'
+  playerNameHelpAccount: 'Du hedder {name}, og det er det navn, du logger ind med.'
   logOutTitle: Log ud?
   logOutAsk: Kan du huske din hemmelige kode? Du skal bruge den for at logge ind igen som {name}.
   logOutAskHome: 'Her kan du logge ind igen som {name} bare med dit navn.'
@@ -1870,6 +1874,7 @@ save:
 account:
   name: Dit navn
   password: Hemmelig kode
+  current: Din hemmelige kode
   show: Vis
   hide: Skjul
   back: Tilbage
@@ -1898,19 +1903,32 @@ account:
   newPassword:
     title: Ny hemmelig kode
     text: Vælg en ny hemmelig kode. Du skal bruge den for at logge ind på andre tablets og computere.
+    awayText: Skriv din hemmelige kode nu og vælg så en ny.
     label: Ny hemmelig kode
     go: Gem
     keys: Enter gem · Esc tilbage
+    awayKeys: Tab næste felt · Enter gem · Esc tilbage
+  newName:
+    title: Et nyt navn
+    guestText: De andre spillere kan se dit navn over dig.
+    text: Dit navn er det, du logger ind med, så husk dit nye!
+    awayText: Du logger ind med dit navn. Skriv også din hemmelige kode.
+    label: Nyt navn
+    go: Gem
+    keys: Enter gem · Esc tilbage
+    awayKeys: Tab næste felt · Enter gem · Esc tilbage
   problem:
     taken: Det navn er taget. Vælg et andet!
     passwordShort: 'Din kode skal have mindst {min} bogstaver eller tal.'
     passwordLong: 'Sikke en lang kode! Højst {max} tegn.'
     wrong: Navnet og koden passer ikke sammen. Prøv igen!
+    wrongCurrent: Det er ikke din hemmelige kode. Prøv igen!
+    loggedOut: Du er logget ud her. Log ind igen først!
     tooMany:
       one: Mange forsøg! Hold en lille pause og prøv igen om et minut.
       other: 'Mange forsøg! Hold en lille pause og prøv igen om {count} minutter.'
     offline: Vi kan ikke nå spillets hjem lige nu. Prøv igen om lidt!
-    notHome: Du kan kun vælge en ny kode på din egen tablet eller computer.
+    notHome: Det er ikke din egen tablet eller computer længere, så skriv også din hemmelige kode.
     storage: 'Denne browser kan ikke huske dig. Dit spil er gemt på din konto: log ind på en anden tablet eller computer.'
   prompt:
     title: Pas godt på dine dyr!
@@ -1923,6 +1941,8 @@ account:
     welcome: 'Velkommen tilbage, {name}!'
     movedAhead: Du har spillet videre et andet sted. Her er dit nyeste spil!
     newPassword: Din nye kode er gemt!
+    renamed: 'Nu hedder du {name}! Log ind som {name} på en hvilken som helst tablet eller computer.'
+    newName: 'Nu hedder du {name}!'
   welcome:
     checking: Velkommen tilbage!
     title: 'Velkommen tilbage, {name}!'

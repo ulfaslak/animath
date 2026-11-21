@@ -152,6 +152,34 @@ describe('list', () => {
 		const line = (await listAll()).find((l) => l.startsWith(`${name}\t`));
 		expect(line).toMatch(/\tseq 7 at .*\t1 logged in$/);
 	});
+
+	it('names what an account was called before, and every command finds it by the name it has now', async () => {
+		const first = freshName();
+		const token = await register(first);
+		const second = freshName();
+		const third = freshName();
+		for (const name of [second, third]) {
+			const res = await app.request('/api/account/name', {
+				method: 'POST',
+				headers: {
+					'content-type': 'application/json',
+					cookie: `${SESSION_COOKIE}=${token}`,
+					'x-animath-account': encodeURIComponent(name === second ? first : second)
+				},
+				// No home cookie here: away from home, so the password too.
+				body: JSON.stringify({ name, password: 'secret' })
+			});
+			expect(res.status).toBe(200);
+		}
+		const line = (await listAll()).find((l) => l.startsWith(`${third}\t`));
+		expect(line).toMatch(new RegExp(`\\tcalled before: ${first}, ${second}$`));
+		await expect(resetPassword(first.toLowerCase())).rejects.toThrow(
+			`No account is called "${first.toLowerCase()}": it is called "${third}" now. Use that name.`
+		);
+		await expect(deleteAccount(second, true)).rejects.toThrow(`is called "${third}" now`);
+		await expect(clearAccountHome(first)).rejects.toThrow(`is called "${third}" now`);
+		expect((await resetPassword(third, 'nyt kodeord'))[0]).toContain(third);
+	});
 });
 
 describe('clear-home', () => {

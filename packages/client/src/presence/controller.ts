@@ -461,7 +461,8 @@ export class PresenceController {
 				this.notes.roster(
 					players.map((p) => p.name),
 					now,
-					players.filter((p) => p.busy === 'plane').map((p) => p.name)
+					players.filter((p) => p.busy === 'plane').map((p) => p.name),
+					players.map((p) => p.pid)
 				);
 				break;
 			}

@@ -374,7 +374,7 @@ Hand-written SQL, applied by `pnpm db:migrate` (`drizzle-orm`'s migrator, journa
 An account is a row in `users` with its `sessions`, its `account_saves` row and its `account_save_backups`, and while its welcome link waits, its `welcome_tokens` row ([[ARCHITECTURE]] § Data model). There is no email, so a forgotten password is reset, and an account deleted, by the human with the admin CLI:
 
 ```bash
-pnpm admin list                                    # every account: its save's seq and when, how many browsers are logged in, "no own browser yet" until one is its own, and "no password yet" while its welcome link waits
+pnpm admin list                                    # every account: its save's seq and when, how many browsers are logged in, "no own browser yet" until one is its own, "no password yet" while its welcome link waits, and "called before:" its old names
 pnpm admin reset-password <name> [<new password>]  # a made-up six-character password when none is given; logs every browser out (and uses a waiting welcome link up)
 printf '%s' "$PW" | pnpm admin reset-password <name> --stdin  # the password from stdin, never in a command line (the process list, `docker events`) nor said back
 pnpm admin delete-account <name>                   # only says what it would delete
@@ -400,9 +400,12 @@ API=http://localhost:3021   # your own API
 curl -s -c jar -b jar -H 'content-type: application/json' -d '{"name":"Pip","password":"1234"}' $API/api/account/register
 curl -s -c jar -b jar $API/api/account/me
 curl -s -c jar -b jar -X PUT -H 'content-type: application/json' -H 'x-animath-account: Pip' --data @save.json $API/api/account/save
+curl -s -c jar -b jar -H 'content-type: application/json' -H 'x-animath-account: Pip' -d '{"name":"Pippa","password":"1234"}' $API/api/account/name
 ```
 
-The login and register limits are counted in the API process's memory, so restarting your API clears them. The admin CLI is another process and cannot: a kid who guessed wrong ten times before the reset waits out the rest of that quarter-hour with the new password too.
+A jar that registered keeps the home cookie register sent, so from it a new name or a new password needs nothing more; from a jar that only logged in they need the password (`password` for `/name`, `current` for `/password`), as on any browser but the account's own. The commands of `admin` take the name an account has now; an old one is refused with the new one.
+
+The login, register and new-name limits are counted in the API process's memory, so restarting your API clears them. The admin CLI is another process and cannot: a kid who guessed wrong ten times before the reset waits out the rest of that quarter-hour with the new password too.
 
 **Accounts only where they work.** `curl $API/api/account/ready` answers `{"ready":true}` only when the API's database answers and has the accounts' tables, each with every column the schema gives it; on `false` or no answer the game offers no account (the save card, the menu's and the title's rows). To see that, give your API a database that only `0000`–`0002` reached (feed those files to `psql`); migrate it and the offers appear within about 40 s (the API keeps its answer 10 s, a page asks every 30 s). To take a database away from your own API without touching the shared Postgres, `alter database <yours> allow_connections false` and `select pg_terminate_backend(pid) from pg_stat_activity where datname = '<yours>'`; `allow_connections true` brings it back.
 

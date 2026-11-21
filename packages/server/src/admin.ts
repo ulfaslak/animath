@@ -10,9 +10,19 @@ import {
 	saveSeq,
 	validateSaveWrite
 } from '@mathgame/engine';
+import { eq } from 'drizzle-orm';
 import { randomInt } from 'node:crypto';
-import { deleteUser, findUser, listAccounts, setPasswordHash } from './accounts.js';
+import {
+	deleteUser,
+	findUser,
+	formerOwner,
+	listAccounts,
+	setPasswordHash,
+	type UserRow
+} from './accounts.js';
 import { cleanLine, errorGroups } from './client-errors.js';
+import { db } from './db/index.js';
+import { users } from './db/schema.js';
 import { env } from './env.js';
 import { hashPassword, NO_PASSWORD } from './passwords.js';
 import { SAVE_MAX_BYTES } from './save.js';
@@ -46,6 +56,28 @@ function keyOf(typed: string): string {
 	return nameKey(typed);
 }
 
+/**
+ * The account called `typed` now. None is an error that says so, and, for a
+ * name an account had before the kid picked a new one, what it is called now:
+ * a grown-up asking for a kid by the name they knew.
+ */
+async function accountCalled(typed: string): Promise<UserRow> {
+	const user = await findUser(keyOf(typed));
+	if (user) return user;
+	const owner = await formerOwner(db, keyOf(typed));
+	const now = owner === null ? null : await nameOf(owner);
+	throw new AdminError(
+		now === null
+			? `No account is called "${typed}".`
+			: `No account is called "${typed}": it is called "${now}" now. Use that name.`
+	);
+}
+
+async function nameOf(userId: string): Promise<string | null> {
+	const [row] = await db.select({ name: users.name }).from(users).where(eq(users.id, userId));
+	return row?.name ?? null;
+}
+
 /** Letters and digits that read the same to a kid: no 0/o, 1/l/i. */
 const EASY = 'abcdefghjkmnpqrstuvwxyz23456789';
 
@@ -69,8 +101,7 @@ export async function resetPassword(
 	newPassword?: string,
 	options: { secret?: boolean } = {}
 ): Promise<string[]> {
-	const user = await findUser(keyOf(typedName));
-	if (!user) throw new AdminError(`No account is called "${typedName}".`);
+	const user = await accountCalled(typedName);
 	const password = newPassword ?? easyPassword();
 	const checked = checkPassword(password);
 	if (!checked.ok) {
@@ -93,8 +124,7 @@ export async function resetPassword(
  * `confirmed` it only says what it would delete.
  */
 export async function deleteAccount(typedName: string, confirmed: boolean): Promise<string[]> {
-	const user = await findUser(keyOf(typedName));
-	if (!user) throw new AdminError(`No account is called "${typedName}".`);
+	const user = await accountCalled(typedName);
 	const summary = (await listAccounts()).find((a) => a.name === user.name);
 	const about = summary
 		? `${user.name}: made ${summary.createdAt.toISOString()}, ` +
@@ -117,8 +147,7 @@ export async function deleteAccount(typedName: string, confirmed: boolean): Prom
  * tablet, or one whose old browser was cleared.
  */
 export async function clearAccountHome(typedName: string): Promise<string[]> {
-	const user = await findUser(keyOf(typedName));
-	if (!user) throw new AdminError(`No account is called "${typedName}".`);
+	const user = await accountCalled(typedName);
 	await clearHome(user.id);
 	return [
 		`${user.name} has no own browser now, and every browser logged in to it is logged out.`,
@@ -136,6 +165,7 @@ export async function listAll(): Promise<string[]> {
 			(a.seq === null ? 'no save' : `seq ${a.seq} at ${a.savedAt?.toISOString()}`) +
 			`\t${a.sessions} logged in` +
 			(a.hasHome ? '' : '\tno own browser yet') +
+			(a.formerly === null ? '' : `\tcalled before: ${a.formerly}`) +
 			(a.hasPassword ? '' : '\tno password yet: its welcome link is waiting')
 	);
 }
@@ -426,6 +456,13 @@ export async function importSave(text: string, options: ImportOptions = {}): Pro
 	const key = nameKey(named.name);
 	const made = await createWelcomeAccount({ name: named.name, nameKey: key, save });
 	if (!made) {
+		const owner = (await findUser(key)) === null ? await formerOwner(db, key) : null;
+		const now = owner === null ? null : await nameOf(owner);
+		if (now !== null) {
+			throw new AdminError(
+				`"${named.name}" was the name of the account called "${now}" now, and stays that account's. Pick another name with --name <name>; the character takes it too.`
+			);
+		}
 		const taken = await findUser(key);
 		const waiting =
 			taken?.passwordHash === NO_PASSWORD

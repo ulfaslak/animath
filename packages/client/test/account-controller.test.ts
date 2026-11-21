@@ -8,11 +8,17 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AccountController } from '../src/account/controller';
 import type { AccountNote } from '../src/account/restart';
-import { currentAccount, gameKeys, logoutPending, rememberLogout } from '../src/account/session';
+import {
+	currentAccount,
+	gameKeys,
+	logInHere,
+	logoutPending,
+	rememberLogout
+} from '../src/account/session';
 import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
 import { REVEAL_KEY, rowKey } from '../src/input/press';
 import { KEYS, type KeyValueStore } from '../src/save/storage';
-import { account, loginByNameAlone } from '../src/state/account.svelte';
+import { account, cardBoxes, loginByNameAlone } from '../src/state/account.svelte';
 
 /**
  * The account screens' keys and what they do ([[UI_SPEC]] § Accounts): the
@@ -43,10 +49,13 @@ function key(name: string, options: { repeat?: boolean } = {}): Key {
 
 class MemoryStore implements KeyValueStore {
 	data = new Map<string, string>();
+	/** A full browser: every write fails. */
+	full = false;
 	get(key: string): string | null {
 		return this.data.get(key) ?? null;
 	}
 	set(key: string, value: string): boolean {
+		if (this.full) return false;
 		this.data.set(key, value);
 		return true;
 	}
@@ -117,6 +126,8 @@ function setup(playerName: string | null = 'Ida', currentSave?: () => SaveWrite 
 		},
 		forgetWelcome: () => welcomeSteps.push('forgetWelcome'),
 		passwordChanged: () => events.push('passwordChanged'),
+		nameChosen: (name) => events.push(`nameChosen:${name}`),
+		cannotFollow: () => events.push('cannotFollow'),
 		gateStepsAside: () => events.push('gateStepsAside')
 	});
 	const press = (...names: string[]) => {
@@ -912,11 +923,21 @@ describe('a new password', () => {
 		account.home = true;
 	}
 
-	it('opens only on the account’s own browser, its name shown and the password to type', () => {
-		const { controller } = setup('Ida');
-		account.name = 'Ida';
+	it('opens for an account only, its name shown: at home the new password to type, away the password now first', () => {
+		const { controller } = setup(null);
 		controller.openPassword();
 		expect(account.card).toBeNull();
+		account.name = 'Ida';
+		account.session = 'live';
+		controller.openPassword();
+		expect([account.card, account.from, account.nameDraft, account.field]).toEqual([
+			'password',
+			'pause',
+			'Ida',
+			'current'
+		]);
+		expect(cardBoxes()).toEqual(['current', 'password']);
+		controller.close();
 		atHome();
 		controller.openPassword();
 		expect([account.card, account.from, account.nameDraft, account.field]).toEqual([
@@ -925,6 +946,7 @@ describe('a new password', () => {
 			'Ida',
 			'password'
 		]);
+		expect(cardBoxes()).toEqual(['password']);
 	});
 
 	it('is checked by the rules first, then kept: the card goes and the game says so', async () => {
@@ -954,6 +976,72 @@ describe('a new password', () => {
 		expect(events).toContain('passwordChanged');
 	});
 
+	it('away from home sends the password now with it; a wrong one is said under its box, and sends nothing when too short', async () => {
+		let answer: Answer = { status: 403, json: { error: 'wrong password' } };
+		const requests = server({ '/api/account/password': () => answer });
+		const { controller, events, press, quiet } = setup('Ida');
+		account.name = 'Ida';
+		account.session = 'live';
+		controller.openPassword();
+		account.currentDraft = 'abc';
+		quiet();
+		// From the password now, Enter goes on to the new one while it is empty.
+		press('Enter');
+		expect(account.field).toBe('password');
+		account.passwordDraft = 'nyt kodeord';
+		quiet();
+		press('Enter');
+		expect(account.problem).toEqual({ kind: 'wrong-current' });
+		expect(account.field).toBe('current');
+		expect(requests).toEqual([]);
+		account.currentDraft = 'gammel kode';
+		quiet();
+		press('Enter');
+		await answered();
+		expect(requests.map((r) => r.body)).toEqual([
+			{ password: 'nyt kodeord', current: 'gammel kode' }
+		]);
+		expect([account.problem, account.field, account.card]).toEqual([
+			{ kind: 'wrong-current' },
+			'current',
+			'password'
+		]);
+		answer = { status: 200, json: { ok: true } };
+		quiet();
+		press('Enter');
+		await answered();
+		expect(account.card).toBeNull();
+		expect(events).toContain('passwordChanged');
+	});
+
+	it('hears that the page plays the account by an old name, and follows it there', async () => {
+		server({
+			'/api/account/password': { status: 401, json: { error: 'account renamed', name: 'Ella' } },
+			'/api/account/save': { status: 404, json: { error: 'no save yet' } }
+		});
+		const { controller, events, press, quiet, restarts, restartNames } = setup('Ida');
+		atHome();
+		controller.openPassword();
+		account.passwordDraft = 'nyt kodeord';
+		quiet();
+		press('Enter');
+		await answered();
+		expect(account.card).toBeNull();
+		expect([events, restarts, restartNames]).toEqual([['flush'], ['renamed'], ['Ella']]);
+	});
+
+	it('logged out meanwhile: says so, and waits for a login', async () => {
+		server({ '/api/account/password': { status: 401, json: { error: 'not logged in' } } });
+		const { controller, press, quiet } = setup('Ida');
+		atHome();
+		controller.openPassword();
+		account.passwordDraft = 'nyt kodeord';
+		quiet();
+		press('Enter');
+		await answered();
+		expect([account.problem, account.session]).toEqual([{ kind: 'logged-out' }, 'ended']);
+	});
+
 	it('on a browser that is not the account’s own (any more) says so, and offers it no more', async () => {
 		server({ '/api/account/password': { status: 403, json: { error: 'not home' } } });
 		const { controller, events, press, quiet } = setup('Ida');
@@ -966,5 +1054,247 @@ describe('a new password', () => {
 		expect(account.problem).toEqual({ kind: 'not-home' });
 		expect(account.home).toBe(false);
 		expect(events).not.toContain('passwordChanged');
+	});
+});
+
+describe('a new name', () => {
+	const ok = (name: string): Answer => ({ status: 200, json: { user: { name } } });
+
+	it('a guest’s is the game’s alone: checked by the rules, then handed to the game, nothing sent', () => {
+		const requests = server({});
+		const { controller, events, press, quiet } = setup('Ida');
+		controller.openName();
+		expect([account.card, account.from, account.nameDraft, account.field]).toEqual([
+			'name',
+			'pause',
+			'Ida',
+			'name'
+		]);
+		expect(cardBoxes()).toEqual(['name']);
+		account.nameDraft = 'I';
+		quiet();
+		press('Enter');
+		expect(account.problem).toEqual({ kind: 'name', reason: 'short' });
+		account.nameDraft = '  Ella   Marie ';
+		quiet();
+		press('Enter');
+		expect(account.card).toBeNull();
+		expect(events).toEqual(['nameChosen:Ella Marie']);
+		expect(requests).toEqual([]);
+	});
+
+	it('an account’s at home goes to the server alone; then its game here moves to the new name and the page starts again in it', async () => {
+		const requests = server({
+			'/api/account/name': ok('Ella'),
+			'/api/account/save': { status: 404, json: { error: 'no save yet' } }
+		});
+		const { store, controller, events, press, quiet, restarts, restartNames } = setup('Ida');
+		account.name = 'Ida';
+		account.session = 'live';
+		account.home = true;
+		logInHere(store, 'Ida');
+		store.set(gameKeys({ name: 'Ida' }).save, saveText(9));
+		controller.openName();
+		expect(cardBoxes()).toEqual(['name']);
+		account.nameDraft = 'ella';
+		quiet();
+		press('Enter');
+		await answered();
+		expect(requests).toEqual([
+			{
+				url: '/api/account/name',
+				method: 'POST',
+				body: { name: 'ella' },
+				account: 'Ida',
+				welcome: null
+			},
+			// The server's copy, asked for by the new name, in case it is further along.
+			{ url: '/api/account/save', method: 'GET', body: undefined, account: 'Ella', welcome: null }
+		]);
+		// The name as the server keeps it.
+		expect([restarts, restartNames]).toEqual([['renamed'], ['Ella']]);
+		expect(events).toEqual(['flush']);
+		expect(currentAccount(store)).toEqual({ name: 'Ella' });
+		expect(JSON.parse(store.get(gameKeys({ name: 'Ella' }).save)!).name).toBe('Ella');
+		expect(store.get(gameKeys({ name: 'Ida' }).save)).toBeNull();
+	});
+
+	it('away from home asks for the password too, after the name; a wrong one is said under its box', async () => {
+		let answer: Answer = { status: 403, json: { error: 'wrong password' } };
+		const requests = server({
+			'/api/account/name': () => answer,
+			'/api/account/save': { status: 404, json: { error: 'no save yet' } }
+		});
+		const { controller, press, quiet, restarts } = setup('Ida');
+		account.name = 'Ida';
+		account.session = 'live';
+		controller.openName();
+		expect(cardBoxes()).toEqual(['name', 'current']);
+		expect(account.field).toBe('name');
+		// Tab walks the boxes round.
+		press('Tab');
+		expect(account.field).toBe('current');
+		press('Tab');
+		expect(account.field).toBe('name');
+		account.nameDraft = 'Ella';
+		quiet();
+		press('Enter');
+		expect(account.field).toBe('current');
+		expect(requests).toEqual([]);
+		account.currentDraft = 'gammel kode';
+		quiet();
+		press('Enter');
+		await answered();
+		expect(requests.map((r) => r.body)).toEqual([{ name: 'Ella', password: 'gammel kode' }]);
+		requests.length = 0;
+		expect([account.problem, account.field, restarts]).toEqual([
+			{ kind: 'wrong-current' },
+			'current',
+			[]
+		]);
+		answer = ok('Ella');
+		quiet();
+		press('Enter');
+		await answered();
+		expect(restarts).toEqual(['renamed']);
+	});
+
+	it('a name taken, or the name the account has: said, or simply closed; nothing moves', async () => {
+		const requests = server({
+			'/api/account/name': { status: 409, json: { error: 'name taken' } }
+		});
+		const { store, controller, press, quiet, restarts } = setup('Ida');
+		account.name = 'Ida';
+		account.session = 'live';
+		account.home = true;
+		const text = saveText(9);
+		store.set(gameKeys({ name: 'Ida' }).save, text);
+		controller.openName();
+		account.nameDraft = 'Bo';
+		quiet();
+		press('Enter');
+		await answered();
+		expect([account.problem, account.field, restarts]).toEqual([{ kind: 'taken' }, 'name', []]);
+		account.nameDraft = 'Ida';
+		quiet();
+		press('Enter');
+		await answered();
+		expect(account.card).toBeNull();
+		expect(requests).toHaveLength(1);
+		expect(store.get(gameKeys({ name: 'Ida' }).save)).toBe(text);
+	});
+
+	it('the account had a new name already somewhere else: the page follows that one, not the one typed', async () => {
+		server({
+			'/api/account/name': { status: 401, json: { error: 'account renamed', name: 'Ella' } },
+			'/api/account/save': { status: 404, json: { error: 'no save yet' } }
+		});
+		const { controller, events, press, quiet, restarts, restartNames } = setup('Ida');
+		account.name = 'Ida';
+		account.session = 'live';
+		account.home = true;
+		controller.openName();
+		account.nameDraft = 'Bo';
+		quiet();
+		press('Enter');
+		await answered();
+		expect([account.card, events, restarts, restartNames]).toEqual([
+			null,
+			['flush'],
+			['renamed'],
+			['Ella']
+		]);
+	});
+
+	it('following a new name takes the server’s copy when it is further along, once, keeping this one aside', async () => {
+		const theirs = JSON.parse(saveText(30, 'Ella'));
+		const requests = server({ '/api/account/save': { status: 200, json: theirs } });
+		const { store, controller, events, restarts } = setup('Ida');
+		account.name = 'Ida';
+		account.session = 'live';
+		logInHere(store, 'Ida');
+		store.set(gameKeys({ name: 'Ida' }).save, saveText(9));
+		const following = controller.followRename('Ella');
+		// Heard again meanwhile (the flush's own answer, the session check): nothing more.
+		void controller.followRename('Ella');
+		expect(account.leaving).toBe(true);
+		await following;
+		await answered();
+		const keys = gameKeys({ name: 'Ella' });
+		expect(JSON.parse(store.get(keys.save)!).seq).toBe(30);
+		expect(JSON.parse(store.get(keys.replaced)!)).toMatchObject({ seq: 9, name: 'Ella' });
+		expect(currentAccount(store)).toEqual({ name: 'Ella' });
+		expect([events, restarts, requests.length]).toEqual([['flush'], ['renamed'], 1]);
+	});
+
+	it('following a new name moves what was played while the server’s copy was on its way', async () => {
+		server({ '/api/account/save': 'network error' });
+		const { store, controller, restarts } = setup('Ida');
+		account.name = 'Ida';
+		account.session = 'live';
+		logInHere(store, 'Ida');
+		store.set(gameKeys({ name: 'Ida' }).save, saveText(9));
+		const following = controller.followRename('Ella');
+		// The kid walks on meanwhile: the autosave writes under the old name's keys.
+		store.set(gameKeys({ name: 'Ida' }).save, saveText(10));
+		await following;
+		expect(JSON.parse(store.get(gameKeys({ name: 'Ella' }).save)!)).toMatchObject({
+			seq: 10,
+			name: 'Ella'
+		});
+		expect(store.get(gameKeys({ name: 'Ida' }).save)).toBeNull();
+		expect(restarts).toEqual(['renamed']);
+	});
+
+	it('following a new name with no answer from the server starts again with this browser’s copy', async () => {
+		server({ '/api/account/save': 'network error' });
+		const { store, controller, restarts } = setup('Ida');
+		account.name = 'Ida';
+		account.session = 'live';
+		store.set(gameKeys({ name: 'Ida' }).save, saveText(9));
+		await controller.followRename('Ella');
+		expect(JSON.parse(store.get(gameKeys({ name: 'Ella' }).save)!)).toMatchObject({
+			seq: 9,
+			name: 'Ella'
+		});
+		expect(restarts).toEqual(['renamed']);
+	});
+
+	it('a browser with no room for the game under the new name plays on as it is, says so once, and never starts again', async () => {
+		const requests = server({});
+		const { store, controller, events, restarts } = setup('Ida');
+		account.name = 'Ida';
+		account.session = 'live';
+		logInHere(store, 'Ida');
+		const text = saveText(9);
+		store.set(gameKeys({ name: 'Ida' }).save, text);
+		store.full = true;
+		await controller.followRename('Ella');
+		expect(account.leaving).toBe(false);
+		expect(currentAccount(store)).toEqual({ name: 'Ida' });
+		expect(store.get(gameKeys({ name: 'Ida' }).save)).toBe(text);
+		// Heard again (the next save's answer, the session check): nothing more.
+		await controller.followRename('Ella');
+		// The server's copy was asked for once, before the move: never again.
+		expect([events, restarts, requests.length]).toEqual([['flush', 'cannotFollow'], [], 1]);
+	});
+
+	it('this browser is the account’s own no more: the password box comes', async () => {
+		server({ '/api/account/name': { status: 403, json: { error: 'not home' } } });
+		const { controller, press, quiet } = setup('Ida');
+		account.name = 'Ida';
+		account.session = 'live';
+		account.home = true;
+		controller.openName();
+		account.nameDraft = 'Ella';
+		quiet();
+		press('Enter');
+		await answered();
+		expect([account.problem, account.home, account.field]).toEqual([
+			{ kind: 'not-home' },
+			false,
+			'current'
+		]);
+		expect(cardBoxes()).toEqual(['name', 'current']);
 	});
 });

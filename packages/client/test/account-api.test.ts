@@ -13,6 +13,7 @@ import {
 	logout,
 	lookAtWelcome,
 	register,
+	renameAccount,
 	whoAmI,
 	type SessionAnswer
 } from '../src/account/api';
@@ -254,14 +255,19 @@ describe('a welcome link', () => {
 describe('whoAmI', () => {
 	it('names the account, or nobody, and anything else is no answer', async () => {
 		answer({ status: 200, json: { user: { name: 'Ida', home: true } } });
-		expect(await whoAmI()).toEqual({ kind: 'user', name: 'Ida', home: true });
+		expect(await whoAmI()).toEqual({ kind: 'user', name: 'Ida', home: true, renamed: false });
 		// Only `true` is the account's own browser: an older server says nothing of it.
 		answer({ status: 200, json: { user: { name: 'Ida' } } });
-		expect(await whoAmI()).toEqual({ kind: 'user', name: 'Ida', home: false });
+		expect(await whoAmI()).toEqual({ kind: 'user', name: 'Ida', home: false, renamed: false });
 		answer({ status: 200, json: { user: { name: 'Ida', home: 'yes' } } });
-		expect(await whoAmI()).toEqual({ kind: 'user', name: 'Ida', home: false });
+		expect(await whoAmI()).toEqual({ kind: 'user', name: 'Ida', home: false, renamed: false });
+		// The name the page plays was this account's before: it is called this now.
+		answer({ status: 200, json: { user: { name: 'Ida', home: false, renamed: true } } });
+		expect(await whoAmI()).toEqual({ kind: 'user', name: 'Ida', home: false, renamed: true });
+		answer({ status: 200, json: { user: { name: 'Ida', renamed: 'yes' } } });
+		expect(await whoAmI()).toEqual({ kind: 'user', name: 'Ida', home: false, renamed: false });
 		answer({ status: 200, json: { user: null } });
-		expect(await whoAmI()).toEqual({ kind: 'user', name: null, home: false });
+		expect(await whoAmI()).toEqual({ kind: 'user', name: null, home: false, renamed: false });
 		answer({ status: 200, html: page });
 		expect(await whoAmI()).toEqual({ kind: 'offline' });
 		answer({ status: 500, json: { error: 'x' } });
@@ -315,6 +321,21 @@ describe('SessionCheck', () => {
 		expect(heard).toEqual(['offline', 'live']);
 	});
 
+	it('hears that the page plays the account by a name it had before: over, and the new name handed on once', async () => {
+		const renamed: string[] = [];
+		const seen = answer({ status: 200, json: { user: { name: 'Ella', renamed: true } } });
+		const check = new SessionCheck('Ida', undefined, undefined, (name) => renamed.push(name));
+		expect(await check.check()).toBe('ended');
+		expect(new Headers(seen[0]!.init?.headers).get('x-animath-account')).toBe('Ida');
+		check.renamed('Ella');
+		expect(renamed).toEqual(['Ella']);
+		// Another account entirely is a session over, not a rename.
+		answer({ status: 200, json: { user: { name: 'Bo' } } });
+		const other = new SessionCheck('Ida', undefined, undefined, (name) => renamed.push(name));
+		expect(await other.check()).toBe('ended');
+		expect(renamed).toEqual(['Ella']);
+	});
+
 	it('tells whether this browser is the account’s own, only for this page’s account', async () => {
 		for (const [said, home] of [
 			[{ user: { name: 'IDA', home: true } }, true],
@@ -343,6 +364,33 @@ describe("the account's save, as the autosave's server", () => {
 		expect(seen).toEqual([me]);
 	});
 
+	it('a save route that says the account has a new name: logged out here, the new name handed on once', async () => {
+		const renamed: string[] = [];
+		const seen = route({
+			[me]: { status: 200, json: { user: { name: 'Ida' } } },
+			[save]: { status: 401, json: { error: 'account renamed', name: 'Ella' } }
+		});
+		const check = new SessionCheck('Ida', undefined, undefined, (name) => renamed.push(name));
+		const server = accountSaveServer(check);
+		expect(await server.getSave()).toEqual({ kind: 'logged-out' });
+		expect(renamed).toEqual(['Ella']);
+		// The session is over for this page: nothing more is sent, nor handed on again.
+		expect(await server.putSave(doc)).toEqual({ kind: 'logged-out' });
+		expect(renamed).toEqual(['Ella']);
+		expect(seen).toEqual([me, save]);
+		// A PUT that hears it first does the same.
+		const later: string[] = [];
+		route({
+			[me]: { status: 200, json: { user: { name: 'Ida' } } },
+			[save]: { status: 401, json: { error: 'account renamed', name: 'Ella' } }
+		});
+		const put = accountSaveServer(
+			new SessionCheck('Ida', undefined, undefined, (name) => later.push(name))
+		);
+		expect(await put.putSave(doc)).toEqual({ kind: 'logged-out' });
+		expect(later).toEqual(['Ella']);
+	});
+
 	it('waits out a server it cannot reach, and asks who it is again next time', async () => {
 		const seen = route({ [me]: 'network error' });
 		const server = accountSaveServer(new SessionCheck('Ida'));
@@ -363,9 +411,10 @@ describe("the account's save, as the autosave's server", () => {
 		expect(await server.putSave(doc)).toEqual({ kind: 'saved' });
 		expect(await getAccountSave('søren ')).toEqual({ kind: 'found', doc });
 		expect(await logout('Søren')).toBe('done');
-		// The name as the page has it: the server keys it by its own Unicode tables.
+		// The name as the page has it: the server keys it by its own Unicode tables. The check
+		// names it too, so the server can say it is the account's old name.
 		expect(heard).toEqual([
-			[me, null],
+			[me, 'S%C3%98REN'],
 			[save, 'S%C3%98REN'],
 			[save, 'S%C3%98REN'],
 			[save, 's%C3%B8ren%20'],
@@ -461,7 +510,14 @@ describe('the account’s own browser', () => {
 				{ kind: 'bad-password', reason: 'short' }
 			],
 			[{ status: 403, json: { error: 'not home' } }, { kind: 'not-home' }],
+			[{ status: 403, json: { error: 'wrong password' } }, { kind: 'wrong' }],
 			[{ status: 401, json: { error: 'not logged in' } }, { kind: 'logged-out' }],
+			[
+				{ status: 401, json: { error: 'account renamed', name: 'Ella' } },
+				{ kind: 'renamed', name: 'Ella' }
+			],
+			// A rename that names no account it is now: an answer the page cannot act on.
+			[{ status: 401, json: { error: 'account renamed' } }, { kind: 'refused' }],
 			[
 				{ status: 429, json: { error: 'too many tries', retryAfter: 30 } },
 				{ kind: 'too-many', retryAfter: 30 }
@@ -472,6 +528,55 @@ describe('the account’s own browser', () => {
 		for (const [a, outcome] of cases) {
 			answer(a);
 			expect(await changePassword('Ida', 'nyt kodeord'), JSON.stringify(a)).toEqual(outcome);
+		}
+		// Away from home, the password now goes along.
+		const away = answer({ status: 200, json: { ok: true } });
+		await changePassword('Ida', 'nyt kodeord', 'gammel kode');
+		expect(JSON.parse(String(away[0]!.init?.body))).toEqual({
+			password: 'nyt kodeord',
+			current: 'gammel kode'
+		});
+	});
+
+	it('a new name names its account, sends the password only when given, and each answer is told apart', async () => {
+		const seen = answer({ status: 200, json: { user: { name: 'Ella' } } });
+		expect(await renameAccount('Ida', 'ella')).toEqual({ kind: 'renamed', name: 'Ella' });
+		expect(seen[0]!.url).toBe('/api/account/name');
+		expect(new Headers(seen[0]!.init?.headers).get('x-animath-account')).toBe('Ida');
+		expect(JSON.parse(String(seen[0]!.init?.body))).toEqual({ name: 'ella' });
+		const away = answer({ status: 200, json: { user: { name: 'Ella' } } });
+		await renameAccount('Ida', 'Ella', 'gammel kode');
+		expect(JSON.parse(String(away[0]!.init?.body))).toEqual({
+			name: 'Ella',
+			password: 'gammel kode'
+		});
+		const cases: [Answer, unknown][] = [
+			[
+				{ status: 400, json: { error: 'bad name', reason: 'short' } },
+				{ kind: 'bad-name', reason: 'short' }
+			],
+			[{ status: 400, json: { error: 'bad name', reason: 'odd' } }, { kind: 'refused' }],
+			[{ status: 409, json: { error: 'name taken' } }, { kind: 'taken' }],
+			[{ status: 403, json: { error: 'not home' } }, { kind: 'not-home' }],
+			[{ status: 403, json: { error: 'wrong password' } }, { kind: 'wrong' }],
+			[{ status: 401, json: { error: 'not logged in' } }, { kind: 'logged-out' }],
+			[
+				{ status: 401, json: { error: 'account renamed', name: 'Bo' } },
+				{ kind: 'renamed-before', name: 'Bo' }
+			],
+			[
+				{ status: 429, json: { error: 'too many tries', retryAfter: 600 } },
+				{ kind: 'too-many', retryAfter: 600 }
+			],
+			// A 200 that names no account is no answer.
+			[{ status: 200, json: { user: null } }, { kind: 'offline' }],
+			[{ status: 200, html: page }, { kind: 'offline' }],
+			[{ status: 409, html: page }, { kind: 'offline' }],
+			['network error', { kind: 'offline' }]
+		];
+		for (const [a, outcome] of cases) {
+			answer(a);
+			expect(await renameAccount('Ida', 'Ella'), JSON.stringify(a)).toEqual(outcome);
 		}
 	});
 });

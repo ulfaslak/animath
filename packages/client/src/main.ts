@@ -113,7 +113,12 @@ account.name = current?.name ?? null;
  * [[INVARIANTS]] § Server): the account's save goes to the server only
  * while it says the session is this account's.
  */
-const sessionCheck = current ? new SessionCheck(current.name, heardSession) : null;
+// The account took a new name on another page: this one follows it (`followRename`).
+const sessionCheck = current
+	? new SessionCheck(current.name, heardSession, undefined, (name) => {
+			void accountController.followRename(name);
+		})
+	: null;
 
 /** The session ended before there was anywhere to say so: the title says it when it opens. */
 let sessionEndedUnsaid = false;
@@ -125,9 +130,11 @@ let sessionEndedUnsaid = false;
  * message line mid-game.
  */
 function heardSession(answer: SessionAnswer, home = false): void {
+	// The page is starting again, or about to (a logout, the account's new name): nothing more to say.
+	if (reloading || account.leaving) return;
 	if (answer === 'offline' || account.session === answer) return;
 	account.session = answer;
-	// The pause menu offers a new password only on the account's own browser.
+	// On the account's own browser a new password or a new name asks for nothing more.
 	account.home = answer === 'live' && home;
 	if (answer !== 'ended') return;
 	// A land's starters are the game under way: the message line says it, as mid-game.
@@ -203,6 +210,16 @@ const accountController = new AccountController({
 		pauseController.close();
 		hud.accountNotice('newPassword');
 	},
+	// A guest's new name is the game's: the authority takes it (`choose-name`), and every page
+	// of the game hears it as any name chosen, the others in the world too.
+	nameChosen: (name) => {
+		authority.dispatch({ type: 'choose-name', name });
+		pauseController.close();
+		hud.accountNotice('newName');
+	},
+	// The account's new name, with no room in this browser for its game under it: the page plays
+	// on as one logged out, its game kept only here, says so, and Log in (by the new name) is offered.
+	cannotFollow: () => heardSession('ended'),
 	gateStepsAside: () => {
 		const passing = gated;
 		gated = null;
@@ -219,6 +236,7 @@ const pauseController = new PauseController(authority, {
 	makeAccount: () => accountController.openRegister('pause'),
 	logIn: () => accountController.openLogin('pause'),
 	newPassword: () => accountController.openPassword(),
+	newName: () => accountController.openName(),
 	logOut: () => void accountController.logOut()
 });
 
@@ -768,8 +786,8 @@ void autosave.boot().then((plan) => {
 		});
 		return;
 	}
-	// Just logged in, or an account just made, or another device's newer save taken: straight
-	// back into the game, with the account's own words instead of "Welcome back!".
+	// Just logged in, an account just made, another device's newer save taken, or the account's
+	// new name: straight back into the game, with the account's own words instead of "Welcome back!".
 	if (accountNote !== null && plan.game && plan.game.name !== null) {
 		startNotice = undefined;
 		continueGame(plan.game);

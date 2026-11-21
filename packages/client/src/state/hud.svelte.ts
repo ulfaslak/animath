@@ -107,7 +107,7 @@ export type Said =
 	 * is saved in the new account, the player logged in, or another device's
 	 * newer save came in. Worded with the account's name when the line shows.
 	 */
-	| { account: 'saved' | 'welcome' | 'movedAhead' | 'newPassword' }
+	| { account: AccountLine }
 	/** How going to another player went, and whom to (`presence/controller.ts`). */
 	| { presence: PresenceLine; name: string }
 	| { match: MatchLine; name: string };
@@ -155,7 +155,15 @@ export function saidWords(said: Said): string {
 	return t('explore.notAtTent');
 }
 
-function accountWords(note: 'saved' | 'welcome' | 'movedAhead' | 'newPassword'): string {
+/**
+ * The account's lines: after the page started again in the account's game
+ * (`AccountNote`s but `loggedOut`), and a new password or a guest's new name
+ * said where they were picked.
+ */
+export type AccountLine =
+	'saved' | 'welcome' | 'movedAhead' | 'renamed' | 'newPassword' | 'newName';
+
+function accountWords(note: AccountLine): string {
 	const name = account.name ?? '';
 	switch (note) {
 		case 'saved':
@@ -164,8 +172,13 @@ function accountWords(note: 'saved' | 'welcome' | 'movedAhead' | 'newPassword'):
 			return t('account.notice.welcome', { name });
 		case 'movedAhead':
 			return t('account.notice.movedAhead');
+		case 'renamed':
+			return t('account.notice.renamed', { name });
 		case 'newPassword':
 			return t('account.notice.newPassword');
+		case 'newName':
+			// A guest's: the game's own name, which `name-chosen` has set by now.
+			return t('account.notice.newName', { name: game.name ?? '' });
 	}
 }
 
@@ -508,7 +521,7 @@ class HudView {
 	 * What the page says after starting again for the account
 	 * (`account/restart.ts`), and after a new password is saved.
 	 */
-	accountNotice(note: 'saved' | 'welcome' | 'movedAhead' | 'newPassword'): void {
+	accountNotice(note: AccountLine): void {
 		this.say({ account: note });
 	}
 

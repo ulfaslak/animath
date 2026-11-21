@@ -115,6 +115,15 @@ export interface AccountLimits {
 	/** Save PUTs per account. A page sends one a second at most, and fewer as it walks. */
 	savesPerAccount: LimitSpec;
 	/**
+	 * New names per account (`POST /name`) that landed. Each keeps the old
+	 * one as the account's for good, so this slows one account taking names
+	 * out of reach: a few in one sitting, which a kid trying names needs, not
+	 * one a second. It is no bound over a day (and, like every limit here,
+	 * forgets on a restart); registering takes names faster still
+	 * (`registerPerIp`), so neither path is the guard against a name hoarder.
+	 */
+	renamesPerAccount: LimitSpec;
+	/**
 	 * Every welcome link looked up or used from one address (`welcome.ts`): the
 	 * login's limit per address. A link's token cannot be guessed; this bounds
 	 * the asking.
@@ -135,5 +144,6 @@ export const ACCOUNT_LIMITS: AccountLimits = {
 	registerPerIp: { limit: 30, windowMs: 60 * MINUTE, maxKeys: 10_000 },
 	registerPerName: { limit: 10, windowMs: 15 * MINUTE, maxKeys: 10_000 },
 	savesPerAccount: { limit: 120, windowMs: MINUTE, maxKeys: 10_000 },
+	renamesPerAccount: { limit: 5, windowMs: 60 * MINUTE, maxKeys: 10_000 },
 	welcomePerIp: { limit: 60, windowMs: 15 * MINUTE, maxKeys: 10_000 }
 };

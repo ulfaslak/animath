@@ -129,6 +129,8 @@
 	const bookLit = $derived(items[pause.cursor - cards.length] === 'book');
 	/** The cursor is on "My puzzles"' row: the right side says what the page is. */
 	const puzzlesLit = $derived(items[pause.cursor - cards.length] === 'puzzles');
+	/** "New name" is lit: the right side says what the player's name is now. */
+	const nameLit = $derived(items[pause.cursor - cards.length] === 'newName');
 	/** "My puzzles"' rows: every topic, the most solved first (`statRows`). */
 	const stats = $derived(statRows(game.puzzles));
 
@@ -278,6 +280,8 @@
 				return t('pause.logIn');
 			case 'newPassword':
 				return t('pause.newPassword');
+			case 'newName':
+				return t('pause.newPlayerName');
 			case 'logOut':
 				return account.leaving ? t('account.busy') : t('pause.logOut');
 			case 'puzzles':
@@ -795,6 +799,13 @@
 						<!-- With the touch controls on, what a tap does; the keys only with a keyboard (#53). -->
 						<div class="note">
 							{touch.on ? t('pause.soundHelpTouch') : t('pause.soundHelp')}
+						</div>
+					{:else if pause.screen === 'list' && nameLit}
+						<div class="side-title">{t('pause.playerNameTitle')}</div>
+						<div class="note">
+							{t(account.name === null ? 'pause.playerNameHelp' : 'pause.playerNameHelpAccount', {
+								name: game.name ?? account.name ?? ''
+							})}
 						</div>
 					{:else if pause.screen === 'list' && puzzlesLit}
 						<div class="side-title">{t('puzzles.title')}</div>

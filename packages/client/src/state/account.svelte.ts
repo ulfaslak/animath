@@ -12,10 +12,11 @@ import { nameKey, type NameRejection, type PasswordRefusal } from '@mathgame/eng
 
 /**
  * The card: make an account with the guest game, log in to one, pick the
- * password of the account a welcome link opens, or pick a new password on
- * the account's own browser.
+ * password of the account a welcome link opens, pick a new password for the
+ * account the page plays, or a new name for the player (a guest's, or the
+ * account's).
  */
-export type AccountCard = 'register' | 'login' | 'welcome' | 'password';
+export type AccountCard = 'register' | 'login' | 'welcome' | 'password' | 'name';
 
 /** Why a welcome link opens no account: used up, too old, or no link the server knows. */
 export type WelcomeGone = 'used' | 'expired' | 'unknown';
@@ -32,8 +33,12 @@ export type WelcomeView =
 	| { phase: 'gone'; why: WelcomeGone }
 	| { phase: 'unreachable'; minutes?: number };
 
-/** The card's two boxes. */
-export type AccountField = 'name' | 'password';
+/**
+ * The card's boxes: a name, a password (typed to log in, or picked), and the
+ * account's password now, which a new name or a new password asks for away
+ * from the account's own browser.
+ */
+export type AccountField = 'name' | 'password' | 'current';
 
 /**
  * Where the card was opened: where Back returns. `gate`: Continue on the
@@ -47,11 +52,15 @@ export type AccountProblem =
 	| { kind: 'taken' }
 	| { kind: 'password'; reason: PasswordRefusal }
 	| { kind: 'wrong' }
+	/** The password now, for a new name or a new password away from home, was not the account's. */
+	| { kind: 'wrong-current' }
+	/** The server says this page's session is over: a change to the account waits for a login. */
+	| { kind: 'logged-out' }
 	| { kind: 'too-many'; minutes: number }
 	| { kind: 'offline' }
 	/**
-	 * A new password asked for where it can't be picked: this browser is not
-	 * the account's own (any more), or the page is logged out.
+	 * A new name or a new password asked for as on the account's own browser,
+	 * which this one is not (any more): the password now is asked for too.
 	 */
 	| { kind: 'not-home' }
 	/**
@@ -79,7 +88,8 @@ class AccountView {
 	session = $state<SessionState>('unknown');
 	/**
 	 * This browser is the logged-in account's own (the server said so at
-	 * start): there the pause menu offers a new password.
+	 * start): there a new name or a new password needs nothing more; on any
+	 * other, the account's password too.
 	 */
 	home = $state(false);
 	/**
@@ -105,6 +115,8 @@ class AccountView {
 	from = $state<AccountFrom>('title');
 	nameDraft = $state('');
 	passwordDraft = $state('');
+	/** The account's password now, typed for a new name or a new password away from home. */
+	currentDraft = $state('');
 	/** The password shows as typed, not as dots. */
 	reveal = $state(false);
 	/** The box that takes the typing. */
@@ -118,7 +130,10 @@ class AccountView {
 	prompt = $state(false);
 	/** The lit choice of the save card, an index into `PROMPT_CHOICES`. */
 	promptChoice = $state(0);
-	/** Logging out is on its way: the pause menu waits. */
+	/**
+	 * Logging out, or following the account's new name, is on its way: the
+	 * page starts again soon, and the pause menu waits.
+	 */
 	leaving = $state(false);
 }
 
@@ -133,4 +148,37 @@ export function loginByNameAlone(): boolean {
 	if (account.card !== 'login') return false;
 	const typed = nameKey(account.nameDraft);
 	return typed !== '' && account.homeNames.some((name) => nameKey(name) === typed);
+}
+
+/**
+ * A change to the account the page plays (a new name, a new password) away
+ * from its own browser: the account's password now is asked for too. Never
+ * for a guest, whose name is the game's alone.
+ */
+export function awayFromHome(): boolean {
+	return account.name !== null && !account.home;
+}
+
+/**
+ * The boxes the card up has, in the order Tab walks them: the name and the
+ * password; the name alone on the account's own browser's login; the
+ * password alone on a welcome link's card (its name is the account's); a new
+ * password, with the password now before it away from home; a new name, with
+ * the password now after it away from home.
+ */
+export function cardBoxes(): AccountField[] {
+	switch (account.card) {
+		case 'register':
+			return ['name', 'password'];
+		case 'login':
+			return loginByNameAlone() ? ['name'] : ['name', 'password'];
+		case 'welcome':
+			return ['password'];
+		case 'password':
+			return awayFromHome() ? ['current', 'password'] : ['password'];
+		case 'name':
+			return awayFromHome() ? ['name', 'current'] : ['name'];
+		case null:
+			return [];
+	}
 }

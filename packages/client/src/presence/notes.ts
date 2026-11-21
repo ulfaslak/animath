@@ -11,6 +11,10 @@ import { nameKey } from '@mathgame/engine';
  * - Who is there when the player arrives in a world, or when the socket
  *   comes back after dropping, is who is there, not who came: the first
  *   roster after either says nothing.
+ * - A player who takes a new name (the pause menu's New name) is the same
+ *   player under it: the roster's public id (`pid`) they had under the old
+ *   name, in this world, says so, and nobody came or went. Names, not ids,
+ *   are the key otherwise: a server that restarts gives everyone a new id.
  * - Someone gone from the roster went home only once they have been gone
  *   `LEAVE_GRACE_SECONDS`; one who is back sooner (a reload, a hiccup, the
  *   server restarting) never left. One who was last seen taking the plane
@@ -64,6 +68,8 @@ export class ArrivalNotes {
 	private missing = new Map<string, { name: string; since: number; flew: boolean }>();
 	/** Who was last seen taking the plane, by key. */
 	private boarding = new Set<string>();
+	/** The key each public id on a roster in this world had last: a new one for an id is a new name. */
+	private keyOfPid = new Map<string, string>();
 	private baseline = true;
 	private waiting: Waiting[] = [];
 	private shown: Note | null = null;
@@ -81,8 +87,31 @@ export class ArrivalNotes {
 		this.lastSeen.clear();
 		this.missing.clear();
 		this.boarding.clear();
+		this.keyOfPid.clear();
 		this.waiting = this.waiting.filter((w) => w.kind === 'elsewhere');
 		this.baseline = true;
+	}
+
+	/** The player known by `was` is called `name` now: all that is known of them goes with them. */
+	private renamed(was: string, key: string, name: string): void {
+		const present = this.present.get(was);
+		if (present !== undefined) {
+			this.present.delete(was);
+			this.present.set(key, name);
+		}
+		const seen = this.lastSeen.get(was);
+		if (seen !== undefined) {
+			this.lastSeen.delete(was);
+			this.lastSeen.set(key, seen);
+		}
+		const missing = this.missing.get(was);
+		if (missing !== undefined) {
+			this.missing.delete(was);
+			this.missing.set(key, { ...missing, name });
+		}
+		if (this.boarding.delete(was)) this.boarding.add(key);
+		for (const w of this.waiting)
+			if (w.kind !== 'elsewhere' && keyOf(w.name) === was) w.name = name;
 	}
 
 	/**
@@ -101,9 +130,23 @@ export class ArrivalNotes {
 
 	/**
 	 * A roster came: everyone else in the world now, by name, and who of
-	 * them is taking the plane (`planes`).
+	 * them is taking the plane (`planes`); `pids`, beside `names`, their
+	 * public ids.
 	 */
-	roster(names: readonly string[], now: number, planes: readonly string[] = []): void {
+	roster(
+		names: readonly string[],
+		now: number,
+		planes: readonly string[] = [],
+		pids: readonly string[] = []
+	): void {
+		names.forEach((name, i) => {
+			const pid = pids[i];
+			if (pid === undefined) return;
+			const was = this.keyOfPid.get(pid);
+			const key = keyOf(name);
+			if (was !== undefined && was !== key) this.renamed(was, key, name);
+			this.keyOfPid.set(pid, key);
+		});
 		const here = new Map(names.map((name) => [keyOf(name), name]));
 		const inPlane = new Set(planes.map(keyOf));
 		for (const key of here.keys()) this.seenKey(key, inPlane.has(key));

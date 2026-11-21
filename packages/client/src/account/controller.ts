@@ -13,8 +13,11 @@ import type { KeyValueStore } from '../save/storage';
 import {
 	PROMPT_CHOICES,
 	account,
+	awayFromHome,
+	cardBoxes,
 	loginByNameAlone,
 	type AccountCard,
+	type AccountField,
 	type AccountFrom,
 	type AccountProblem,
 	type WelcomeView
@@ -28,7 +31,8 @@ import {
 	loginAtHome,
 	logout,
 	lookAtWelcome,
-	register
+	register,
+	renameAccount
 } from './api';
 import type { AccountNote } from './restart';
 import {
@@ -37,6 +41,7 @@ import {
 	holdLogout,
 	logInHere,
 	logOutHere,
+	moveAccountGame,
 	moveGuestGameIn,
 	releaseLogout,
 	rememberLogout,
@@ -63,6 +68,13 @@ import {
  * account the admin made for a game that came from another server, whose
  * password the kid picks. Picking it logs in as a login does; a spent link
  * says so kindly and offers a login, or the game this browser plays.
+ *
+ * The pause menu's New name and New password open the card for the player
+ * on screen. A guest's new name is the game's alone (`nameChosen`). An
+ * account's goes to the server first, and on any browser but the account's
+ * own the account's password goes with either; a new name then moves the
+ * account's game in this browser to the new name's keys, and the page starts
+ * again in it.
  */
 
 export interface AccountHooks {
@@ -93,6 +105,15 @@ export interface AccountHooks {
 	forgetWelcome?(): void;
 	/** A new password was picked: the card is gone, and the game says so. */
 	passwordChanged?(): void;
+	/** A guest picked a new name (as `checkName` keeps it): the card is gone, and the game takes it. */
+	nameChosen?(name: string): void;
+	/**
+	 * The account took a new name, and this browser has no room to keep its
+	 * game under it: nothing this page plays reaches the account any more, so
+	 * the page plays on as a logged-out one (its game kept in this browser
+	 * only), and says so; logging in by the new name brings the account back.
+	 */
+	cannotFollow?(): void;
 	/**
 	 * The gate could not make the account because the server is busy or away
 	 * (too many tries from one school's network, no connection): the card is
@@ -103,6 +124,24 @@ export interface AccountHooks {
 
 /** Keys that change what a box holds without typing a letter. */
 const EDIT_KEYS: ReadonlySet<string> = new Set(['Backspace', 'Delete']);
+
+/**
+ * How long a page following its account's new name waits for the server's
+ * copy of the game before it starts again with its own: start-up's wait.
+ */
+export const FOLLOW_WAIT_MS = 2_500;
+
+/** What the box `field` holds. */
+function draftOf(field: AccountField): string {
+	switch (field) {
+		case 'name':
+			return account.nameDraft;
+		case 'password':
+			return account.passwordDraft;
+		case 'current':
+			return account.currentDraft;
+	}
+}
 
 /** A wait the server asked for, in whole minutes, at least one. */
 function minutes(seconds: number): number {
@@ -115,6 +154,9 @@ export class AccountController {
 
 	/** The welcome link's token while its card is up: the controller's alone, never the view's. */
 	private welcomeToken: string | null = null;
+
+	/** A new name this browser had no room to follow (`followRename`): not tried again on this page. */
+	private unfollowed: string | null = null;
 
 	constructor(private hooks: AccountHooks) {}
 
@@ -166,10 +208,22 @@ export class AccountController {
 		void this.learnHome();
 	}
 
-	/** A new password, on the account's own browser (the pause menu). */
+	/**
+	 * A new password for the account the page plays (the pause menu): on its
+	 * own browser the new one alone, anywhere else the password now first.
+	 */
 	openPassword(): void {
-		if (account.name === null || !account.home) return;
+		if (account.name === null) return;
 		this.open('password', 'pause', account.name);
+	}
+
+	/**
+	 * A new name for the player (the pause menu): the name box holds the name
+	 * they have, picked whole so typing replaces it. An account's, away from
+	 * its own browser, asks for the password too.
+	 */
+	openName(): void {
+		this.open('name', 'pause', this.hooks.playerName() ?? account.name ?? '');
 	}
 
 	/**
@@ -227,15 +281,21 @@ export class AccountController {
 		account.from = from;
 		account.nameDraft = name;
 		account.passwordDraft = '';
+		account.currentDraft = '';
 		account.reveal = false;
 		account.problem = null;
 		account.busy = false;
 		// Straight to the password when the name is there already, or is the account's own;
-		// a name that logs in alone keeps the typing in the name box, the only box.
+		// a name that logs in alone keeps the typing in the name box, the only box. A new
+		// name starts in its box; a new password away from home with the password now.
 		account.field =
-			(name === '' && card !== 'welcome' && card !== 'password') || loginByNameAlone()
+			card === 'name' ||
+			(name === '' && card !== 'welcome' && card !== 'password') ||
+			loginByNameAlone()
 				? 'name'
-				: 'password';
+				: card === 'password' && awayFromHome()
+					? 'current'
+					: 'password';
 		this.guard.show();
 		sfx.play('confirm');
 	}
@@ -249,6 +309,7 @@ export class AccountController {
 		account.busy = false;
 		account.problem = null;
 		account.passwordDraft = '';
+		account.currentDraft = '';
 	}
 
 	/**
@@ -308,24 +369,29 @@ export class AccountController {
 				e.preventDefault();
 				if (!e.repeat) this.close();
 				return;
-			case 'Tab':
-				// The other box; the focus never leaves the card. The welcome card's name and the
-				// new password card's are the account's, not typed: the password keeps the typing.
-				// A name that logs in alone has no password box to go to.
+			case 'Tab': {
+				// The next box the card has, round again; the focus never leaves the card. The
+				// welcome card's name and the new password card's are the account's, not typed, and
+				// a name that logs in alone has no password box to go to (`cardBoxes`).
 				e.preventDefault();
-				if (account.card !== 'welcome' && account.card !== 'password' && !loginByNameAlone())
-					account.field = account.field === 'name' ? 'password' : 'name';
+				const boxes = cardBoxes();
+				const at = boxes.indexOf(account.field);
+				if (boxes.length > 1) account.field = boxes[(at + 1) % boxes.length]!;
 				return;
-			case 'Enter':
+			}
+			case 'Enter': {
 				e.preventDefault();
 				if (e.repeat || !this.guard.press()) return;
-				// From the name box, Enter goes on to the password first, unless the name is enough.
-				if (account.field === 'name' && account.passwordDraft === '' && !loginByNameAlone()) {
-					account.field = 'password';
+				// Enter goes on to the next box first while it is empty: the name, then the password.
+				const boxes = cardBoxes();
+				const next = boxes[boxes.indexOf(account.field) + 1];
+				if (next !== undefined && draftOf(next) === '') {
+					account.field = next;
 					return;
 				}
 				void this.submit();
 				return;
+			}
 		}
 		// Typing again, or rubbing out: the problem goes until the next try.
 		if (account.problem !== null && (e.key.length === 1 || EDIT_KEYS.has(e.key))) {
@@ -339,6 +405,8 @@ export class AccountController {
 		sfx.play('wrong');
 		if (problem.kind === 'name' || problem.kind === 'taken') account.field = 'name';
 		else if (problem.kind === 'password' || problem.kind === 'wrong') account.field = 'password';
+		else if (problem.kind === 'wrong-current' || problem.kind === 'not-home')
+			account.field = 'current';
 	}
 
 	/**
@@ -376,21 +444,31 @@ export class AccountController {
 		else if (account.card === 'login') await this.logIn();
 		else if (account.card === 'welcome') await this.welcome();
 		else if (account.card === 'password') await this.newPassword();
+		else if (account.card === 'name') await this.newName();
 	}
 
 	/**
-	 * A new password, on the account's own browser: the server keeps it and
+	 * A new password for the account the page plays: the server keeps it and
 	 * logs every other browser out; this one plays on, the card goes, and the
-	 * game says so.
+	 * game says so. Away from the account's own browser the password now goes
+	 * with it.
 	 */
 	private async newPassword(): Promise<void> {
 		const name = account.name;
 		if (name === null) return;
+		const away = awayFromHome();
+		// No account has a password this short, so this one is simply wrong: said as the server would.
+		if (away && !checkPassword(account.currentDraft).ok)
+			return this.refuse({ kind: 'wrong-current' });
 		const password = checkPassword(account.passwordDraft);
 		if (!password.ok) return this.refuse({ kind: 'password', reason: password.reason });
 		account.busy = true;
 		account.problem = null;
-		const result = await changePassword(name, account.passwordDraft);
+		const result = await changePassword(
+			name,
+			account.passwordDraft,
+			away ? account.currentDraft : undefined
+		);
 		switch (result.kind) {
 			case 'changed':
 				sfx.play('confirm');
@@ -400,15 +478,121 @@ export class AccountController {
 			case 'bad-password':
 				return this.refuse({ kind: 'password', reason: result.reason });
 			case 'not-home':
-			case 'logged-out':
+				// This browser is the account's own no more (a grown-up moved it): the password now too.
 				account.home = false;
 				return this.refuse({ kind: 'not-home' });
+			case 'wrong':
+				return this.refuse({ kind: 'wrong-current' });
+			case 'logged-out':
+				account.session = 'ended';
+				return this.refuse({ kind: 'logged-out' });
+			case 'renamed':
+				// The account took a new name on another page first: this one follows it.
+				this.close();
+				await this.followRename(result.name);
+				return;
 			case 'too-many':
 				return this.refuse({ kind: 'too-many', minutes: minutes(result.retryAfter) });
 			case 'refused':
 			case 'offline':
 				return this.refuse({ kind: 'offline' });
 		}
+	}
+
+	/**
+	 * A new name for the player. A guest's is the game's alone: the card goes,
+	 * and the game takes it. An account's goes to the server, which keeps the
+	 * old one for the account; then the account's game in this browser moves
+	 * to the new name, with it, and the page starts again in it. Away from the
+	 * account's own browser the password goes with it.
+	 */
+	private async newName(): Promise<void> {
+		const named = checkName(account.nameDraft);
+		if (!named.ok) return this.refuse({ kind: 'name', reason: named.reason });
+		account.nameDraft = named.name;
+		const name = account.name;
+		if (name === null) {
+			sfx.play('confirm');
+			this.close();
+			this.hooks.nameChosen?.(named.name);
+			return;
+		}
+		const store = this.hooks.store;
+		const away = awayFromHome();
+		if (away && !checkPassword(account.currentDraft).ok)
+			return this.refuse({ kind: 'wrong-current' });
+		if (named.name === name) {
+			// The name it has: nothing to change.
+			sfx.play('move');
+			this.close();
+			return;
+		}
+		if (!store) return this.refuse({ kind: 'offline' });
+		account.busy = true;
+		account.problem = null;
+		const result = await renameAccount(name, named.name, away ? account.currentDraft : undefined);
+		switch (result.kind) {
+			case 'renamed':
+				sfx.play('confirm');
+				// The card stays up until the page starts again; one that cannot (no room) goes.
+				if (!(await this.followRename(result.name))) this.close();
+				return;
+			case 'bad-name':
+				return this.refuse({ kind: 'name', reason: result.reason });
+			case 'taken':
+				return this.refuse({ kind: 'taken' });
+			case 'not-home':
+				account.home = false;
+				return this.refuse({ kind: 'not-home' });
+			case 'wrong':
+				return this.refuse({ kind: 'wrong-current' });
+			case 'logged-out':
+				account.session = 'ended';
+				return this.refuse({ kind: 'logged-out' });
+			case 'renamed-before':
+				this.close();
+				await this.followRename(result.name);
+				return;
+			case 'too-many':
+				return this.refuse({ kind: 'too-many', minutes: minutes(result.retryAfter) });
+			case 'refused':
+			case 'offline':
+				return this.refuse({ kind: 'offline' });
+		}
+	}
+
+	/**
+	 * The account the page plays is called `name` now: the kid picked it on
+	 * this page, or on another (another tab, another tablet) and the server
+	 * says so. The server's copy is asked for first (`FOLLOW_WAIT_MS` at most),
+	 * while the game plays on under the old name; then, with no wait between,
+	 * the game as it stands is saved, moves to the new name's keys in this
+	 * browser (`moveAccountGame`), the server's copy is taken when it is
+	 * further along (as at a login), and the page starts again in it, saying
+	 * the new name. So nothing played meanwhile stays under the old name. Once: the page waits
+	 * meanwhile (`account.leaving`) and hears nothing more. When the browser
+	 * cannot keep the game under the new name (its storage is full), the page
+	 * plays on as a logged-out one and says so (`hooks.cannotFollow`), once:
+	 * starting again would only hear the new name again, and start again for
+	 * ever.
+	 * True when this call starts the page again.
+	 */
+	async followRename(name: string): Promise<boolean> {
+		const from = account.name;
+		const store = this.hooks.store;
+		if (account.leaving || from === null || !store || this.unfollowed === name) return false;
+		account.leaving = true;
+		const theirs = await getAccountSave(name, undefined, FOLLOW_WAIT_MS);
+		this.hooks.flush();
+		if (!moveAccountGame(store, from, name)) {
+			account.leaving = false;
+			this.unfollowed = name;
+			this.hooks.cannotFollow?.();
+			return false;
+		}
+		if (theirs.kind === 'found') takeAccountGame(store, name, theirs.doc);
+		this.hooks.restart('renamed', name);
+		return true;
 	}
 
 	/**

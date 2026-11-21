@@ -39,6 +39,7 @@ const NO_LIMITS: AccountLimits = {
 	registerPerIp: ROOMY,
 	registerPerName: ROOMY,
 	savesPerAccount: ROOMY,
+	renamesPerAccount: ROOMY,
 	welcomePerIp: ROOMY
 };
 const app = createApp({ limits: NO_LIMITS });
@@ -239,6 +240,26 @@ describe('import-save', () => {
 		await expect(
 			importSave(JSON.stringify(doc(other)), { origin: 'https://g.test' })
 		).rejects.toThrow(/already called/);
+	});
+
+	it('refuses a name an account had before the kid picked a new one, and says which account keeps it', async () => {
+		const name = freshName();
+		const browser = new Browser();
+		expect((await browser.request('POST', '/register', { name, password: 'secret' })).status).toBe(
+			201
+		);
+		const now = freshName();
+		const renamed = await browser.request(
+			'POST',
+			'/name',
+			{ name: now },
+			{ 'x-animath-account': encodeURIComponent(name) }
+		);
+		expect(renamed.status).toBe(200);
+		await expect(
+			importSave(JSON.stringify(doc(name.toLowerCase())), { origin: 'https://g.test' })
+		).rejects.toThrow(`was the name of the account called "${now}" now, and stays that account's`);
+		expect(await userOf(name)).toBeUndefined();
 	});
 });
 

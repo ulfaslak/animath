@@ -209,8 +209,18 @@ Every number above was measured in Nordland's worlds, before The Arctic's slides
 
 ### An account's name is checked once, when the account is made
 
-**What**: presence shows an account holder by the account's name (`presence/socket.ts`), which `checkName` judged at registration (`routes/account.ts`) and nothing judges again, where a guest's name is checked at every `hello` and a saved name at every load (`restoreGame`). If the name rules grow (a word added to the rude list in `names.ts`), an account named before keeps its name and shows it to other players, and [[INVARIANTS]] § "A player's name is always one `checkName` keeps" stops holding for it.
+**What**: presence shows an account holder by the account's name (`presence/socket.ts`), which `checkName` judged at registration or at its last new name (`routes/account.ts`) and nothing judges again, where a guest's name is checked at every `hello` and a saved name at every load (`restoreGame`). If the name rules grow (a word added to the rude list in `names.ts`), an account named before keeps its name and shows it to other players, and [[INVARIANTS]] § "A player's name is always one `checkName` keeps" stops holding for it.
 
-**Why deferred**: the rules have not changed since accounts shipped, and a name the rules come to refuse needs somewhere to go: an account has no way to change its name, and its kid logs in by it.
+**Why deferred**: the rules have not changed since accounts shipped. A kid can pick a new name now (`POST /api/account/name`), but nothing asks one whose name the rules come to refuse to, and their kid logs in by it.
 
-**Trigger**: the first change to the name rules after accounts shipped. In the same PR, check every account's name against the new rules, and decide how an account whose name they refuse is shown to others and renamed.
+**Trigger**: the first change to the name rules after accounts shipped. In the same PR, check every account's name against the new rules, and decide how an account whose name they refuse is shown to others and asked for a new one.
+
+### A browser that is logged out when its account takes a new name, or has no room to follow it, keeps that game under the old name
+
+**What**: a page learns that its account is called something else now only from the server, while its session is live: `/me` and the save routes answer by the old name (`account renamed`), and the page moves its game to the new name's keys (`moveAccountGame`). A browser that was logged out by then (the kid logged out there, or a new password picked elsewhere ended its session) hears `{ user: null }`, and keeps the account's game under the old name's keys (`animath.account.<old name>.save`). Logging in there by the new name takes the server's copy and leaves the old keys as they are: nothing is deleted, but play that never reached the server stays under keys no page reads. A presence socket already open on another tablet shows the old name to other players too, until that page starts again (its next save).
+
+A browser whose storage has no room for a second copy of the game cannot follow either (`moveAccountGame` is false): the page plays on logged out (`hooks.cannotFollow`), and what it plays from then on stays under the old name's keys the same way.
+
+**Why deferred**: it needs a rename on one device while another is logged out with play it never sent (or has a full storage), and nothing is lost for good. Following it would need a logged-out page to learn an old name's new one, which would tell anyone which names an account had.
+
+**Trigger**: a kid's play missing after a new name on another tablet, or `admin list` showing old names on an account whose kid reports a lost game.

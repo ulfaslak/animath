@@ -40,8 +40,10 @@ export interface PauseHooks {
 	makeAccount?: () => void;
 	/** "Log in": the account card, to log in. */
 	logIn?: () => void;
-	/** "New password", on the account's own browser: the account card, for a new one. */
+	/** "New password": the account card, for a new one. */
 	newPassword?: () => void;
+	/** "New name": the account card, for a new name for the player, guest or account. */
+	newName?: () => void;
 	/** "Log out": saved, and the page starts again as a guest. */
 	logOut?: () => void;
 }
@@ -73,8 +75,8 @@ export interface PauseHooks {
  * (`goTo`, the presence controller's: it asks the server where they are,
  * then the authority to put the player there).
  *
- * The account's rows (`menuItems`): "Make an account", "Log in" and "New
- * password" open the account card over the menu, which has the keys again
+ * The account's rows (`menuItems`): "New name", "Make an account", "Log in"
+ * and "New password" open the account card over the menu, which has the keys again
  * once the card goes; "Log out" asks first, on the right ("No, stay logged
  * in" lit first), after a quiet moment, since a kid who has forgotten their
  * password can't come back.
@@ -302,6 +304,9 @@ export class PauseController {
 				// The menu stays open under the card, as for "Make an account".
 				this.options.newPassword?.();
 				break;
+			case 'newName':
+				this.options.newName?.();
+				break;
 			case 'logOut':
 				// Not at once: a kid who has forgotten their password can't come back.
 				sfx.play('confirm');
@@ -338,6 +343,7 @@ export class PauseController {
 			case 'sound':
 				if (sfx.on !== right) this.setSound(right);
 				return true;
+			case 'newName':
 			case 'makeAccount':
 			case 'logIn':
 			case 'newPassword':

@@ -1,4 +1,4 @@
-import { nameKey, readSave, saveSeq } from '@mathgame/engine';
+import { nameKey, readSave, saveLineage, saveSeq } from '@mathgame/engine';
 import {
 	ACCOUNT_KEYS,
 	KEYS,
@@ -147,6 +147,72 @@ export function takeAccountGame(store: KeyValueStore, name: string, theirs: unkn
 		if (setAside(store, read.ok ? keys.replaced : keys.unreadable, mine))
 			store.set(keys.save, text);
 	}
+}
+
+/**
+ * The account `from` is called `to` now: the kid picked a new name on this
+ * page, or on another one and this page heard it. This browser's copy of its
+ * game moves to the new name's keys with the new name in it (a copy from a
+ * newer build, or one this build cannot read, moves as it is), and the
+ * browser plays the account by its new name if it played it by the old one.
+ * The new name's keys can hold a copy already: this game, when another tab
+ * followed first or the account had that name before, and then the two
+ * settle as at a login (`takeAccountGame`, the copy that gives way kept
+ * aside there); or another game, when an account that had the name was
+ * deleted since (a sibling's, on a family computer), which is never this
+ * account's newest, however far along: it is kept aside, and this game takes
+ * the keys. The old name's set-aside
+ * copies stay where they are.
+ *
+ * So that no play is left under keys no page reads, the browser is pointed
+ * at the new name only once its game is kept there, and the old key is
+ * emptied last; the old copy never makes room for the new (a storage that
+ * refuses every write would not take it back). False when the move could not
+ * be done (the storage is full or refuses writes): then the browser plays the
+ * old name as before, its game where it was. Only a copy written to empty
+ * keys is taken back then; when the new name's keys held a copy already, the
+ * two may stay settled there, as the next move or login would settle them.
+ */
+export function moveAccountGame(store: KeyValueStore, from: string, to: string): boolean {
+	const was = currentAccount(store);
+	const repoint = was !== null && nameKey(was.name) === nameKey(from);
+	const point = () => !repoint || logInHere(store, to);
+	const old = gameKeys({ name: from });
+	const keys = gameKeys({ name: to });
+	const text = store.get(old.save);
+	if (text === null) return point();
+	const doc = parseJson(text);
+	const readable = readSave(doc).ok && typeof doc === 'object' && doc !== null;
+	const moved = readable ? JSON.stringify({ ...(doc as Record<string, unknown>), name: to }) : text;
+	if (old.save === keys.save) {
+		// Only the case or the spacing changed: the same keys, the new name in the game.
+		if (moved !== text && !store.set(keys.save, moved)) return false;
+		if (point()) return true;
+		if (moved !== text) store.set(old.save, text);
+		return false;
+	}
+	const there = store.get(keys.save);
+	/** Whether the new key was empty and holds this game now: emptied again if the pointer fails. */
+	const wrote = there === null;
+	if (wrote) {
+		if (!store.set(keys.save, moved)) return false;
+	} else if (there !== moved) {
+		const theirs = parseJson(there);
+		const another = readable && readSave(theirs).ok && saveLineage(theirs) !== saveLineage(doc);
+		if (another) {
+			if (!setAside(store, keys.replaced, there) || !store.set(keys.save, moved)) return false;
+		} else if (readable) takeAccountGame(store, to, JSON.parse(moved));
+		const kept =
+			store.get(keys.save) === moved ||
+			setAside(store, readable ? keys.replaced : keys.unreadable, moved);
+		if (!kept) return false;
+	}
+	if (!point()) {
+		if (wrote) store.remove(keys.save);
+		return false;
+	}
+	store.remove(old.save);
+	return true;
 }
 
 /**

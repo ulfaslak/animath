@@ -21,10 +21,11 @@ import { pool } from '../src/db/index.js';
 afterAll(() => pool.end());
 
 describe('accountTablesReady', () => {
-	it("is yes on a database with every account table: the routes' own users, sessions, saves and welcome links", async () => {
+	it("is yes on a database with every account table: the routes' own users, sessions, saves, welcome links and former names", async () => {
 		expect([...ACCOUNT_TABLES].sort()).toEqual([
 			'account_save_backups',
 			'account_saves',
+			'former_names',
 			'sessions',
 			'users',
 			'welcome_tokens'
@@ -46,6 +47,11 @@ describe('accountTablesReady', () => {
 			for (const table of ACCOUNT_TABLES)
 				await client.query(`create table ${behind}.${table} (like public.${table})`);
 			await client.query(`set search_path to ${behind}`);
+			expect(await accountTablesReady(ask)).toBe(true);
+			// Before `0007`: no former names, which every rename and registration reads.
+			await client.query(`drop table ${behind}.former_names`);
+			expect(await accountTablesReady(ask)).toBe(false);
+			await client.query(`create table ${behind}.former_names (like public.former_names)`);
 			expect(await accountTablesReady(ask)).toBe(true);
 			await client.query(`alter table ${behind}.users drop column home_hash`);
 			expect(await accountTablesReady(ask)).toBe(false);

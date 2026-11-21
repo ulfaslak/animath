@@ -2038,8 +2038,14 @@ pause:
   makeAccount: Make an account
   logIn: Log in
   logOut: Log out
-  # The row on the account's own tablet or computer that picks a new password.
+  # The row that picks a new password for the account the player is logged in to.
   newPassword: New password
+  # The row that picks a new name for the player, guest or account; and while it is lit, on the
+  # right, what the name is. {name}: the player's name.
+  newPlayerName: New name
+  playerNameTitle: Your name
+  playerNameHelp: 'You are called {name}. The other players see your name over you.'
+  playerNameHelpAccount: 'You are called {name}, and you log in with that name.'
   # On the right after Log out is picked, before it logs out: without the password the
   # account's game can't come back. {name}: the account's name. Stay is lit first.
   logOutTitle: Log out?
@@ -2154,6 +2160,9 @@ account:
   # The account card's two boxes, and the button beside the password that shows it as typed.
   name: Your name
   password: Secret password
+  # The box for the password the account has now: a new name or a new password asks for it on any
+  # tablet or computer but the account's own.
+  current: Your secret password
   show: Show
   hide: Hide
   back: Back
@@ -2188,27 +2197,47 @@ account:
     text: Your game needs a secret password to go on. Your name is what you log in with.
     go: "Let's play!"
     keys: Tab other box · Enter play · Esc back
-  # The pause menu's card on the account's own tablet or computer: a new password. Every other
-  # tablet or computer logged in to the account is logged out.
+  # The pause menu's card for a new password. Every other tablet or computer logged in to the
+  # account is logged out. On the account's own tablet or computer the new one is enough; anywhere
+  # else the password now comes first (awayText, awayKeys).
   newPassword:
     title: New secret password
     text: Pick a new secret password. You need it to log in on other tablets and computers.
+    awayText: Type your secret password now, then pick a new one.
     label: New secret password
     go: Save
     keys: Enter save · Esc back
+    awayKeys: Tab other box · Enter save · Esc back
+  # The pause menu's card for a new name. A guest's name is only what the others see (guestText);
+  # an account's is what it logs in with (text), and away from the account's own tablet or
+  # computer the card asks for the password too (awayText, awayKeys).
+  newName:
+    title: A new name
+    guestText: The other players see your name over you.
+    text: Your name is what you log in with, so remember your new one!
+    awayText: You log in with your name. Type your secret password too.
+    label: New name
+    go: Save
+    keys: Enter save · Esc back
+    awayKeys: Tab other box · Enter save · Esc back
   # Why the card did not go on, in place of the line under the boxes.
   problem:
     taken: That name is taken. Pick another one!
     passwordShort: 'Your password needs at least {min} letters or numbers.'
     passwordLong: "That's a long password! {max} letters at most."
     wrong: That name and password don't go together. Try again!
+    # The password typed for a new name or a new password is not the account's.
+    wrongCurrent: "That's not your secret password. Try again!"
+    # The server says this page is logged out: a new name or password waits for a login.
+    loggedOut: "You're logged out here. Log in again first!"
     # Too many tries: the server asks to wait. {count}: minutes.
     tooMany:
       one: Lots of tries! Take a little break and try again in a minute.
       other: 'Lots of tries! Take a little break and try again in {count} minutes.'
     offline: We can't reach the game's home right now. Try again soon!
-    # A new password asked for where it can't be picked (not the account's own tablet or computer).
-    notHome: You can only pick a new password on your own tablet or computer.
+    # A new name or password asked for as on the account's own tablet or computer, which this one
+    # is not any more (a grown-up moved it): the password box comes, to type it in.
+    notHome: "This isn't your own tablet or computer any more, so type your secret password too."
     # The account was made with the game, but this browser can't store anything, so it can't log in here.
     storage: "This browser can't remember you. Your game is saved in your account: log in on another tablet or computer."
   # The card after every 1,000 steps of a guest's game.
@@ -2225,6 +2254,10 @@ account:
     movedAhead: You played on somewhere else. Here's your newest game!
     # A new password was saved.
     newPassword: Your new password is saved!
+    # The account has a new name, picked here or on another tablet or computer. {name}: the new name.
+    renamed: 'Your name is {name} now! Log in as {name} on any tablet or computer.'
+    # A guest picked a new name. {name}: the new name.
+    newName: 'Your name is {name} now!'
   # The card a welcome link opens over the title: a grown-up brought the kid's game over from
   # another computer into an account, and the kid picks its password here.
   welcome:
