@@ -57,9 +57,9 @@ function cannotDraw(): void {
 const tab = () => sessionStorage;
 
 /**
- * The game's code did not load: reported once (a reload's same error is not
- * sent again, `error-reports.ts`), then the page loads again by itself, or,
- * when it already did, the card's button does.
+ * A file of the game did not download: reported here, once (a reload's same
+ * error is not sent again, `error-reports.ts`), then the page loads again by
+ * itself, or, when it already did, the card's button does.
  */
 function notLoaded(error: unknown): void {
 	errorReports?.report(error, true);
