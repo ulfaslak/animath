@@ -6,15 +6,23 @@ import {
 	WORLD_ONE_SEED,
 	WorldEdits,
 	nameKey,
-	normalizeNickname
+	normalizeNickname,
+	type SaveWrite
 } from '@mathgame/engine';
 import { eq, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { afterAll, describe, expect, it, vi } from 'vitest';
+import { holdNames } from '../src/accounts.js';
 import { createApp } from '../src/app.js';
 import { db, pool } from '../src/db/index.js';
-import { accountSaveBackups, accountSaves, sessions, users } from '../src/db/schema.js';
+import {
+	accountSaveBackups,
+	accountSaves,
+	formerNames,
+	sessions,
+	users
+} from '../src/db/schema.js';
 import { HOME_COOKIE } from '../src/home.js';
 import { hashPassword } from '../src/passwords.js';
 import type { AccountLimits } from '../src/rate-limit.js';
@@ -22,7 +30,8 @@ import {
 	ACCOUNT_BACKUP_BYTES,
 	SAVE_FROM_NEWER_BUILD,
 	SAVE_MAX_BYTES,
-	STORED_FROM_NEWER_BUILD
+	STORED_FROM_NEWER_BUILD,
+	writeAccountSave
 } from '../src/save.js';
 import {
 	MAX_SESSIONS_PER_USER,
@@ -57,6 +66,7 @@ const NO_LIMITS: AccountLimits = {
 	registerPerIp: ROOMY,
 	registerPerName: ROOMY,
 	savesPerAccount: ROOMY,
+	renamesPerAccount: ROOMY,
 	welcomePerIp: ROOMY
 };
 
@@ -138,8 +148,28 @@ class Browser {
 		if (res.status === 200) this.account = null;
 		return res;
 	}
-	async me(): Promise<unknown> {
-		return (await this.request('GET', '/me')).json();
+	async me(extra: Record<string, string> = {}): Promise<unknown> {
+		return (await this.request('GET', '/me', undefined, extra)).json();
+	}
+	/** A new name for the account the page plays; `password` away from its own browser. */
+	async rename(name: string, password?: string) {
+		const res = await this.request(
+			'POST',
+			'/name',
+			password === undefined ? { name } : { name, password },
+			this.named()
+		);
+		if (res.status === 200) this.account = name;
+		return res;
+	}
+	/** A new password; `current`, the password now, away from the account's own browser. */
+	newPassword(password: string, current?: string) {
+		return this.request(
+			'POST',
+			'/password',
+			current === undefined ? { password } : { password, current },
+			this.named()
+		);
 	}
 	getSave() {
 		return this.request('GET', '/save', undefined, this.named());
@@ -1164,6 +1194,7 @@ describe('rate limits', () => {
 		registerPerIp: { limit: 4, windowMs: 60_000, maxKeys: 100 },
 		registerPerName: { limit: 2, windowMs: 60_000, maxKeys: 100 },
 		savesPerAccount: { limit: 3, windowMs: 60_000, maxKeys: 100 },
+		renamesPerAccount: { limit: 2, windowMs: 60_000, maxKeys: 100 },
 		welcomePerIp: { limit: 3, windowMs: 60_000, maxKeys: 100 }
 	};
 	let address = 0;
@@ -1275,6 +1306,45 @@ describe('rate limits', () => {
 		await expectTooMany(await as(mine.browser).putSave('not even JSON'));
 		expect((await as(theirs.browser).putSave(doc(1))).status).toBe(200);
 		expect((await as(mine.browser).getSave()).status).toBe(200);
+	});
+
+	it("limits an account's new names: two land, then it waits; a taken one or the same name counts none", async () => {
+		const limited = createApp({ limits: TIGHT });
+		const mine = await account();
+		const theirs = await account();
+		const as = new Browser(limited, { 'x-forwarded-for': '10.8.2.1' });
+		as.cookie = mine.browser.cookie;
+		as.home = mine.browser.home;
+		as.account = mine.browser.account;
+		expect((await as.rename(theirs.name)).status).toBe(409);
+		expect((await as.rename(mine.name)).status).toBe(200);
+		expect((await as.rename(freshName())).status).toBe(200);
+		expect((await as.rename(freshName())).status).toBe(200);
+		const stuck = as.account;
+		await expectTooMany(await as.rename(freshName()));
+		expect(as.account).toBe(stuck);
+		const other = new Browser(limited, { 'x-forwarded-for': '10.8.2.2' });
+		other.cookie = theirs.browser.cookie;
+		other.home = theirs.browser.home;
+		other.account = theirs.browser.account;
+		expect((await other.rename(freshName())).status).toBe(200);
+	});
+
+	it('counts a wrong password away from home as a wrong login for the name: the guesser is stopped, the kid at home is not', async () => {
+		const limited = createApp({ limits: TIGHT });
+		const { browser: home, name } = await account();
+		const guesser = from(limited, '10.8.3.1');
+		expect((await guesser.login(name)).status).toBe(200);
+		expect((await guesser.rename(freshName(), 'wrong')).status).toBe(403);
+		expect((await guesser.newPassword('nyt kodeord', 'wrong')).status).toBe(403);
+		expect((await guesser.rename(freshName(), 'wrong')).status).toBe(403);
+		await expectTooMany(await guesser.rename(freshName(), 'secret'));
+		await expectTooMany(await from(limited, '10.8.3.1').login(name, 'secret'));
+		const atHome = new Browser(limited, { 'x-forwarded-for': '10.8.3.2' });
+		atHome.cookie = home.cookie;
+		atHome.home = home.home;
+		atHome.account = home.account;
+		expect((await atHome.rename(freshName())).status).toBe(200);
 	});
 
 	it('blocks an address after four registrations, and a name after two tries', async () => {
@@ -1449,13 +1519,22 @@ describe('the account’s own browser', () => {
 		expect((await new Browser().login(name, 'nyt kodeord')).status).toBe(200);
 	});
 
-	it('refuses a new password anywhere else, without a session, for another account, or against the rules', async () => {
+	it('refuses a new password anywhere else without the password, without a session, for another account, or against the rules', async () => {
 		const { browser: home, name } = await account();
 		const other = new Browser();
 		expect((await other.login(name)).status).toBe(200);
+		// Away from home with no password, as a build before away changes sent it.
 		const away = await other.request('POST', '/password', { password: 'stolen' }, other.named());
 		expect(away.status).toBe(403);
 		expect(await away.json()).toEqual({ error: 'not home' });
+		const wrong = await other.request(
+			'POST',
+			'/password',
+			{ password: 'stolen', current: 'not it' },
+			other.named()
+		);
+		expect(wrong.status).toBe(403);
+		expect(await wrong.json()).toEqual({ error: 'wrong password' });
 		// The home key without the session: not logged in.
 		const keyOnly = new Browser();
 		keyOnly.home = home.home;
@@ -1483,5 +1562,250 @@ describe('the account’s own browser', () => {
 		// Nothing changed: the old password still works, and the other browser is still in.
 		expect((await new Browser().login(name, 'secret')).status).toBe(200);
 		expect(await other.me()).toEqual({ user: { name, home: false } });
+	});
+});
+
+describe('a new name', () => {
+	/** The account's former names, as stored: `name_key` → `name`. */
+	async function formerOf(name: string): Promise<Record<string, string>> {
+		const user = await userRow(name);
+		const rows = await db.select().from(formerNames).where(eq(formerNames.userId, user!.id));
+		return Object.fromEntries(rows.map((row) => [row.nameKey, row.name]));
+	}
+
+	it('at home: the account and its save take it, every browser stays logged in, and it logs in by the new name only', async () => {
+		const name = freshName();
+		const home = new Browser();
+		expect((await home.register(name, 'secret', doc(3, 'game-a', { name }))).status).toBe(201);
+		const other = new Browser();
+		expect((await other.login(name)).status).toBe(200);
+		const next = freshName();
+		const res = await home.rename(next);
+		expect(res.status).toBe(200);
+		expect(await res.json()).toEqual({ user: { name: next } });
+		expect(sessionCookieSent(res)).toBeUndefined();
+		const row = await userRow(next);
+		expect(row?.nameKey).toBe(nameKey(next));
+		expect(await userRow(name)).toBeUndefined();
+		expect(await formerOf(next)).toEqual({ [nameKey(name)]: name });
+		// The save takes the name, and nothing else in it changes.
+		expect(await storedSave(next)).toEqual(doc(3, 'game-a', { name: next }));
+		expect(await home.me()).toEqual({ user: { name: next, home: true } });
+		expect(await other.me()).toEqual({ user: { name: next, home: false } });
+		expect(await (await home.request('GET', '/home')).json()).toEqual({ names: [next] });
+		expect((await new Browser().login(next)).status).toBe(200);
+		expect((await new Browser().login(name)).status).toBe(401);
+	});
+
+	it('leaves a save with no name in it as it was', async () => {
+		const { browser, name } = await account(doc(2));
+		const next = freshName();
+		expect((await browser.rename(next)).status).toBe(200);
+		expect(await storedSave(next)).toEqual(doc(2));
+		expect(name).not.toBe(next);
+	});
+
+	it('tells a page still playing the account by its old name the new one, and takes nothing from it', async () => {
+		const name = freshName();
+		const home = new Browser();
+		expect((await home.register(name, 'secret', doc(3, 'game-a', { name }))).status).toBe(201);
+		const other = new Browser();
+		expect((await other.login(name)).status).toBe(200);
+		const next = freshName();
+		expect((await home.rename(next)).status).toBe(200);
+		// `other` still names the account by its old name.
+		const put = await other.putSave(doc(9, 'game-a', { name }));
+		expect(put.status).toBe(401);
+		expect(await put.json()).toEqual({ error: 'account renamed', name: next });
+		const get = await other.getSave();
+		expect(get.status).toBe(401);
+		expect(await get.json()).toEqual({ error: 'account renamed', name: next });
+		expect(await storedSave(next)).toEqual(doc(3, 'game-a', { name: next }));
+		expect(await other.me(other.named())).toEqual({
+			user: { name: next, home: false, renamed: true }
+		});
+		// Named by its name now, by none, or by a name it never had: nothing renamed.
+		expect(await other.me({ 'x-animath-account': encodeURIComponent(next) })).toEqual({
+			user: { name: next, home: false }
+		});
+		expect(await other.me()).toEqual({ user: { name: next, home: false } });
+		const { name: stranger } = await account();
+		expect(await other.me({ 'x-animath-account': encodeURIComponent(stranger) })).toEqual({
+			user: { name: next, home: false }
+		});
+		// Its logout by the old name ends its session.
+		expect((await other.logout()).status).toBe(200);
+		expect(await other.me()).toEqual({ user: null });
+		expect(await home.me()).toEqual({ user: { name: next, home: true } });
+	});
+
+	it("tells a page another account's old name means nothing to this session: not logged in", async () => {
+		const { browser: renamer, name: old } = await account();
+		expect((await renamer.rename(freshName())).status).toBe(200);
+		const { browser } = await account();
+		const res = await browser.request('GET', '/save', undefined, {
+			'x-animath-account': encodeURIComponent(old)
+		});
+		expect(res.status).toBe(401);
+		expect(await res.json()).toEqual({ error: 'not logged in' });
+	});
+
+	it('a save written as the old name, after the new one landed, is refused with the new name', async () => {
+		const { browser, name } = await account(doc(1));
+		const user = await userRow(name);
+		const next = freshName();
+		expect((await browser.rename(next)).status).toBe(200);
+		const write = doc(5) as unknown as SaveWrite;
+		expect(await writeAccountSave(user!.id, write, nameKey(name))).toEqual({
+			kind: 'renamed',
+			name: next
+		});
+		expect(await storedSave(next)).toEqual(doc(1));
+		expect(await writeAccountSave(user!.id, write, nameKey(next))).toEqual({ kind: 'saved' });
+	});
+
+	it('keeps a former name its account’s: nobody registers it or takes it, in any case; the account takes it back', async () => {
+		const { browser: a, name: first } = await account();
+		const second = freshName();
+		expect((await a.rename(second)).status).toBe(200);
+		for (const typed of [first, first.toUpperCase(), ` ${first.toLowerCase()} `]) {
+			const res = await new Browser().register(typed);
+			expect(res.status).toBe(409);
+			expect(await res.json()).toEqual({ error: 'name taken' });
+		}
+		const { browser: b, name: bName } = await account();
+		const taking = await b.rename(first.toLowerCase());
+		expect(taking.status).toBe(409);
+		expect(await taking.json()).toEqual({ error: 'name taken' });
+		expect(await userRow(bName)).toBeDefined();
+		// Its own former name the account takes back, and the name it leaves stays its own.
+		expect((await a.rename(first)).status).toBe(200);
+		expect(await formerOf(first)).toEqual({ [nameKey(second)]: second });
+		expect((await new Browser().register(second)).status).toBe(409);
+		expect((await b.rename(second)).status).toBe(409);
+	});
+
+	it('a change of case or spacing keeps the key, and keeps no former name', async () => {
+		const name = `Pip ${freshName()}`;
+		const browser = new Browser();
+		expect((await browser.register(name)).status).toBe(201);
+		const louder = name.toUpperCase();
+		expect((await browser.rename(louder)).status).toBe(200);
+		expect((await userRow(louder))?.nameKey).toBe(nameKey(name));
+		expect(await formerOf(louder)).toEqual({});
+		expect(await browser.me()).toEqual({ user: { name: louder, home: true } });
+	});
+
+	it('the name it has already changes nothing', async () => {
+		const { browser, name } = await account();
+		const res = await browser.rename(name);
+		expect(res.status).toBe(200);
+		expect(await res.json()).toEqual({ user: { name } });
+		expect(await formerOf(name)).toEqual({});
+	});
+
+	it('away from home it needs the password: none or a wrong one changes nothing, the right one renames', async () => {
+		const { browser: home, name } = await account();
+		const away = new Browser();
+		expect((await away.login(name)).status).toBe(200);
+		const next = freshName();
+		const none = await away.rename(next);
+		expect(none.status).toBe(403);
+		expect(await none.json()).toEqual({ error: 'not home' });
+		const wrong = await away.rename(next, 'not it');
+		expect(wrong.status).toBe(403);
+		expect(await wrong.json()).toEqual({ error: 'wrong password' });
+		expect((await away.rename(next, 'ab')).status).toBe(403);
+		expect(await userRow(name)).toBeDefined();
+		expect((await away.rename(next, 'secret')).status).toBe(200);
+		expect(await away.me()).toEqual({ user: { name: next, home: false } });
+		expect(await home.me()).toEqual({ user: { name: next, home: true } });
+	});
+
+	it('refuses a name the rules refuse, one too long to look at, a taken one, and a request that is no rename', async () => {
+		const { browser, name } = await account();
+		const rude = await browser.rename('x');
+		expect(rude.status).toBe(400);
+		expect(await rude.json()).toEqual({ error: 'bad name', reason: 'short' });
+		const long = await browser.rename('A'.repeat(101));
+		expect(long.status).toBe(400);
+		expect(await long.json()).toEqual({ error: 'bad name', reason: 'long' });
+		const { name: theirs } = await account();
+		expect((await browser.rename(theirs.toUpperCase())).status).toBe(409);
+		expect((await browser.request('POST', '/name', {}, browser.named())).status).toBe(400);
+		expect((await browser.request('POST', '/name', { name: 'Fresh One' })).status).toBe(400);
+		expect(
+			(
+				await browser.request(
+					'POST',
+					'/name',
+					{ name: 'Fresh One' },
+					{ 'x-animath-account': encodeURIComponent(theirs) }
+				)
+			).status
+		).toBe(401);
+		const loggedOut = new Browser();
+		loggedOut.account = name;
+		expect((await loggedOut.rename('Fresh One')).status).toBe(401);
+		expect(await formerOf(name)).toEqual({});
+	});
+
+	it('a claim on a name waits for one that holds it, and sees the former name it left', async () => {
+		const { name: holderName } = await account();
+		const holder = await userRow(holderName);
+		const { browser: renamer } = await account();
+		const wanted = freshName();
+		const key = nameKey(wanted);
+		/** Claims waiting for the name's lock (`holdNames`), by its key. */
+		const waiting = async () => {
+			const rows = await db.execute<{ n: number }>(sql`
+				select count(*)::int as n from pg_locks
+				where locktype = 'advisory' and not granted and classid = 7231 and objid = hashtext(${key})::oid`);
+			return rows.rows[0]?.n ?? 0;
+		};
+		let register: Promise<Response> | undefined;
+		let rename: Promise<Response> | undefined;
+		await db.transaction(async (tx) => {
+			// As a rename away from `wanted` does: the name held, its former name written, not yet landed.
+			await holdNames(tx, [key]);
+			await tx.insert(formerNames).values({ nameKey: key, userId: holder!.id, name: wanted });
+			register = new Browser().register(wanted);
+			rename = renamer.rename(wanted);
+			const until = Date.now() + 30_000;
+			while ((await waiting()) < 2 && Date.now() < until)
+				await new Promise((r) => setTimeout(r, 50));
+		});
+		expect((await register!).status).toBe(409);
+		expect((await rename!).status).toBe(409);
+	});
+});
+
+describe('a new password away from home', () => {
+	it('needs the password now, and logs every other browser out, keeping this one', async () => {
+		const { browser: home, name } = await account();
+		const away = new Browser();
+		expect((await away.login(name)).status).toBe(200);
+		const third = new Browser();
+		expect((await third.login(name)).status).toBe(200);
+		const changed = await away.newPassword('nyt kodeord', 'secret');
+		expect(changed.status).toBe(200);
+		expect(await changed.json()).toEqual({ ok: true });
+		expect(sessionCookieSent(changed)).toBeUndefined();
+		expect(await away.me()).toEqual({ user: { name, home: false } });
+		expect(await home.me()).toEqual({ user: null });
+		expect(await third.me()).toEqual({ user: null });
+		expect((await new Browser().login(name, 'secret')).status).toBe(401);
+		expect((await new Browser().login(name, 'nyt kodeord')).status).toBe(200);
+		// Home keeps its home: its name alone logs it in again.
+		expect((await home.request('POST', '/login', { name, home: true })).status).toBe(200);
+	});
+
+	it('a rule-breaking new password is said before the password now is looked at', async () => {
+		const { name } = await account();
+		const away = new Browser();
+		expect((await away.login(name)).status).toBe(200);
+		const short = await away.newPassword('ab', 'not it');
+		expect(short.status).toBe(400);
+		expect(await short.json()).toEqual({ error: 'bad password', reason: 'short' });
 	});
 });

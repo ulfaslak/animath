@@ -86,6 +86,27 @@ export const users = pgTable(
 );
 
 /**
+ * The names an account had before the kid picked a new one (`renameAccount`),
+ * by `name_key`, with the name as it was. A former name stays its account's:
+ * no account can be made or renamed with it but this one, which may take it
+ * back, so a browser's copy of the game kept under the old name never meets
+ * another kid's account; and a page still playing the account by its old name
+ * is told the new one (`POST /api/account/name`).
+ */
+export const formerNames = pgTable(
+	'former_names',
+	{
+		nameKey: text('name_key').primaryKey(),
+		userId: uuid('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		name: text('name').notNull(),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(t) => [index('former_names_user_id_idx').on(t.userId)]
+);
+
+/**
  * A logged-in browser. The cookie holds a random token; only its SHA-256 hash
  * is stored, so a database dump logs nobody in. `expires_at` is a year out,
  * and moves a year out again when `/me` sees it more than `SLIDE_AFTER_DAYS`

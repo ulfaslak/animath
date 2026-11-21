@@ -8,7 +8,14 @@ import {
 import { eq } from 'drizzle-orm';
 import { Hono, type Context, type MiddlewareHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
-import { changePasswordHash, createAccount, findUser } from '../accounts.js';
+import {
+	changePasswordHash,
+	createAccount,
+	findUser,
+	formerOwner,
+	nameTaken,
+	renameAccount
+} from '../accounts.js';
 import { db } from '../db/index.js';
 import { accountSaves } from '../db/schema.js';
 import {
@@ -55,7 +62,8 @@ import { acceptWelcome, welcomeState } from '../welcome.js';
  *   GET  /api/account/ready                               → 200 { ready: boolean }
  *   GET  /api/account/me                                  → 200 { user: { name, home } | null }
  *   GET  /api/account/home                                → 200 { names }: the accounts whose home this browser is
- *   POST /api/account/password  { password }              → 200 { ok: true } | 403 not home
+ *   POST /api/account/password  { password, current? }    → 200 { ok: true } | 403 not home | 403 wrong password
+ *   POST /api/account/name      { name, password? }       → 200 { user: { name } } | 409 name taken | 403
  *   GET  /api/account/save                                → 200 SaveV6 | 404 no save yet
  *   PUT  /api/account/save      SaveV6                    → 200 { ok: true } | 409 { error, save }
  *   GET  /api/account/welcome   (x-animath-welcome: token) → 200 { name } | 410 used or expired | 404
@@ -79,9 +87,13 @@ import { acceptWelcome, welcomeState } from '../welcome.js';
  *
  * An account's home (`home.ts`) is the browser it was made in, or for an
  * account made before homes the first one it is logged in on (claimed at
- * `/me` or at a login). There the name alone logs in (`home: true`), and the
- * password can be changed (`/password`, which names its account as the save
- * routes do, and logs every other browser out).
+ * `/me` or at a login). There the name alone logs in (`home: true`), and a new
+ * password (`/password`) or a new name (`/name`) needs nothing more; on any
+ * other browser logged in to the account, each needs the account's password
+ * too. Both name their account as the save routes do. A new password logs
+ * every other browser out; a new name keeps every browser in, and its old name
+ * stays the account's (`former_names`): a request naming the account by it
+ * hears the new one (`401 account renamed`, and `/me`'s `renamed`).
  */
 
 /** The header a welcome link's lookup carries its token in. */
@@ -102,6 +114,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function tooMany(c: Context, verdict: Extract<Verdict, { ok: false }>) {
 	c.header('Retry-After', String(verdict.retryAfterSeconds));
 	return c.json({ error: 'too many tries', retryAfter: verdict.retryAfterSeconds }, 429);
+}
+
+/**
+ * The page named its account by a name the account had before: `401`, as for
+ * a session that is not the account's, since nothing was done, with the name
+ * it has now, for the page to play it by.
+ */
+function renamed(c: Context, name: string) {
+	return c.json({ error: 'account renamed', name }, 401);
 }
 
 /** A welcome link that does not log anyone in: used up, too old, or no link at all. */
@@ -182,6 +203,7 @@ export interface AccountRouteOptions {
 
 export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 	const limit = {
+		renamesPerAccount: new RateLimiter(limits.renamesPerAccount),
 		loginPerIp: new RateLimiter(limits.loginPerIp),
 		loginFailuresPerNameFromIp: new RateLimiter(limits.loginFailuresPerNameFromIp),
 		loginFailuresPerName: new RateLimiter(limits.loginFailuresPerName),
@@ -236,10 +258,49 @@ export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 		if (!user) return c.json({ error: 'not logged in' }, 401);
 		const claimed = claimedAccount(c);
 		if (!claimed) return c.json({ error: `name the account in ${ACCOUNT_HEADER}` }, 400);
-		if (claimed !== user.nameKey) return c.json({ error: 'not logged in' }, 401);
+		if (claimed !== user.nameKey) {
+			// The page plays this account by a name it had before: it hears the new one.
+			if ((await formerOwner(db, claimed)) === user.id) return renamed(c, user.name);
+			return c.json({ error: 'not logged in' }, 401);
+		}
 		c.set('user', user);
 		await next();
 	};
+
+	/**
+	 * Away from the account's own browser, a new password or a new name needs
+	 * the account's password too (`sent`): null when the request may go on, or
+	 * the answer: `403 not home` when none came (as a build before this one
+	 * sent it), `403 wrong password`, or a `429` under the login's limits on
+	 * wrong passwords for the account's name, counted until the password proves
+	 * right, as a login counts them.
+	 */
+	async function confirmAway(
+		c: Context,
+		user: SessionUser,
+		sent: unknown
+	): Promise<Response | null> {
+		const stored = await findUser(user.nameKey);
+		if (!stored) return c.json({ error: 'not logged in' }, 401);
+		if (isHome(stored.homeHash, homeKey(c, cookie))) return null;
+		if (typeof sent !== 'string') return c.json({ error: 'not home' }, 403);
+		const pair = `${user.nameKey}\u0000${rateKey(clientIp(c))}`;
+		const fromHere = limit.loginFailuresPerNameFromIp.hit(pair);
+		if (!fromHere.ok) return tooMany(c, fromHere);
+		const fromAnywhere = limit.loginFailuresPerName.hit(user.nameKey);
+		if (!fromAnywhere.ok) {
+			limit.loginFailuresPerNameFromIp.refund(pair);
+			return tooMany(c, fromAnywhere);
+		}
+		const password = checkPassword(sent);
+		const right = password.ok
+			? await verifyPassword(password.password, stored.passwordHash)
+			: await verifyDecoy('wrong length');
+		if (!right) return c.json({ error: 'wrong password' }, 403);
+		limit.loginFailuresPerNameFromIp.refund(pair);
+		limit.loginFailuresPerName.refund(user.nameKey);
+		return null;
+	}
 
 	/** At most `savesPerAccount` save PUTs an account, before any body is read. */
 	const savesLimited: MiddlewareHandler<Env> = async (c, next) => {
@@ -285,9 +346,9 @@ export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 				}
 				save = checked.value;
 			}
-			// Spare the slow hash for a name that is plainly taken; the unique
-			// key still decides a race between two registrations.
-			if (await findUser(key)) return c.json({ error: 'name taken' }, 409);
+			// Spare the slow hash for a name that is plainly taken, or was another
+			// account's; the name's lock decides a race between two claims.
+			if (await nameTaken(key)) return c.json({ error: 'name taken' }, 409);
 			// The browser it is made in is its home.
 			const home = await homeKeyOrNew(c, cookie);
 			const created = await createAccount({
@@ -359,7 +420,10 @@ export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 				// moment (a cookie whose session is gone opens nothing). A session that is another
 				// account's now is left as it is.
 				const user = await sessionUser(c);
-				if (token !== undefined && user?.nameKey === claimed) await deleteSession(token);
+				const own =
+					user !== null &&
+					(user.nameKey === claimed || (await formerOwner(db, claimed)) === user.id);
+				if (token !== undefined && own) await deleteSession(token);
 				return c.json({ ok: true });
 			}
 			if (token !== undefined) await deleteSession(token);
@@ -378,7 +442,15 @@ export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 			const token = sessionToken(c);
 			const home =
 				token !== undefined && (await settleHome(c, user.id, await homeHashFor(user.id), token));
-			return c.json({ user: { name: user.name, home } });
+			// A page that names its account by a name the account had before took a new one since.
+			const claimed = claimedAccount(c);
+			const renamed =
+				typeof claimed === 'string' &&
+				claimed !== user.nameKey &&
+				(await formerOwner(db, claimed)) === user.id;
+			return c.json({
+				user: renamed ? { name: user.name, home, renamed } : { name: user.name, home }
+			});
 		})
 		.get('/home', async (c) => {
 			// The answer names accounts for a secret: no cache keeps it.
@@ -389,9 +461,6 @@ export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 			const byIp = limit.loginPerIp.hit(rateKey(clientIp(c)));
 			if (!byIp.ok) return tooMany(c, byIp);
 			const user = c.get('user');
-			if (!isHome(await homeHashFor(user.id), homeKey(c, cookie))) {
-				return c.json({ error: 'not home' }, 403);
-			}
 			const body = await readJson(c);
 			if (body === undefined) return c.json({ error: 'body is not valid JSON' }, 400);
 			if (!isRecord(body) || typeof body.password !== 'string') {
@@ -399,6 +468,8 @@ export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 			}
 			const password = checkPassword(body.password);
 			if (!password.ok) return c.json({ error: 'bad password', reason: password.reason }, 400);
+			const refused = await confirmAway(c, user, body.current);
+			if (refused) return refused;
 			const token = sessionToken(c);
 			if (token === undefined) return c.json({ error: 'not logged in' }, 401);
 			const changed = await changePasswordHash(
@@ -408,6 +479,33 @@ export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 			);
 			if (!changed) return c.json({ error: 'not logged in' }, 401);
 			return c.json({ ok: true });
+		})
+		.post('/name', requireSession, tooBig(LOGIN_MAX_BYTES), async (c) => {
+			const byIp = limit.loginPerIp.hit(rateKey(clientIp(c)));
+			if (!byIp.ok) return tooMany(c, byIp);
+			const user = c.get('user');
+			const body = await readJson(c);
+			if (body === undefined) return c.json({ error: 'body is not valid JSON' }, 400);
+			if (!isRecord(body) || typeof body.name !== 'string') {
+				return c.json({ error: 'send a name' }, 400);
+			}
+			const named =
+				body.name.length > MAX_TYPED_NAME
+					? ({ ok: false, reason: 'long' } as const)
+					: checkName(body.name);
+			if (!named.ok) return c.json({ error: 'bad name', reason: named.reason }, 400);
+			const refused = await confirmAway(c, user, body.password);
+			if (refused) return refused;
+			// The name as it is: nothing to change, and no rename counted.
+			if (named.name === user.name) return c.json({ user: { name: user.name } });
+			const key = nameKey(named.name);
+			const byAccount = limit.renamesPerAccount.hit(user.id);
+			if (!byAccount.ok) return tooMany(c, byAccount);
+			const result = await renameAccount(user.id, named.name, key);
+			if (result.kind !== 'renamed') limit.renamesPerAccount.refund(user.id);
+			if (result.kind === 'gone') return c.json({ error: 'not logged in' }, 401);
+			if (result.kind === 'taken') return c.json({ error: 'name taken' }, 409);
+			return c.json({ user: { name: named.name } });
 		})
 		.get('/save', requireSession, async (c) => {
 			const [row] = await db
@@ -425,8 +523,10 @@ export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 				if (checked.reason === 'newer') return c.json({ error: SAVE_FROM_NEWER_BUILD }, 503);
 				return c.json({ error: 'bad save', detail: checked.error }, 400);
 			}
-			const written = await writeAccountSave(c.get('user').id, checked.value);
+			const user = c.get('user');
+			const written = await writeAccountSave(user.id, checked.value, user.nameKey);
 			if (written.kind === 'gone') return c.json({ error: 'not logged in' }, 401);
+			if (written.kind === 'renamed') return renamed(c, written.name);
 			if (written.kind === 'stale') {
 				return c.json(
 					{ error: 'a save with the same or a higher seq is already stored', save: written.stored },

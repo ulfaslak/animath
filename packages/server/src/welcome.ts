@@ -1,6 +1,6 @@
 import type { SaveWrite } from '@mathgame/engine';
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import { isUniqueViolation } from './accounts.js';
+import { formerOwner, holdNames, isUniqueViolation } from './accounts.js';
 import { db } from './db/index.js';
 import { accountSaves, users, welcomeTokens } from './db/schema.js';
 import { NO_PASSWORD } from './passwords.js';
@@ -66,8 +66,8 @@ export interface WelcomeAccount {
 
 /**
  * Makes the account `name`, with `save` and no password, and a welcome link
- * to it, all or nothing. Null when the name is taken: the unique `name_key`
- * decides, as for a registration.
+ * to it, all or nothing. Null when the name is taken, as for a registration:
+ * the unique `name_key` decides, and another account's former name is taken too.
  */
 export async function createWelcomeAccount(
 	account: WelcomeAccount
@@ -75,6 +75,8 @@ export async function createWelcomeAccount(
 	const token = newSecret();
 	try {
 		return await db.transaction(async (tx) => {
+			await holdNames(tx, [account.nameKey]);
+			if ((await formerOwner(tx, account.nameKey)) !== null) return null;
 			const [user] = await tx
 				.insert(users)
 				.values({ name: account.name, nameKey: account.nameKey, passwordHash: NO_PASSWORD })

@@ -50,6 +50,13 @@
 			"when": 1790000600000,
 			"tag": "0006_account_home",
 			"breakpoints": true
+		},
+		{
+			"idx": 7,
+			"version": "7",
+			"when": 1790000700000,
+			"tag": "0007_former_names",
+			"breakpoints": true
 		}
 	]
 }

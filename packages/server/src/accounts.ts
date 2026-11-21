@@ -2,20 +2,38 @@ import type { SaveWrite } from '@mathgame/engine';
 import { and, eq, getTableColumns, getTableName, ne, sql } from 'drizzle-orm';
 import type { QueryConfig } from 'pg';
 import { db, pool } from './db/index.js';
-import { accountSaveBackups, accountSaves, sessions, users, welcomeTokens } from './db/schema.js';
+import {
+	accountSaveBackups,
+	accountSaves,
+	formerNames,
+	sessions,
+	users,
+	welcomeTokens
+} from './db/schema.js';
 import { NO_PASSWORD } from './passwords.js';
 import { hashSecret } from './secrets.js';
 import { createSession } from './sessions.js';
 
 /**
  * Accounts in the database: whether they work here now, finding one by name,
- * making one, a new password the kid picks at home, and the two things only
- * the admin does (a new password, deleting an account). What a name or a password may be is the engine's
- * rule; the routes check it before anything here runs.
+ * making one, a new name or a new password the kid picks, and the two things
+ * only the admin does (a new password, deleting an account). What a name or a
+ * password may be is the engine's rule; the routes check it before anything
+ * here runs.
  */
 
-/** The tables the account routes read: `0003_accounts` makes four, `0004` the welcome links'. */
-const ACCOUNT_SCHEMA = [users, sessions, accountSaves, accountSaveBackups, welcomeTokens];
+/**
+ * The tables the account routes read: `0003_accounts` makes four, `0004` the
+ * welcome links', `0007` the former names.
+ */
+const ACCOUNT_SCHEMA = [
+	users,
+	sessions,
+	accountSaves,
+	accountSaveBackups,
+	welcomeTokens,
+	formerNames
+];
 
 /** The accounts' tables by name. */
 export const ACCOUNT_TABLES: readonly string[] = ACCOUNT_SCHEMA.map((table) => getTableName(table));
@@ -161,7 +179,11 @@ export interface UserRow {
 
 /** The account whose name has this `nameKey`, if any. */
 export async function findUser(key: string): Promise<UserRow | null> {
-	const [row] = await db
+	return findUserIn(db, key);
+}
+
+async function findUserIn(q: typeof db | Tx, key: string): Promise<UserRow | null> {
+	const [row] = await q
 		.select({
 			id: users.id,
 			name: users.name,
@@ -171,6 +193,39 @@ export async function findUser(key: string): Promise<UserRow | null> {
 		.from(users)
 		.where(eq(users.nameKey, key));
 	return row ?? null;
+}
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** The advisory lock class a claim on a name holds (`holdNames`), apart from any other lock. */
+const NAME_LOCK = 7231;
+
+/**
+ * Holds the names `keys` until the transaction ends. Making an account (a
+ * registration, `admin import-save`) and a new name claim a name, and a new
+ * name keeps the old one as a former name, each while holding the name, so
+ * of two claims on one name the second looks only once the first has landed:
+ * the unique `name_key` alone cannot see a former name. Taken in order, so two
+ * transactions holding the same two names never wait for each other.
+ */
+export async function holdNames(tx: Tx, keys: readonly string[]): Promise<void> {
+	for (const key of [...new Set(keys)].sort()) {
+		await tx.execute(sql`select pg_advisory_xact_lock(${NAME_LOCK}, hashtext(${key}))`);
+	}
+}
+
+/** The account whose former name has this `nameKey`, if any (`former_names`). */
+export async function formerOwner(q: typeof db | Tx, key: string): Promise<string | null> {
+	const [row] = await q
+		.select({ userId: formerNames.userId })
+		.from(formerNames)
+		.where(eq(formerNames.nameKey, key));
+	return row?.userId ?? null;
+}
+
+/** The name with this `nameKey` is an account's, or was one's: nobody else can take it. */
+export async function nameTaken(key: string): Promise<boolean> {
+	return (await findUser(key)) !== null || (await formerOwner(db, key)) !== null;
 }
 
 /** Postgres' unique-violation code, however the driver wraps the error. */
@@ -193,12 +248,15 @@ export interface NewAccount {
 
 /**
  * Makes the account, its save (when one came along) and a first session, all
- * or nothing, with the browser it is made in as its home. Null when the name was taken, even by a registration that
- * landed a moment earlier: the unique `name_key` decides.
+ * or nothing, with the browser it is made in as its home. Null when the name
+ * was taken, even by a registration that landed a moment earlier (the unique
+ * `name_key` decides), or is another account's former name.
  */
 export async function createAccount(input: NewAccount): Promise<{ token: string } | null> {
 	try {
 		return await db.transaction(async (tx) => {
+			await holdNames(tx, [input.nameKey]);
+			if ((await formerOwner(tx, input.nameKey)) !== null) return null;
 			const [user] = await tx
 				.insert(users)
 				.values({
@@ -235,10 +293,64 @@ export async function setPasswordHash(userId: string, passwordHash: string): Pro
 	});
 }
 
+export type RenameResult =
+	| { kind: 'renamed' }
+	/** Another account has the name, or had it. */
+	| { kind: 'taken' }
+	/** The account is gone (deleted while the request was on its way). */
+	| { kind: 'gone' };
+
 /**
- * The kid picked a new password at home (`POST /password`): every other
- * browser logged in to the account is logged out, and this one, whose
- * session token is `keep`, stays in. False when there is no such account.
+ * The kid picked a new name (`POST /name`), `name` as `checkName` keeps it and
+ * `key` its `nameKey`. The account's old name becomes a former name of its own
+ * (none when only its case or its spacing changed: the key stays), a former
+ * name of its own it takes back, and its save, where it holds a name, takes the
+ * new one, so a login on another device finds the kid's name in it. Every
+ * browser logged in stays logged in. `taken` when another account has the
+ * name or had it.
+ */
+export async function renameAccount(
+	userId: string,
+	name: string,
+	key: string
+): Promise<RenameResult> {
+	try {
+		return await db.transaction(async (tx): Promise<RenameResult> => {
+			// The account's row first: two renames of one account, and its save writes, wait in turn.
+			const [user] = await tx
+				.select({ name: users.name, nameKey: users.nameKey })
+				.from(users)
+				.where(eq(users.id, userId))
+				.for('update');
+			if (!user) return { kind: 'gone' };
+			await holdNames(tx, [user.nameKey, key]);
+			if (key !== user.nameKey) {
+				const holder = await findUserIn(tx, key);
+				if (holder !== null) return { kind: 'taken' };
+				const formerly = await formerOwner(tx, key);
+				if (formerly !== null && formerly !== userId) return { kind: 'taken' };
+				if (formerly !== null) await tx.delete(formerNames).where(eq(formerNames.nameKey, key));
+				await tx
+					.insert(formerNames)
+					.values({ nameKey: user.nameKey, userId, name: user.name })
+					.onConflictDoNothing();
+			}
+			await tx.update(users).set({ name, nameKey: key }).where(eq(users.id, userId));
+			await tx.execute(sql`
+				update account_saves set data = jsonb_set(data, '{name}', to_jsonb(${name}::text))
+				where user_id = ${userId} and jsonb_typeof(data -> 'name') = 'string'`);
+			return { kind: 'renamed' };
+		});
+	} catch (error) {
+		if (isUniqueViolation(error)) return { kind: 'taken' };
+		throw error;
+	}
+}
+
+/**
+ * The kid picked a new password (`POST /password`): every other browser
+ * logged in to the account is logged out, and this one, whose session token
+ * is `keep`, stays in. False when there is no such account.
  */
 export async function changePasswordHash(
 	userId: string,
@@ -272,6 +384,8 @@ export interface AccountSummary {
 	sessions: number;
 	/** It has its own browser (`home.ts`). */
 	hasHome: boolean;
+	/** The names it had before, oldest first, or null with none (`former_names`). */
+	formerly: string | null;
 	/** The save's `seq`, or null with no save. */
 	seq: number | null;
 	savedAt: Date | null;
@@ -286,6 +400,9 @@ export async function listAccounts(): Promise<AccountSummary[]> {
 			hasPassword: sql<boolean>`${users.passwordHash} <> ${NO_PASSWORD}`,
 			sessions: sql<number>`(select count(*)::int from ${sessions} where ${sessions.userId} = ${users.id} and ${sessions.expiresAt} > now())`,
 			hasHome: sql<boolean>`${users.homeHash} is not null`,
+			formerly: sql<
+				string | null
+			>`(select string_agg(${formerNames.name}, ', ' order by ${formerNames.createdAt}) from ${formerNames} where ${formerNames.userId} = ${users.id})`,
 			seq: accountSaves.seq,
 			savedAt: accountSaves.updatedAt
 		})
