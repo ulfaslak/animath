@@ -29,13 +29,25 @@ import { ACCOUNT_KEYS, KEYS, accountKeys, type KeyValueStore } from '../src/save
 class MemoryStore implements KeyValueStore {
 	data = new Map<string, string>();
 	failWrites = false;
+	/** Keys whose writes fail. */
+	failKeys = new Set<string>();
+	/** Room, in characters of keys and values, as a full browser has. */
+	room = Number.POSITIVE_INFINITY;
 	get(key: string): string | null {
 		return this.data.get(key) ?? null;
 	}
 	set(key: string, value: string): boolean {
-		if (this.failWrites) return false;
+		if (this.failWrites || this.failKeys.has(key)) return false;
+		if (this.used() - (this.data.get(key)?.length ?? -key.length) + value.length > this.room) {
+			return false;
+		}
 		this.data.set(key, value);
 		return true;
+	}
+	used(): number {
+		let n = 0;
+		for (const [key, value] of this.data) n += key.length + value.length;
+		return n;
 	}
 	remove(key: string): void {
 		this.data.delete(key);
@@ -348,6 +360,30 @@ describe('an account with a new name', () => {
 		expect(moveAccountGame(store, 'Ida', 'Ella')).toBe(true);
 		expect(currentAccount(store)).toEqual({ name: 'Ella' });
 		expect([...store.data.keys()]).toEqual([ACCOUNT_KEYS.current]);
+	});
+
+	it('a full browser, or one that cannot be pointed at the new name, keeps playing the old, its game where it was', () => {
+		for (const full of [false, true]) {
+			store = new MemoryStore();
+			logInHere(store, 'Ida');
+			const text = saveText(12);
+			store.set(ida().save, text);
+			// Full: room for one copy only. Otherwise: the pointer's write fails.
+			if (full) store.room = store.used() + 40;
+			else store.failKeys.add(ACCOUNT_KEYS.current);
+			expect(moveAccountGame(store, 'Ida', 'Ella'), `full ${full}`).toBe(false);
+			expect(currentAccount(store)).toEqual({ name: 'Ida' });
+			expect(store.get(ida().save)).toBe(text);
+			expect(store.get(ella().save)).toBeNull();
+		}
+		// Only a new case: the old spelling stays in the game too.
+		store = new MemoryStore();
+		logInHere(store, 'Ida');
+		const text = saveText(12);
+		store.set(ida().save, text);
+		store.failKeys.add(ACCOUNT_KEYS.current);
+		expect(moveAccountGame(store, 'Ida', 'IDA')).toBe(false);
+		expect([currentAccount(store), store.get(ida().save)]).toEqual([{ name: 'Ida' }, text]);
 	});
 });
 

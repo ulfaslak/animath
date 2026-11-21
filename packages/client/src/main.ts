@@ -217,6 +217,11 @@ const accountController = new AccountController({
 		pauseController.close();
 		hud.accountNotice('newName');
 	},
+	// The account's new name, with no room in this browser for its game under it: play on, and say so.
+	cannotFollow: () => {
+		if (title.open && title.land === null) title.notice = 'save.storageFull';
+		else if (game.mode === 'explore') hud.notice('save.storageFull');
+	},
 	gateStepsAside: () => {
 		const passing = gated;
 		gated = null;

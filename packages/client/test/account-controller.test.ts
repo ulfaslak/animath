@@ -49,10 +49,13 @@ function key(name: string, options: { repeat?: boolean } = {}): Key {
 
 class MemoryStore implements KeyValueStore {
 	data = new Map<string, string>();
+	/** A full browser: every write fails. */
+	full = false;
 	get(key: string): string | null {
 		return this.data.get(key) ?? null;
 	}
 	set(key: string, value: string): boolean {
+		if (this.full) return false;
 		this.data.set(key, value);
 		return true;
 	}
@@ -124,6 +127,7 @@ function setup(playerName: string | null = 'Ida', currentSave?: () => SaveWrite 
 		forgetWelcome: () => welcomeSteps.push('forgetWelcome'),
 		passwordChanged: () => events.push('passwordChanged'),
 		nameChosen: (name) => events.push(`nameChosen:${name}`),
+		cannotFollow: () => events.push('cannotFollow'),
 		gateStepsAside: () => events.push('gateStepsAside')
 	});
 	const press = (...names: string[]) => {
@@ -1235,6 +1239,24 @@ describe('a new name', () => {
 			name: 'Ella'
 		});
 		expect(restarts).toEqual(['renamed']);
+	});
+
+	it('a browser with no room for the game under the new name plays on as it is, says so once, and never starts again', async () => {
+		const requests = server({});
+		const { store, controller, events, restarts } = setup('Ida');
+		account.name = 'Ida';
+		account.session = 'live';
+		logInHere(store, 'Ida');
+		const text = saveText(9);
+		store.set(gameKeys({ name: 'Ida' }).save, text);
+		store.full = true;
+		await controller.followRename('Ella');
+		expect(account.leaving).toBe(false);
+		expect(currentAccount(store)).toEqual({ name: 'Ida' });
+		expect(store.get(gameKeys({ name: 'Ida' }).save)).toBe(text);
+		// Heard again (the next save's answer, the session check): nothing more.
+		await controller.followRename('Ella');
+		expect([events, restarts, requests.length]).toEqual([['flush', 'cannotFollow'], [], 0]);
 	});
 
 	it('this browser is the account’s own no more: the password box comes', async () => {

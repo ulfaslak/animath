@@ -157,38 +157,52 @@ export function takeAccountGame(store: KeyValueStore, name: string, theirs: unkn
  * browser plays the account by its new name if it played it by the old one.
  * The new name's keys hold a copy already only when the account had that
  * name before; then the two settle as at a login (`takeAccountGame`), and
- * the copy that gives way is kept aside there. The old key is emptied only
- * once its copy is kept under the new one; the old name's set-aside copies
- * stay where they are. False when the browser could not be pointed at the new
- * name (its storage refuses writes).
+ * the copy that gives way is kept aside there. The old name's set-aside
+ * copies stay where they are.
+ *
+ * All or nothing, so that no play is left under keys no page reads: the
+ * browser is pointed at the new name only once its game is kept there, and
+ * the old key is emptied last. The old copy never makes room for the new: a
+ * storage that refuses every write would not take it back. False when the
+ * move could not be done (the storage is full or refuses writes): then the
+ * browser plays the old name as before, its game where it was.
  */
 export function moveAccountGame(store: KeyValueStore, from: string, to: string): boolean {
 	const was = currentAccount(store);
-	const pointed = was === null || nameKey(was.name) !== nameKey(from) || logInHere(store, to);
+	const repoint = was !== null && nameKey(was.name) === nameKey(from);
+	const point = () => !repoint || logInHere(store, to);
 	const old = gameKeys({ name: from });
 	const keys = gameKeys({ name: to });
 	const text = store.get(old.save);
-	if (text === null) return pointed;
+	if (text === null) return point();
 	const doc = parseJson(text);
 	const readable = readSave(doc).ok && typeof doc === 'object' && doc !== null;
 	const moved = readable ? JSON.stringify({ ...(doc as Record<string, unknown>), name: to }) : text;
 	if (old.save === keys.save) {
 		// Only the case or the spacing changed: the same keys, the new name in the game.
-		if (moved !== text) store.set(keys.save, moved);
-		return pointed;
+		if (moved !== text && !store.set(keys.save, moved)) return false;
+		if (point()) return true;
+		if (moved !== text) store.set(old.save, text);
+		return false;
 	}
 	const there = store.get(keys.save);
-	let kept: boolean;
-	if (there === null) kept = store.set(keys.save, moved);
-	else if (there === moved) kept = true;
-	else {
+	/** Whether the new key was empty and holds this game now: emptied again if the pointer fails. */
+	const wrote = there === null;
+	if (wrote) {
+		if (!store.set(keys.save, moved)) return false;
+	} else if (there !== moved) {
 		if (readable) takeAccountGame(store, to, JSON.parse(moved));
-		kept =
+		const kept =
 			store.get(keys.save) === moved ||
 			setAside(store, readable ? keys.replaced : keys.unreadable, moved);
+		if (!kept) return false;
 	}
-	if (kept) store.remove(old.save);
-	return pointed;
+	if (!point()) {
+		if (wrote) store.remove(keys.save);
+		return false;
+	}
+	store.remove(old.save);
+	return true;
 }
 
 /**

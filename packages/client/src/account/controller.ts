@@ -108,6 +108,11 @@ export interface AccountHooks {
 	/** A guest picked a new name (as `checkName` keeps it): the card is gone, and the game takes it. */
 	nameChosen?(name: string): void;
 	/**
+	 * The account took a new name, and this browser has no room to keep its
+	 * game under it: the page plays on as it is, and says so.
+	 */
+	cannotFollow?(): void;
+	/**
 	 * The gate could not make the account because the server is busy or away
 	 * (too many tries from one school's network, no connection): the card is
 	 * gone, and the game goes on as a guest. The gate asks again next time.
@@ -147,6 +152,9 @@ export class AccountController {
 
 	/** The welcome link's token while its card is up: the controller's alone, never the view's. */
 	private welcomeToken: string | null = null;
+
+	/** A new name this browser had no room to follow (`followRename`): not tried again on this page. */
+	private unfollowed: string | null = null;
 
 	constructor(private hooks: AccountHooks) {}
 
@@ -479,7 +487,8 @@ export class AccountController {
 			case 'renamed':
 				// The account took a new name on another page first: this one follows it.
 				this.close();
-				return this.followRename(result.name);
+				await this.followRename(result.name);
+				return;
 			case 'too-many':
 				return this.refuse({ kind: 'too-many', minutes: minutes(result.retryAfter) });
 			case 'refused':
@@ -523,7 +532,9 @@ export class AccountController {
 		switch (result.kind) {
 			case 'renamed':
 				sfx.play('confirm');
-				return this.followRename(result.name);
+				// The card stays up until the page starts again; one that cannot (no room) goes.
+				if (!(await this.followRename(result.name))) this.close();
+				return;
 			case 'bad-name':
 				return this.refuse({ kind: 'name', reason: result.reason });
 			case 'taken':
@@ -538,7 +549,8 @@ export class AccountController {
 				return this.refuse({ kind: 'logged-out' });
 			case 'renamed-before':
 				this.close();
-				return this.followRename(result.name);
+				await this.followRename(result.name);
+				return;
 			case 'too-many':
 				return this.refuse({ kind: 'too-many', minutes: minutes(result.retryAfter) });
 			case 'refused':
@@ -554,18 +566,28 @@ export class AccountController {
 	 * this browser (`moveAccountGame`), the server's copy is taken when it is
 	 * further along (as at a login, waiting `FOLLOW_WAIT_MS` at most), and the
 	 * page starts again in it, saying the new name. Once: the page waits
-	 * meanwhile (`account.leaving`) and hears nothing more.
+	 * meanwhile (`account.leaving`) and hears nothing more. When the browser
+	 * cannot keep the game under the new name (its storage is full), the page
+	 * plays on as it is and says so (`hooks.cannotFollow`), once: starting
+	 * again would only hear the new name again, and start again for ever.
+	 * True when this call starts the page again.
 	 */
-	async followRename(name: string): Promise<void> {
+	async followRename(name: string): Promise<boolean> {
 		const from = account.name;
 		const store = this.hooks.store;
-		if (account.leaving || from === null || !store) return;
+		if (account.leaving || from === null || !store || this.unfollowed === name) return false;
 		account.leaving = true;
 		this.hooks.flush();
-		moveAccountGame(store, from, name);
+		if (!moveAccountGame(store, from, name)) {
+			account.leaving = false;
+			this.unfollowed = name;
+			this.hooks.cannotFollow?.();
+			return false;
+		}
 		const theirs = await getAccountSave(name, undefined, FOLLOW_WAIT_MS);
 		if (theirs.kind === 'found') takeAccountGame(store, name, theirs.doc);
 		this.hooks.restart('renamed', name);
+		return true;
 	}
 
 	/**
