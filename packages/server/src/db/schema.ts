@@ -165,7 +165,8 @@ export const welcomeTokens = pgTable(
  * by a different game (a New game on the title), one this build could not
  * read, or one an older build wrote; and the guest game the password gate
  * logged in past, which the page hands over (`POST /api/account/keep`).
- * Nothing reads it; it is there to recover a kid's game by hand.
+ * Nothing brings one back but the human, by hand; `keepAccountGame` reads only
+ * the newest row, to keep no game twice.
  */
 export const accountSaveBackups = pgTable(
 	'account_save_backups',
