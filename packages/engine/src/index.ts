@@ -68,11 +68,6 @@ export type { HintToken, PuzzleHint } from './puzzles/hint.js';
 export { BARCHART } from './puzzles/generators/barchart.js';
 export { CLOCK } from './puzzles/generators/clock.js';
 export { DOUBLE } from './puzzles/generators/double.js';
-export {
-	NUMBERLINE_LADDER,
-	arrowMarks,
-	numberLineAnswer
-} from './puzzles/generators/numberline.js';
 export { SHAPE } from './puzzles/generators/shape.js';
 
 export type {

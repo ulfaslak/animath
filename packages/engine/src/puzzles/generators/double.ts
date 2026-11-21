@@ -52,7 +52,7 @@ export const DOUBLE_LADDER: readonly (readonly DoubleForm[])[] = [
 		{ how: 'half', every: 1, shown: [42, 98] },
 		{ how: 'double', every: 100, shown: [200, 900] }
 	],
-	// 6 (age 9): any two digits doubled, halves to 148, and of odd hundreds ("half of 300").
+	// 6 (age 9): 51 to 99 doubled, halves to 148, and of odd hundreds ("half of 300").
 	[
 		{ how: 'double', every: 1, shown: [51, 99] },
 		{ how: 'half', every: 1, shown: [52, 148] },

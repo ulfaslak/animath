@@ -215,7 +215,7 @@ export class Matches {
 		this.log = options.log ?? (() => {});
 	}
 
-	/** Matches going on or waiting for a rematch: for tests and logs. */
+	/** Matches going on or waiting for a rematch: for tests. */
 	get size(): number {
 		return this.matches.size;
 	}

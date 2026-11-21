@@ -16,7 +16,7 @@ import {
  * world is (`generateChunk(seed, cx, cy)`).
  */
 
-/** A land, by id. Nordland is today's; more follow, each added to `LAND_IDS` and `LANDS`. */
+/** A land, by id: Nordland and The Arctic. A new land is added to `LAND_IDS` and `LANDS`. */
 export type LandId = 'nordland' | 'arctic';
 
 /**

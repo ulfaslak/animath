@@ -73,8 +73,9 @@ import { acceptWelcome, welcomeState } from '../welcome.js';
  * A welcome link (`welcome.ts`) is looked up and used under the login's
  * limit per address; its GET says only the name of a live link's account,
  * and nothing about a spent one but that it is spent. Its token travels in a
- * header or a body, never in a path: nginx's error log keeps a request's
- * line whole and cannot be cleaned (`nginx/http.conf`).
+ * header or a body, never in a path: nginx's error log, which cannot be
+ * cleaned, still writes a request's line whole when nginx runs out of memory
+ * (`nginx/http.conf`).
  *
  * An account's home (`home.ts`) is the browser it was made in, or for an
  * account made before homes the first one it is logged in on (claimed at
