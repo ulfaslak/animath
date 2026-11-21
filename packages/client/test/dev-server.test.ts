@@ -5,9 +5,10 @@ import { createServer, type ViteDevServer } from 'vite';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 /**
- * The dev server answers the old tunnel link from the internet ([[DEVELOPMENT]]
- * § The old tunnel), so what it hands out from outside the client is the
- * engine and the installed libraries, never the rest of the clone: terraform's
+ * Should the dev server ever be reached from another machine (`--host`, a
+ * tunnel, as the old ngrok one did until 2026-11-21), what it hands out from
+ * outside the client is the engine and the installed libraries, never the
+ * rest of the clone: terraform's
  * state and API token, the server's code, the agents' notes.
  */
 

@@ -12,7 +12,6 @@
  *                               [--clip x,y,w,h] [--gpu metal|swiftshader]
  *                               [--reduced-motion] [--touch] [--api]
  *                               [--safe-area top,right,bottom,left]
- *                               [--host-rules "MAP old.example localhost"]
  *                               [--storage file.json]
  *
  * `--storage` starts the page with a game of your own making: the file is a
@@ -21,14 +20,6 @@
  * key is not there yet, so a `reload:` finds what the game saved since. A save
  * placed where a flow needs it, say `{ "animath.save": { "version": 2, … } }`
  * with a tired team out in the wild, or one shaped as an older build wrote it.
- *
- * `--host-rules` hands Chrome its `--host-resolver-rules`: the page can be
- * opened under a made-up name that leads to your own server, e.g. the old
- * tunnel's kind of address, to see what the game does away from its own
- * domain and from localhost (the moved card, `src/moved.ts`) without a hosts
- * file: `--host-rules "MAP old-tunnel.example localhost" --url
- * http://old-tunnel.example:<port>/`. Vite answers a name it does not know
- * only with `TUNNEL=1`.
  *
  * `--touch` opens the page as a touch tablet would (`hasTouch`, `isMobile`:
  * the page sees `pointer: coarse` and shows its touch controls), for the
@@ -88,10 +79,12 @@
  * The game's API is blocked: every request to `/api/` is aborted in the
  * browser, as if the server were down, and the blocked calls are counted at
  * the end. Every Vite of this repo proxies `/api` to port 3000 (the primary
- * clone's API, which serves the kids on its tunnel) unless `API_PORT` says
- * otherwise: an unblocked run would walk into the kids' worlds as a player,
- * and an account made in it would land in their database (unblocked runs
- * once filled it with throwaway players, when guests were backed up there).
+ * clone's API, on the local `mathgame` database, which keeps the games kids
+ * played before the game had its own address) unless `API_PORT` says
+ * otherwise: an unblocked run would walk into whoever plays there as a
+ * player, and an account made in it would land in that database (unblocked
+ * runs once filled it with throwaway players, when guests were backed up
+ * there).
  * The game saves in the page and plays the same. `--api` lets the calls
  * through, for a run that tests accounts: against your own API and a
  * throwaway database. The presence socket (`/api/ws`) is held the same way:
@@ -168,16 +161,10 @@ if (args.api !== undefined && args.api !== 'true') {
 	process.exit(2);
 }
 const allowApi = args.api === 'true';
-// A lone `--host-rules` would map nothing and open the real address instead.
-if (args['host-rules'] === 'true') {
-	console.error('--host-rules takes rules, e.g. "MAP old-tunnel.example localhost"');
-	process.exit(2);
-}
-const hostRules = args['host-rules'] ? [`--host-resolver-rules=${args['host-rules']}`] : [];
 const browser = await chromium.launch({
 	channel: 'chrome',
 	headless: true,
-	args: [...GPU_ARGS[gpu], ...hostRules]
+	args: GPU_ARGS[gpu]
 });
 const context = await browser.newContext({
 	viewport: { width, height },
@@ -285,14 +272,6 @@ async function textOf(selector) {
 /** What the screen says right now, one `key: value` per line. */
 async function describe() {
 	const lines = [];
-	// The moved card, before the game on an old address: its words, and where its button goes.
-	const moved = await textOf('.moved .title');
-	if (moved !== null) {
-		const go = await page.locator('.moved .go').getAttribute('href');
-		lines.push(
-			`moved: ${moved} [${await textOf('.moved .go')} → ${go}] (${await textOf('.moved .here')})`
-		);
-	}
 	// The title: its menu rows (the lit one in brackets), the confirm's choices,
 	// the player's name box, the starters' name tags (the lit one in brackets)
 	// and the card under them.
