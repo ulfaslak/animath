@@ -933,27 +933,46 @@ describe('difficulty mapping', () => {
 		expect(problems).toEqual([]);
 	});
 
-	// A higher difficulty is only harder if its kind's ladder asks something else there: two equal
-	// steps once made a tern's Long Trip ask the same clocks on easy and medium, medium hitting harder.
-	it('every kind: no difficulty asks the very puzzles of the one below it', () => {
-		const same: string[] = [];
+	// A higher difficulty is only harder if its kind's ladder asks something else there. Two equal
+	// steps once made a tern's Long Trip ask the same clocks on easy and medium, medium hitting
+	// harder; a step inside the one below (ice blocks' 9 in 8, floors' 3 in 2) let a medium attack
+	// ask an easy one's very puzzle. Two checks, because a sample sees only so much:
+	// - from the same seed two steps that ask alike draw the same puzzles, however many they hold;
+	// - a step all of whose puzzles the step below draws too is inside it. A sample of the step
+	//   below holds all its puzzles only where they are few (a box of ice blocks, a floor in
+	//   squares), so a step inside one of thousands of sums is left to its kind's own ladder test
+	//   (`skillBandsFall` above, `puzzle-kinds.test.ts`).
+	it('every kind: each difficulty asks a puzzle the one below never does', () => {
+		const [ABOVE, BELOW, MOST] = [400, 4_000, 250_000];
+		const repeats: string[] = [];
 		for (const kind of ALL_PUZZLE_KINDS) {
 			const { minDifficulty, maxDifficulty } = getGenerator(kind);
+			const draw = (at: number, seed: number, n: number) => {
+				const rng = new Rng(seed);
+				return Array.from({ length: n }, () => getGenerator(kind).generate(rng, at).prompt);
+			};
 			for (let d = minDifficulty + 1; d <= maxDifficulty; d++) {
-				// Two steps that ask alike draw the same puzzles from the same seed, whatever their
-				// tables say about bands they never use.
-				const draw = (at: number) => {
-					const rng = new Rng(900 + d);
-					return Array.from(
-						{ length: 50 },
-						() => getGenerator(kind).generate(rng, at).prompt
-					).join();
-				};
-				if (draw(d) === draw(d - 1)) same.push(`${kind}: ${d - 1} asks what ${d} asks`);
+				if (draw(d, 900 + d, 50).join() === draw(d - 1, 900 + d, 50).join()) {
+					repeats.push(`${kind}: ${d} asks what ${d - 1} asks`);
+					continue;
+				}
+				const above = draw(d, 7300 + d, ABOVE);
+				const below = new Set(draw(d - 1, 7100 + d, BELOW));
+				let fresh = above.filter((p) => !below.has(p));
+				// Few new ones may be the step below's that its sample missed. Draw more of the step
+				// below, three times as many each round, until a round finds none of the new ones
+				// (they are new) or none are left (the step is inside the one below).
+				for (let n = 2 * BELOW; fresh.length > 0 && fresh.length < ABOVE / 3 && n <= MOST; n *= 3) {
+					for (const p of draw(d - 1, 7200 + d + n, n)) below.add(p);
+					const left = fresh.filter((p) => !below.has(p));
+					if (left.length === fresh.length) break;
+					fresh = left;
+				}
+				if (fresh.length === 0) repeats.push(`${kind}: ${d - 1} asks every puzzle ${d} asks`);
 			}
 		}
-		expect(same).toEqual([]);
-	});
+		expect(repeats).toEqual([]);
+	}, 60_000);
 
 	it('any tier, any attack up to the eighth: each level is one step harder, and hard never passes the top', () => {
 		const problems: string[] = [];

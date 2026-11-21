@@ -18,7 +18,7 @@ import { DOUBLE, DOUBLE_LADDER } from '../src/puzzles/generators/double.js';
 import { FRACTION_LADDER } from '../src/puzzles/generators/fraction.js';
 import { KRONER_LADDER } from '../src/puzzles/generators/kroner.js';
 import { NUMBERLINE_LADDER, arrowMarks } from '../src/puzzles/generators/numberline.js';
-import { SHAPE_LADDER } from '../src/puzzles/generators/shape.js';
+import { SHAPE_LADDER, type ShapeStep } from '../src/puzzles/generators/shape.js';
 import { THERMOMETER_LADDER } from '../src/puzzles/generators/thermometer.js';
 import {
 	UNITS_LADDER,
@@ -241,6 +241,20 @@ describe('the ladders climb', () => {
 			...Array(8).fill(false),
 			...Array(2).fill(true)
 		]);
+		// A harder step never asks only what the step below could: its sides reach past the
+		// step below's, or it asks a kind of shape or question the step below never does.
+		const can = (share: number) => [share > 0, share < 1] as const;
+		const inside = (a: ShapeStep, b: ShapeStep) =>
+			a.side[0] >= b.side[0] &&
+			a.side[1] <= b.side[1] &&
+			a.grid === b.grid &&
+			(!a.fence || b.fence) &&
+			can(a.l).every((x, i) => !x || can(b.l)[i]) &&
+			can(a.missing).every((x, i) => !x || can(b.missing)[i]);
+		const repeats: string[] = [];
+		for (let d = 2; d <= 10; d++)
+			if (inside(SHAPE_LADDER[d - 1]!, SHAPE_LADDER[d - 2]!)) repeats.push(`${d} inside ${d - 1}`);
+		expect(repeats).toEqual([]);
 	});
 
 	it('bar chart: the lines count in ones, twos from 6, fives from 8 and tens at 10, never back; how many more from 4', () => {
