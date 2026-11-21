@@ -163,7 +163,10 @@ export const welcomeTokens = pgTable(
 /**
  * An account's saves the server was about to lose, kept instead: one replaced
  * by a different game (a New game on the title), one this build could not
- * read, or one an older build wrote. Nothing reads it; it is there to recover a kid's game by hand.
+ * read, or one an older build wrote; and the guest game the password gate
+ * logged in past, which the page hands over (`POST /api/account/keep`).
+ * Nothing brings one back but the human, by hand; `keepAccountGame` reads only
+ * the newest row, to keep no game twice.
  */
 export const accountSaveBackups = pgTable(
 	'account_save_backups',
@@ -173,7 +176,7 @@ export const accountSaveBackups = pgTable(
 			.notNull()
 			.references(() => users.id, { onDelete: 'cascade' }),
 		data: jsonb('data').notNull(),
-		/** `replaced` (another game, or an older build's save of this one, took its place) or `unreadable` (this build could not read it). */
+		/** `replaced` (another game, or an older build's save of this one, took its place), `unreadable` (this build could not read it) or `guest` (the guest game the password gate passed over, `KeptReason`). */
 		reason: text('reason').notNull(),
 		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 	},

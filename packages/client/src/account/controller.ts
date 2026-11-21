@@ -2,6 +2,7 @@ import {
 	checkName,
 	checkPassword,
 	nameKey,
+	readSave,
 	type GameEvent,
 	type SaveWrite
 } from '@mathgame/engine';
@@ -9,7 +10,7 @@ import { sfx } from '../audio/sfx.svelte';
 import { isShortcut, keyName } from '../input/keyboard';
 import { isMashKey, PickGuard } from '../input/pick-guard';
 import { REVEAL_KEY, tappedRow } from '../input/press';
-import type { KeyValueStore } from '../save/storage';
+import { KEYS, parseJson, type KeyValueStore } from '../save/storage';
 import {
 	PROMPT_CHOICES,
 	account,
@@ -27,6 +28,7 @@ import {
 	changePassword,
 	getAccountSave,
 	homeAccounts,
+	keepGame,
 	login,
 	loginAtHome,
 	logout,
@@ -43,6 +45,7 @@ import {
 	logOutHere,
 	moveAccountGame,
 	moveGuestGameIn,
+	putGuestGameAway,
 	releaseLogout,
 	rememberLogout,
 	takeAccountGame
@@ -158,6 +161,9 @@ export class AccountController {
 	/** A new name this browser had no room to follow (`followRename`): not tried again on this page. */
 	private unfollowed: string | null = null;
 
+	/** The name of the guest game the password gate last stood before (`openGate`). */
+	private gateName = '';
+
 	constructor(private hooks: AccountHooks) {}
 
 	/**
@@ -195,6 +201,7 @@ export class AccountController {
 	 */
 	openGate(name: string): void {
 		const own = name !== '' && account.homeNames.some((n) => nameKey(n) === nameKey(name));
+		this.gateName = name;
 		this.open(own ? 'login' : 'register', 'gate', name);
 	}
 
@@ -698,6 +705,9 @@ export class AccountController {
 
 	private async logIn(): Promise<void> {
 		const store = this.hooks.store;
+		// The guest game's own name, when this card is the gate's: only a login to that account
+		// passes the game over for good (any other account leaves it for its own login).
+		const gameName = account.from === 'gate' && this.gateName !== '' ? this.gateName : null;
 		if (account.nameDraft.trim() === '') return this.refuse({ kind: 'name', reason: 'empty' });
 		// On the account's own browser the name alone logs in.
 		const alone = loginByNameAlone();
@@ -716,10 +726,14 @@ export class AccountController {
 				sfx.play('confirm');
 				// This browser's new session replaced the old one: the logout held is moot.
 				forgetLogout(store);
-				// The game on screen is saved first, where it lives (the guest's stays the guest's).
+				// The game on screen is saved first, where it lives (the guest's stays the guest's,
+				// except one the gate passed over, which the account keeps aside on the server).
 				this.hooks.flush();
 				const theirs = await getAccountSave(result.name);
 				if (theirs.kind === 'found') takeAccountGame(store, result.name, theirs.doc);
+				if (gameName !== null && nameKey(gameName) === nameKey(result.name)) {
+					await this.keepGuestGame(store, result.name);
+				}
 				logInHere(store, result.name);
 				this.hooks.restart('welcome');
 				return;
@@ -743,6 +757,25 @@ export class AccountController {
 			case 'offline':
 				return this.refuse({ kind: 'offline' });
 		}
+	}
+
+	/**
+	 * The password gate logged in to `name`, the account the guest game is named
+	 * for, instead of going on with that game, which this browser alone holds
+	 * and every later Continue would lead to the same login: it goes to the account's set-aside
+	 * games on the server, for the grown-up to bring back, and once the server
+	 * has it, it is put away here too (`putGuestGameAway`), so the gate does not
+	 * stand before it again. No word is said: the kid plays the account's game,
+	 * as the login always did. A server that does not take it (out of reach,
+	 * too many saves, a game it refuses) leaves it where it is, and the next
+	 * gate sends it again.
+	 */
+	private async keepGuestGame(store: KeyValueStore, name: string): Promise<void> {
+		const text = store.get(KEYS.save);
+		if (text === null) return;
+		const doc = parseJson(text);
+		if (!readSave(doc).ok) return;
+		if (await keepGame(name, doc)) putGuestGameAway(store, text);
 	}
 
 	/**

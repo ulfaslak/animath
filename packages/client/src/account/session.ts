@@ -17,8 +17,9 @@ import {
  * their own (`KEYS`, `accountKeys`), so logging in never swaps one game for
  * another behind a kid's back, and every move between them here keeps what
  * it moves: registering takes the guest game into the account, logging in
- * leaves the guest game where it is, and logging out leaves the account's
- * game where it is, for the next login.
+ * leaves the guest game where it is (at the password gate, once the server
+ * keeps it with the account, it is put away: `putGuestGameAway`), and
+ * logging out leaves the account's game where it is, for the next login.
  */
 
 /** The account this browser is logged in to: its name as the server keeps it. */
@@ -111,6 +112,22 @@ export function moveGuestGameIn(store: KeyValueStore, name: string): boolean {
 	}
 	if (!store.set(keys.save, JSON.stringify(game))) return true;
 	setAside(store, KEYS.previous, guest, MAX_PUT_AWAY);
+	store.remove(KEYS.save);
+	return true;
+}
+
+/**
+ * The password gate logged in past the guest game, and the server has it now,
+ * kept with the account (`keepGame`): the guest game's text `text` is put
+ * away here too, among the games put away (`KEYS.previous`, as
+ * `moveGuestGameIn` puts it away), and the guest's key emptied, so the next
+ * logout leads to the title's login rather than back to the gate. A guest key
+ * that holds other text now (another tab played on since it was sent) stays
+ * as it is: the server has only the older text. False when nothing moved.
+ */
+export function putGuestGameAway(store: KeyValueStore, text: string): boolean {
+	if (store.get(KEYS.save) !== text) return false;
+	if (!setAside(store, KEYS.previous, text, MAX_PUT_AWAY)) return false;
 	store.remove(KEYS.save);
 	return true;
 }
