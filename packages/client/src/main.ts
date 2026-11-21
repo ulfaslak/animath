@@ -133,7 +133,11 @@ function heardSession(answer: SessionAnswer, home = false): void {
 	// The page is starting again, or about to (a logout, the account's new name): nothing more to say.
 	if (reloading || account.leaving) return;
 	if (answer === 'offline' || account.session === answer) return;
-	account.session = answer;
+	// The account's rows follow the session (New password while it is live, Log in once it is
+	// over): the cursors stay on the rows they lit.
+	keepingCursors(() => {
+		account.session = answer;
+	});
 	// On the account's own browser a new password or a new name asks for nothing more.
 	account.home = answer === 'live' && home;
 	if (answer !== 'ended') return;

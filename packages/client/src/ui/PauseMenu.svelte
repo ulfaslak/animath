@@ -22,11 +22,13 @@
 	import { game } from '../state/game.svelte';
 	import { presence } from '../state/presence.svelte';
 	import {
-		menuItems,
-		lineOf,
+		ACCOUNT_ROWS,
+		MENU_ITEMS,
+		MENU_LINES,
 		cardRows,
 		partyOptions,
 		pause,
+		settingsRows,
 		whyCardNotFirst,
 		whyNoGo,
 		whyNotFirst,
@@ -34,10 +36,14 @@
 		type BundleOption,
 		type MenuItem,
 		type PartyOption,
+		type Setting,
 		type WorldOption
 	} from '../state/pause.svelte';
 	import BookIcon from './BookIcon.svelte';
+	import PlayersIcon from './PlayersIcon.svelte';
 	import PuzzlesIcon from './PuzzlesIcon.svelte';
+	import SettingsIcon from './SettingsIcon.svelte';
+	import WorldsIcon from './WorldsIcon.svelte';
 	import PuzzleStats, { statRows } from './PuzzleStats.svelte';
 	import FreeStamp from './FreeStamp.svelte';
 	import BundleAnimals from './BundleAnimals.svelte';
@@ -50,12 +56,16 @@
 	/**
 	 * The pause menu: the team's cards in battle order on the left (one per
 	 * species; a card of several animals shows how many, and how many can
-	 * play), then the menu items (Worlds beside Who's here, the settings —
-	 * Language with every language in its own words, Sound with its switch —
-	 * the account's rows, then "Keep playing" and "Start screen" side by side;
+	 * play), then the menu items (Worlds beside Who's here, each a tile with
+	 * its picture, then "Keep playing" and "Start screen" side by side;
 	 * `MENU_LINES`); on the right, what can be done with the picked card or animal — a card's
-	 * options and its animals, an animal's options, or the name box. The
-	 * Worlds row (the world the kid is in beside it) opens the Worlds screen in
+	 * options and its animals, an animal's options, or the name box — or what
+	 * the lit row is. Settings (a tile on the title line) opens the Settings
+	 * screen in the menu's place: Language with every language in its own
+	 * words and Sound with its switch, in one box; under them, headed by who
+	 * is playing, the account's rows in another (`settingsRows`); Back on the
+	 * title line; on the right, what the lit row does, or Log out's question.
+	 * The Worlds row (the world the kid is in beside it) opens the Worlds screen in
 	 * the menu's place: where the kid is and their home, the number being
 	 * typed, Go, Go home and Back, and a big number pad. It reads
 	 * `game.party`, `game.world`, `game.home`, `pause`, `language` and
@@ -69,13 +79,14 @@
 	 * up a tablet's keyboard): a row on the left is its `row:<i>` key and a row
 	 * on the right (an option, or an animal of the open card) its `option:<i>`
 	 * key, each done at once (the rows on the left stay live beside the right
-	 * side, so the two lists never share a key); a language on the Language
-	 * row is its `language:<code>` key; the name box's Save and Back are Enter
+	 * side, so the two lists never share a key); a row of the Settings screen
+	 * is its `row:<i>` key, Back included, and a language on its Language row
+	 * its `language:<code>` key; the name box's Save and Back are Enter
 	 * and Escape. With the touch controls on, the key reminder goes, and while
 	 * naming the menu moves to the top of the screen, clear of the tablet's
 	 * own keyboard.
 	 *
-	 * The "My puzzles" row and the animal book's row stand on the menu's title
+	 * The "My puzzles" row, the animal book's row and Settings stand on the menu's title
 	 * line, beside "Paused", so the menu keeps its height; the book's opens it in the menu's place: a
 	 * card for every species of a land in the book's order (`bookOrder`), a
 	 * page per land with a tab for each over the cards (`bookLands`), in a grid
@@ -115,22 +126,32 @@
 		const row = rows[pause.option];
 		return row?.kind === 'animal' ? row.animal.id : null;
 	});
-	/** The menu's rows under the team, as they are now (the account's follow who is playing). */
-	const items = $derived(menuItems());
+	/** The menu's rows under the team, and on the title line. */
+	const items = MENU_ITEMS;
 	/** The card that is lit on the left: the cursor, or the card whose options or animals are open. */
 	const lit = $derived.by(() => {
 		if (pause.screen === 'list') return pause.cursor;
 		const species = pause.species ?? picked?.speciesId;
 		return cards.findIndex((c) => c.speciesId === species);
 	});
-	/** The cursor is on the Sound row: the right side says what it does (and with a keyboard, that M does it too). */
-	const soundLit = $derived(items[pause.cursor - cards.length] === 'sound');
-	/** The cursor is on the animal book's row: the right side says what the book is. */
-	const bookLit = $derived(items[pause.cursor - cards.length] === 'book');
-	/** The cursor is on "My puzzles"' row: the right side says what the page is. */
-	const puzzlesLit = $derived(items[pause.cursor - cards.length] === 'puzzles');
-	/** "New name" is lit: the right side says what the player's name is now. */
-	const nameLit = $derived(items[pause.cursor - cards.length] === 'newName');
+	/** The row of the list the cursor is on, when it is not on a card: the right side says what it is. */
+	const itemLit = $derived(
+		pause.screen === 'list' ? items[pause.cursor - cards.length] : undefined
+	);
+	/** The Settings screen's rows, as they are now (the account's follow who is playing). */
+	const settings = $derived(settingsRows());
+	/** The account's rows of them, in a box of their own under Language and Sound. */
+	const accountRows = $derived(settings.filter((row) => ACCOUNT_ROWS.includes(row)));
+	/** The Settings screen's lit row: the cursor, or Log out while its question is up. */
+	const settingLit = $derived<Setting | undefined>(
+		pause.screen === 'logOut'
+			? 'logOut'
+			: pause.screen === 'settings'
+				? settings[pause.option]
+				: undefined
+	);
+	/** The player's name, over the account's rows and in what New name says. */
+	const playerName = $derived(game.name ?? account.name ?? '');
 	/** "My puzzles"' rows: every topic, the most solved first (`statRows`). */
 	const stats = $derived(statRows(game.puzzles));
 
@@ -230,19 +251,11 @@
 	});
 
 	/**
-	 * The menu's rows as they are drawn: one to a line, or two side by side
-	 * (`MENU_LINES`, of the rows shown: `PauseController` steps between them).
+	 * The menu's lines under the team, each of rows side by side (`MENU_LINES`:
+	 * `PauseController` steps between them). The line of "My puzzles", the
+	 * book and Settings stands on the title line instead.
 	 */
-	type MenuLine = MenuItem | readonly MenuItem[];
-	const menuLines = $derived(
-		// "My puzzles" and the animal book's rows stand on the title line, not under the team.
-		items.flatMap((item): MenuLine[] => {
-			if (item === 'book' || item === 'puzzles') return [];
-			const line = lineOf(item, items);
-			if (line.length < 2) return [item];
-			return line[0] === item ? [line] : [];
-		})
-	);
+	const menuLines = MENU_LINES.filter((line) => !line.includes('settings'));
 
 	/** The Worlds screen's rows, and why Go is greyed when it is. */
 	const worldOptions = $derived(worldRows(pause.worldDraft, game.world, game.home));
@@ -266,12 +279,23 @@
 				return t('pause.players');
 			case 'worlds':
 				return t('worlds.title');
-			case 'language':
-				return t('pause.language');
 			case 'resume':
 				return t('pause.resume');
 			case 'quit':
 				return t('pause.quit');
+			case 'puzzles':
+				return t('puzzles.title');
+			case 'book':
+				return t('book.title');
+			case 'settings':
+				return t('settings.title');
+		}
+	}
+
+	function settingLabel(row: Setting): string {
+		switch (row) {
+			case 'language':
+				return t('pause.language');
 			case 'sound':
 				return t('pause.sound');
 			case 'makeAccount':
@@ -284,12 +308,18 @@
 				return t('pause.newPlayerName');
 			case 'logOut':
 				return account.leaving ? t('account.busy') : t('pause.logOut');
-			case 'puzzles':
-				return t('puzzles.title');
-			case 'book':
-				return t('book.title');
+			case 'back':
+				return t('pause.back');
 		}
 	}
+
+	/** What Settings holds, said on the right while its row is lit: its rows' names, but Back. */
+	const settingsHold = $derived(
+		settings
+			.filter((row) => row !== 'back')
+			.map(settingLabel)
+			.join(' · ')
+	);
 
 	function optionLabel(option: PartyOption | BundleOption): string {
 		switch (option) {
@@ -357,49 +387,34 @@
 	});
 </script>
 
-<!-- A row of the menu under the team: a setting, Worlds, Who's here, or a button. -->
+<!-- A row of the menu: Worlds, Who's here, My puzzles, the book and Settings as tiles with
+     their pictures; Keep playing and Start screen as buttons. -->
 {#snippet menuRow(item: MenuItem)}
 	{@const row = cards.length + items.indexOf(item)}
 	<button
 		type="button"
 		class="row item"
+		class:tile={item !== 'resume' && item !== 'quit'}
 		class:lit={(pause.screen === 'list' && lit === row) ||
-			(pause.screen === 'players' && item === 'players') ||
-			(pause.screen === 'logOut' && item === 'logOut')}
+			(pause.screen === 'players' && item === 'players')}
 		data-press={rowKey(row)}
 		{@attach unfocusable}
 	>
-		{#if item === 'language'}
-			<!-- Each language in its own words, so a kid finds theirs in any language;
-			     a tap on one is that language, anywhere else on the row the row. -->
-			<span class="setting">{itemLabel(item)}</span>
-			<span class="choices">
-				{#each LANGUAGES as code (code)}
-					<span
-						class="choice"
-						class:on={language.current === code}
-						lang={code}
-						data-press={languageKey(code)}
-					>
-						{languageName(code)}
-					</span>
-				{/each}
-			</span>
-		{:else if item === 'players'}
+		{#if item === 'players'}
 			<!-- Who else is in this world: how many, when anyone is. -->
+			<PlayersIcon />
 			<span class="setting">{itemLabel(item)}</span>
 			{#if unlisted === null}
 				<span class="count-badge">{presence.roster.length}</span>
 			{/if}
 		{:else if item === 'worlds'}
 			<!-- The world the kid is in, beside the row: the number to tell a friend. -->
+			<WorldsIcon />
 			<span class="setting">{itemLabel(item)}</span>
 			<span class="setting-value">{t('worlds.world', { world: game.world })}</span>
-		{:else if item === 'sound'}
-			<!-- A setting: its name, a switch, and the switch's state in words. -->
+		{:else if item === 'settings'}
+			<SettingsIcon />
 			<span class="setting">{itemLabel(item)}</span>
-			<Switch on={sfx.on} />
-			<span class="setting-state">{sfx.on ? t('pause.soundOn') : t('pause.soundOff')}</span>
 		{:else if item === 'puzzles'}
 			<!-- "My puzzles": its picture, its name, and how many puzzles are solved, as the HUD counts. -->
 			<PuzzlesIcon />
@@ -418,6 +433,43 @@
 	</button>
 {/snippet}
 
+<!-- A row of the Settings screen: Language and Sound with what they are set to, an account's
+     row with a chevron for the card it opens. Lit with the cursor, and Log out while it asks. -->
+{#snippet settingRow(row: Setting)}
+	{@const i = settings.indexOf(row)}
+	<button
+		type="button"
+		class="row setting-row"
+		class:lit={settingLit === row}
+		data-press={rowKey(i)}
+		{@attach unfocusable}
+	>
+		<span class="setting">{settingLabel(row)}</span>
+		{#if row === 'language'}
+			<!-- Each language in its own words, so a kid finds theirs in any language;
+			     a tap on one is that language, anywhere else on the row the row. -->
+			<span class="choices">
+				{#each LANGUAGES as code (code)}
+					<span
+						class="choice"
+						class:on={language.current === code}
+						lang={code}
+						data-press={languageKey(code)}
+					>
+						{languageName(code)}
+					</span>
+				{/each}
+			</span>
+		{:else if row === 'sound'}
+			<!-- A setting: its name, a switch, and the switch's state in words. -->
+			<Switch on={sfx.on} />
+			<span class="setting-state">{sfx.on ? t('pause.soundOn') : t('pause.soundOff')}</span>
+		{:else}
+			<span class="chevron" aria-hidden="true"></span>
+		{/if}
+	</button>
+{/snippet}
+
 <div class="backdrop" class:typing={touch.on && pause.screen === 'naming'}>
 	<div class="menu" class:book-open={pause.screen === 'book' || pause.screen === 'puzzles'}>
 		<div class="title-line">
@@ -428,7 +480,9 @@
 						? t('book.title')
 						: pause.screen === 'puzzles'
 							? t('puzzles.title')
-							: t('pause.title')}
+							: pause.screen === 'settings' || pause.screen === 'logOut'
+								? t('settings.title')
+								: t('pause.title')}
 			</div>
 			{#if pause.screen === 'book'}
 				<!-- The counts, side by side or one over the other where there is no room, and Back
@@ -448,9 +502,21 @@
 				<button type="button" class="pill back" data-press="Escape" {@attach unfocusable}>
 					{t('pause.back')}
 				</button>
+			{:else if pause.screen === 'settings' || pause.screen === 'logOut'}
+				<!-- Back: the Settings screen's last row, drawn here, as the menu's own last rows are. -->
+				<button
+					type="button"
+					class="pill back setting-back"
+					class:lit={settingLit === 'back'}
+					data-press={rowKey(settings.indexOf('back'))}
+					{@attach unfocusable}
+				>
+					{t('pause.back')}
+				</button>
 			{:else if pause.screen !== 'worlds'}
-				{#if items.includes('puzzles')}{@render menuRow('puzzles')}{/if}
-				{#if items.includes('book')}{@render menuRow('book')}{/if}
+				{@render menuRow('puzzles')}
+				{@render menuRow('book')}
+				{@render menuRow('settings')}
 			{/if}
 		</div>
 		{#if pause.screen === 'worlds'}
@@ -572,6 +638,87 @@
 			<!-- "My puzzles", in the menu's place: a row per topic, the most solved first, in a list that scrolls. -->
 			<PuzzleStats rows={stats} lit={pause.option} press={optionKey} />
 			<div class="book-caption">{t('puzzles.caption')}</div>
+		{:else if pause.screen === 'settings' || pause.screen === 'logOut'}
+			<!-- Settings, in the menu's place: Language and Sound in one box, the account's rows
+			     in another under who is playing; on the right, what the lit row does. -->
+			<div class="columns">
+				<div class="settings">
+					<div class="group">
+						{@render settingRow('language')}
+						{@render settingRow('sound')}
+					</div>
+					{#if accountRows.length > 0}
+						{#if playerName !== ''}
+							<div class="heading">{t('account.playingAs', { name: playerName })}</div>
+						{/if}
+						<div class="group">
+							{#each accountRows as row (row)}
+								{@render settingRow(row)}
+							{/each}
+						</div>
+					{/if}
+				</div>
+				<div class="side">
+					{#if pause.screen === 'logOut'}
+						<!-- Before Log out: without the password, the account's game can't come back. -->
+						<div class="side-title wraps">{t('pause.logOutTitle')}</div>
+						<div class="note ask">
+							{t(account.home ? 'pause.logOutAskHome' : 'pause.logOutAsk', {
+								name: account.name ?? ''
+							})}
+						</div>
+						<button
+							type="button"
+							class="row option"
+							class:lit={pause.option === 0}
+							data-press={optionKey(0)}
+							{@attach unfocusable}
+						>
+							<span class="caret">▸</span>{t('pause.logOutStay')}
+						</button>
+						<button
+							type="button"
+							class="row option"
+							class:lit={pause.option === 1}
+							data-press={optionKey(1)}
+							{@attach unfocusable}
+						>
+							<span class="caret">▸</span>{t('pause.logOutYes')}
+						</button>
+					{:else if settingLit === 'language'}
+						<div class="side-title">{t('pause.language')}</div>
+						<div class="note">{t('settings.languageHelp')}</div>
+					{:else if settingLit === 'sound'}
+						<div class="side-title">{t('pause.sound')}</div>
+						<!-- With the touch controls on, what a tap does; the keys only with a keyboard (#53). -->
+						<div class="note">
+							{touch.on ? t('pause.soundHelpTouch') : t('pause.soundHelp')}
+						</div>
+					{:else if settingLit === 'newName'}
+						<div class="side-title">{t('pause.playerNameTitle')}</div>
+						<div class="note">
+							{t(account.name === null ? 'pause.playerNameHelp' : 'pause.playerNameHelpAccount', {
+								name: playerName
+							})}
+						</div>
+					{:else if settingLit === 'makeAccount'}
+						<div class="side-title">{t('pause.makeAccount')}</div>
+						<div class="note">{t('account.prompt.text')}</div>
+					{:else if settingLit === 'logIn'}
+						<div class="side-title">{t('pause.logIn')}</div>
+						<div class="note">{t('settings.logInHelp')}</div>
+					{:else if settingLit === 'newPassword'}
+						<div class="side-title">{t('pause.newPassword')}</div>
+						<div class="note">{t('settings.newPasswordHelp', { name: account.name ?? '' })}</div>
+					{:else if settingLit === 'logOut'}
+						<div class="side-title">{t('pause.logOut')}</div>
+						<div class="note">{t('settings.logOutHelp', { name: account.name ?? '' })}</div>
+					{:else}
+						<div class="soft">{t('pause.back')}</div>
+						<div class="note">{t('settings.backHelp')}</div>
+					{/if}
+				</div>
+			</div>
 		{:else}
 			<div class="columns">
 				<div class="team">
@@ -621,17 +768,13 @@
 							</span>
 						</button>
 					{/each}
-					{#each menuLines as line (typeof line === 'string' ? line : line.join('+'))}
-						{#if typeof line === 'string'}
-							{@render menuRow(line)}
-						{:else}
-							<!-- Rows side by side, one line of the menu's height. -->
-							<div class="pair" class:halves={line[0] === 'worlds' || line[0] === 'language'}>
-								{#each line as item (item)}
-									{@render menuRow(item)}
-								{/each}
-							</div>
-						{/if}
+					{#each menuLines as line (line.join('+'))}
+						<!-- Rows side by side, one line of the menu's height: the tiles half and half. -->
+						<div class="pair" class:halves={line[0] === 'worlds'}>
+							{#each line as item (item)}
+								{@render menuRow(item)}
+							{/each}
+						</div>
 					{/each}
 				</div>
 
@@ -768,54 +911,30 @@
 							</div>
 							<div class="note">{t('pause.playersHelp')}</div>
 						{/if}
-					{:else if pause.screen === 'logOut'}
-						<!-- Before Log out: without the password, the account's game can't come back. -->
-						<div class="side-title wraps">{t('pause.logOutTitle')}</div>
-						<div class="note ask">
-							{t(account.home ? 'pause.logOutAskHome' : 'pause.logOutAsk', {
-								name: account.name ?? ''
-							})}
-						</div>
-						<button
-							type="button"
-							class="row option"
-							class:lit={pause.option === 0}
-							data-press={optionKey(0)}
-							{@attach unfocusable}
-						>
-							<span class="caret">▸</span>{t('pause.logOutStay')}
-						</button>
-						<button
-							type="button"
-							class="row option"
-							class:lit={pause.option === 1}
-							data-press={optionKey(1)}
-							{@attach unfocusable}
-						>
-							<span class="caret">▸</span>{t('pause.logOutYes')}
-						</button>
-					{:else if pause.screen === 'list' && soundLit}
-						<div class="side-title">{t('pause.sound')}</div>
-						<!-- With the touch controls on, what a tap does; the keys only with a keyboard (#53). -->
+					{:else if itemLit === 'worlds'}
+						<div class="side-title">{t('worlds.title')}</div>
+						<div class="note">{t('worlds.here', { world: game.world })}</div>
 						<div class="note">
-							{touch.on ? t('pause.soundHelpTouch') : t('pause.soundHelp')}
+							{game.world === game.home
+								? t('worlds.atHome')
+								: t('worlds.home', { home: game.home })}
 						</div>
-					{:else if pause.screen === 'list' && nameLit}
-						<div class="side-title">{t('pause.playerNameTitle')}</div>
-						<div class="note">
-							{t(account.name === null ? 'pause.playerNameHelp' : 'pause.playerNameHelpAccount', {
-								name: game.name ?? account.name ?? ''
-							})}
-						</div>
-					{:else if pause.screen === 'list' && puzzlesLit}
+						<div class="note">{t('worlds.tip')}</div>
+					{:else if itemLit === 'players'}
+						<div class="side-title">{t('pause.players')}</div>
+						<div class="note">{unlisted ?? t('pause.playersAbout')}</div>
+					{:else if itemLit === 'puzzles'}
 						<div class="side-title">{t('puzzles.title')}</div>
 						<div class="note">{t('puzzles.help')}</div>
 						<div class="note">{t('puzzles.solved', { count: game.solved })}</div>
-					{:else if pause.screen === 'list' && bookLit}
+					{:else if itemLit === 'book'}
 						<div class="side-title">{t('book.title')}</div>
 						<div class="note">{t('book.help')}</div>
 						<div class="note">{bookCount}</div>
 						<div class="note">{freedCount}</div>
+					{:else if itemLit === 'settings'}
+						<div class="side-title">{t('settings.title')}</div>
+						<div class="note">{settingsHold}</div>
 					{:else}
 						<div class="soft">{t('pause.pick')}</div>
 						<div class="note">{t('pause.pickHelp')}</div>
@@ -826,13 +945,13 @@
 		<!-- The keys; with the touch controls on, every row is its own button and needs no reminder. -->
 		{#if !touch.on}
 			<div class="keys">
-				{#if pause.screen === 'list' && items[pause.cursor - cards.length] === 'language'}
+				{#if pause.screen === 'settings' && settingLit === 'language'}
 					{t('pause.keysLanguage')}
-				{:else if pause.screen === 'list' && soundLit}
+				{:else if pause.screen === 'settings' && settingLit === 'sound'}
 					{t('pause.keysSound')}
 				{:else if pause.screen === 'list'}
 					{t('pause.keysList')}
-				{:else if pause.screen === 'options' || pause.screen === 'bundle' || pause.screen === 'logOut'}
+				{:else if pause.screen === 'options' || pause.screen === 'bundle' || pause.screen === 'logOut' || pause.screen === 'settings'}
 					{t('pause.keysOptions')}
 				{:else if pause.screen === 'worlds'}
 					{t('worlds.keys')}
@@ -883,12 +1002,12 @@
 	}
 	/*
 	 * The spacing is trimmed, and rows share lines (`MENU_LINES`: Worlds and
-	 * Who's here, Language and Sound, the account's rows, Keep playing and Start
-	 * screen), so a team of all eight kinds, with those under it, fits 1024×768
-	 * without the menu scrolling. A new row goes beside another, or the budget is
-	 * measured again.
+	 * Who's here, Keep playing and Start screen; My puzzles, the book and
+	 * Settings on the title line), so a team of all eight kinds, with those
+	 * under it, fits 1024×768 without the menu scrolling. A new row goes beside
+	 * another, or on the Settings screen, or the budget is measured again.
 	 */
-	/* The title, and beside it the animal book's row; in the book, its count and Back. */
+	/* The title, and beside it My puzzles, the book and Settings; in the book, its count and Back. */
 	.title-line {
 		display: flex;
 		align-items: center;
@@ -912,8 +1031,13 @@
 		width: auto;
 		margin: -6px 0 -7px;
 	}
-	/* A soft blue, the book's own, until the cursor or a mouse lights it (the rules below). */
-	.title-line .item {
+	/*
+	 * The tiles (Worlds, Who's here, My puzzles, the book, Settings): each its
+	 * picture and its name on a soft blue, the book's own, until the cursor or a
+	 * mouse lights it (the rules below), so every place the menu leads to looks
+	 * alike, and unlike the buttons that leave it.
+	 */
+	.item.tile {
 		background: rgba(61, 123, 232, 0.12);
 	}
 	/*
@@ -1041,17 +1165,16 @@
 	.tag.lead {
 		background: color-mix(in srgb, var(--accent) 40%, white);
 	}
-	.item {
-		margin-top: 4px;
-	}
+	/* The lines under the team, a little apart from it and from each other. */
 	.pair {
 		display: flex;
 		gap: 8px;
+		margin-top: 10px;
 	}
 	.pair .row {
 		width: auto;
 	}
-	/* Worlds and Who's here, and Language and Sound, share their line half and half. */
+	/* Worlds and Who's here share their line half and half. */
 	.pair.halves .row {
 		flex: 1;
 		min-width: 0;
@@ -1131,6 +1254,45 @@
 		background: rgba(0, 0, 0, 0.08);
 		font-variant-numeric: tabular-nums;
 		white-space: nowrap;
+	}
+	/*
+	 * The Settings screen: its rows in boxes of their own, white on the cream and
+	 * lifted on the toy button's edge, as a caught card in the book is: Language
+	 * and Sound in one, the account's rows in another under who is playing.
+	 */
+	.settings {
+		min-width: 0;
+	}
+	.group {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		padding: 4px;
+		border-radius: 16px;
+		background: rgba(255, 255, 255, 0.8);
+		box-shadow: 0 3px 0 var(--edge);
+	}
+	.settings .heading {
+		margin: 16px 0 6px 12px;
+	}
+	.setting-row {
+		gap: 12px;
+	}
+	/* An account's row opens a card: a chevron says so, as a phone's settings do. */
+	.chevron {
+		flex: none;
+		width: 9px;
+		height: 9px;
+		margin-right: 8px;
+		border-top: 3px solid currentColor;
+		border-right: 3px solid currentColor;
+		border-radius: 1px;
+		transform: rotate(45deg);
+		opacity: 0.4;
+	}
+	/* Back, on the Settings screen's title line, lit as the rows are. */
+	.pill.lit {
+		background: rgba(255, 159, 67, 0.22);
 	}
 	/* The Worlds screen: where the kid is, the number and the rows on the left, the pad on the right. */
 	.worlds {

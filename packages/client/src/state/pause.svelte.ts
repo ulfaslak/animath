@@ -24,37 +24,82 @@ import { account } from './account.svelte';
  * each one a "Go to" (`presence.roster`); `book` is the animal book, a page
  * per land (`book.land`) with a card for every species of the land in the
  * book's order (`bookOrder`), the lit one `option`; `puzzles` is "My
- * puzzles", a row per topic (`statRows`), the lit one `option`; `logOut`
- * asks on the right whether the kid remembers their password, before Log
- * out does it: `option` 0 stays, 1 logs out.
+ * puzzles", a row per topic (`statRows`), the lit one `option`; `settings`
+ * is the Settings screen, in the menu's place: Language, Sound and the
+ * account's rows (`settingsRows`), the lit one `option`; `logOut` asks on
+ * the Settings screen's right whether the kid remembers their password,
+ * before Log out does it: `option` 0 stays, 1 logs out.
  */
 export type PauseScreen =
-	'list' | 'bundle' | 'options' | 'naming' | 'worlds' | 'players' | 'book' | 'puzzles' | 'logOut';
+	| 'list'
+	| 'bundle'
+	| 'options'
+	| 'naming'
+	| 'worlds'
+	| 'players'
+	| 'book'
+	| 'puzzles'
+	| 'settings'
+	| 'logOut';
 
 /**
- * The rows under the team, in order: Worlds, Who's here, the settings, the
- * account's rows (as `menuItems` shows them), then "Keep playing" and Quit
- * to title, which are drawn side by side; and last "My puzzles" and the
- * animal book, which are drawn side by side at the top, on the menu's title
- * line, so up from the first card reaches the book and down from the last
- * row comes round to "My puzzles". A new row is a
- * new id here, before Keep playing, its label in `PauseMenu.svelte`, and its
- * case in `PauseController.chooseItem` — the cursor, keys and layout already
- * count every row shown. A setting's row also takes left and right
- * (`PauseController.settingKey`); the paired rows take them to step between
- * each other. `worlds` opens the Worlds screen, with the world the player is
- * in beside it; `players` opens the list of the other players in this world
- * on the right, where picking one goes to them; `language` switches every
- * word on screen to the next language at once and remembers it on this
- * device; `sound` turns the sound off and on (`sfx`); the account's rows
- * open the account card, or ask on the right and then log out (`PauseHooks`); `quit` (Start screen)
- * saves the game as it stands and goes back to the title, where Continue
- * picks it up; `puzzles` opens "My puzzles" in the menu's place, and `book`
- * the animal book.
+ * The rows under the team, in order: Worlds and Who's here, side by side,
+ * then "Keep playing" and Quit to title, side by side; and last "My
+ * puzzles", the animal book and Settings, side by side at the top, on the
+ * menu's title line, so up from the first card reaches Settings and down
+ * from the last row comes round to "My puzzles". A new row is a new id
+ * here, its place on a line of `MENU_LINES` (which `PauseMenu.svelte`
+ * draws, the title line by hand), its label there, and its case in
+ * `PauseController.chooseItem` — the cursor and keys already count every
+ * row, and a test fails while a row has no line. Rows side by side take left and right to step between each
+ * other. `worlds` opens the Worlds screen, with the world the player is in
+ * beside it; `players` opens the list of the other players in this world
+ * on the right, where picking one goes to them; `quit` (Start screen) saves
+ * the game as it stands and goes back to the title, where Continue picks it
+ * up; `puzzles` opens "My puzzles" in the menu's place, `book` the animal
+ * book, and `settings` the Settings screen (`SETTINGS`).
  */
 export const MENU_ITEMS = [
 	'worlds',
 	'players',
+	'resume',
+	'quit',
+	'puzzles',
+	'book',
+	'settings'
+] as const;
+export type MenuItem = (typeof MENU_ITEMS)[number];
+
+/**
+ * Rows drawn side by side on one line, so the menu keeps its height (eight
+ * cards fit 1024×768): Worlds beside Who's here, Keep playing beside Start
+ * screen, and on the title line "My puzzles" beside the book and Settings.
+ * Each line is neighbours in `MENU_ITEMS`. Up and down walk them in order
+ * as any rows; left and right step between them.
+ */
+export const MENU_LINES: readonly (readonly MenuItem[])[] = [
+	['worlds', 'players'],
+	['resume', 'quit'],
+	['puzzles', 'book', 'settings']
+];
+
+/** The rows drawn on the line `item` is on. */
+export function lineOf(item: MenuItem): readonly MenuItem[] {
+	return MENU_LINES.find((l) => l.includes(item)) ?? [item];
+}
+
+/**
+ * The Settings screen's rows, in order: Language, Sound, the account's rows
+ * (as `settingsRows` shows them), and last Back, drawn on the screen's title
+ * line, so up from Language reaches it and down from the last row comes
+ * round to it. `language` switches every word on screen to the next
+ * language at once and remembers it on this device; `sound` turns the
+ * sound off and on (`sfx`); both also take left and right
+ * (`PauseController.settingKey`). The account's rows open the account
+ * card, or ask on the right and then log out (`PauseHooks`); `back` goes
+ * back to the team, on the Settings row.
+ */
+export const SETTINGS = [
 	'language',
 	'sound',
 	'newName',
@@ -62,15 +107,21 @@ export const MENU_ITEMS = [
 	'logIn',
 	'newPassword',
 	'logOut',
-	'resume',
-	'quit',
-	'puzzles',
-	'book'
+	'back'
 ] as const;
-export type MenuItem = (typeof MENU_ITEMS)[number];
+export type Setting = (typeof SETTINGS)[number];
+
+/** The account's rows of the Settings screen: those `settingsRows` shows or hides. */
+export const ACCOUNT_ROWS: readonly Setting[] = [
+	'newName',
+	'makeAccount',
+	'logIn',
+	'newPassword',
+	'logOut'
+];
 
 /**
- * The rows the menu shows now. The account rows ([[UI_SPEC]] § Accounts)
+ * The Settings screen's rows now. The account rows ([[UI_SPEC]] § Accounts)
  * follow who is playing: a guest has "New name", "Make an account" and "Log
  * in"; a player logged in has "New name" and "New password" while the
  * session is live, then "Log out", and "Log in" again once the server has
@@ -80,55 +131,25 @@ export type MenuItem = (typeof MENU_ITEMS)[number];
  * new name only then too. A throwaway game (`?new` and the like) has none:
  * it saves nothing, so it has no game to keep safe, nor a name to change.
  */
-export function menuItems(): MenuItem[] {
-	return MENU_ITEMS.filter((item) => {
-		if (
-			item !== 'newName' &&
-			item !== 'makeAccount' &&
-			item !== 'logIn' &&
-			item !== 'logOut' &&
-			item !== 'newPassword'
-		)
-			return true;
+export function settingsRows(): Setting[] {
+	return SETTINGS.filter((row) => {
+		if (!ACCOUNT_ROWS.includes(row)) return true;
 		if (flags.throwaway) return false;
-		if (item === 'logOut') return account.name !== null;
-		if (item === 'newName' && account.name === null) return true;
+		if (row === 'logOut') return account.name !== null;
+		if (row === 'newName' && account.name === null) return true;
 		if (!account.ready) return false;
-		if (item === 'newName' || item === 'newPassword') {
+		if (row === 'newName' || row === 'newPassword') {
 			return account.name !== null && account.session === 'live';
 		}
-		return account.name === null || (item === 'logIn' && account.session === 'ended');
+		return account.name === null || (row === 'logIn' && account.session === 'ended');
 	});
-}
-
-/**
- * Rows drawn side by side on one line, so the menu keeps its height (eight
- * cards fit 1024×768): Worlds beside Who's here, Language beside Sound, the
- * account's rows beside each other (those `menuItems` shows), Keep playing
- * beside Start screen, and on the title line "My puzzles" beside the book.
- * Each line is neighbours in `MENU_ITEMS`. Up and down walk them in order as
- * any rows; left and right step between them, except
- * on a setting, where they change it.
- */
-export const MENU_LINES: readonly (readonly MenuItem[])[] = [
-	['worlds', 'players'],
-	['language', 'sound'],
-	['newName', 'makeAccount', 'logIn', 'newPassword', 'logOut'],
-	['resume', 'quit'],
-	['puzzles', 'book']
-];
-
-/** The rows drawn on the line `item` is on, of those the menu shows (`items`). */
-export function lineOf(item: MenuItem, items: readonly MenuItem[] = menuItems()): MenuItem[] {
-	const line = MENU_LINES.find((l) => l.includes(item));
-	return line ? line.filter((i) => items.includes(i)) : [item];
 }
 
 class PauseView {
 	/** True from Escape in explore until the menu is closed. Walking waits meanwhile. */
 	open = $state(false);
 	screen = $state<PauseScreen>('list');
-	/** Highlighted row of the list: the team's cards in order, then `menuItems()`. */
+	/** Highlighted row of the list: the team's cards in order, then `MENU_ITEMS`. */
 	cursor = $state(0);
 	/**
 	 * The card of several animals open on the right (`bundle`), by species;
@@ -141,7 +162,8 @@ class PauseView {
 	 * Highlighted row on the right: an option, or on a card's screen an option
 	 * or an animal; on the Worlds screen a row; in the animal book the lit
 	 * card, by its place on the open page (`bookOrder(book.land)`); in "My
-	 * puzzles" the lit row.
+	 * puzzles" the lit row; on the Settings screen the lit row of
+	 * `settingsRows()`.
 	 */
 	option = $state(0);
 	/** The name typed so far. */

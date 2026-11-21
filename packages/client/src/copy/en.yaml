@@ -2109,12 +2109,28 @@ pause:
   # The key reminder at the bottom, one per screen of the menu.
   keysPlayers: ↑ ↓ choose · Enter go · Esc back
   keysList: ↑ ↓ choose · Enter pick · Esc close
-  keysLanguage: ↑ ↓ choose · ← → or Enter change the language · Esc close
-  keysSound: ↑ ↓ choose · ← → or Enter sound off or on · Esc close
+  # On the Settings screen, on the Language row and on the Sound row.
+  keysLanguage: ↑ ↓ choose · ← → or Enter change the language · Esc back
+  keysSound: ↑ ↓ choose · ← → or Enter sound off or on · Esc back
   keysOptions: ↑ ↓ choose · Enter pick · Esc back
   keysNaming: Enter save · Esc back
   # The name box's buttons, as Enter and Esc do.
   save: Save
+  # The right-hand panel while Who's here's row is lit, before its list is open.
+  playersAbout: See who else is playing in this world, and go to them.
+
+# The Settings screen, opened from its row on the pause menu's title line (beside the animal
+# book): Language, Sound and the account's rows (their words are pause.*), and Back.
+settings:
+  # The row, and the screen's title.
+  title: Settings
+  # The right-hand panel while a row of the Settings screen is lit: what the row does.
+  # {name}: the player's name.
+  languageHelp: Every word in the game changes at once.
+  logInHelp: Play the game you keep in your account.
+  newPasswordHelp: 'Pick a new secret password for {name}.'
+  logOutHelp: 'Stop playing as {name} on this tablet or computer.'
+  backHelp: Back to your team.
 
 save:
   # On the message line when a saved game is picked up.
@@ -2307,7 +2323,7 @@ title:
     logIn: Log in
   # On the title of the game opened from the Home Screen with nothing saved there: a web app
   # keeps its own storage, apart from the browser's (#90).
-  standaloneHint: Played in Safari before? Make an account there (Menu → Make an account), then log in here.
+  standaloneHint: Played in Safari before? Make an account there (Menu → Settings → Make an account), then log in here.
   language: Language
   sound: Sound
   # Beside Continue, after the name of the saved team's first animal: how big the team is.
