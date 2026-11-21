@@ -142,7 +142,7 @@ Pick, without asking, the testing approaches from below that apply. Multiple can
 
 **If the change is server-only (routes, schema, migrations):**
 
-1. Tests green. Apply the migration to a database of your own, never `mathgame`, which holds the kids' games, and verify the schema there with a direct query ([[DEVELOPMENT]] § Migrations).
+1. Tests green. Apply the migration to a database of your own, never `mathgame`, the human's own, and verify the schema there with a direct query ([[DEVELOPMENT]] § Migrations).
 2. Exercise the route with `curl` against your own API on that database, including a malformed body, no session, and an account that doesn't exist.
 
 **Regardless of what the change is:**

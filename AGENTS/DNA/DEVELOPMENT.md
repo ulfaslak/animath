@@ -62,7 +62,7 @@ Headless Chrome via `playwright-core`. On a Mac, WebGL draws on the GPU (`--gpu 
 
 Every run is a fresh browser: a new player with no game, on the title with no Continue. `?new` (like every throwaway switch: [[ARCHITECTURE]], the `flags.ts` row) skips the title into a throwaway game at the spawn tile with a squirrel, touching neither storage nor the API, so walks from the start always behave the same. For a saved game, go through the title as a kid does: `Enter,type:Tester,wait:3000,Enter,wait:3000,Enter,wait:3000,Enter,wait:4000` is New game, the player's name, the first starter, no name for it (the name boxes and the starters take Enter only after a quiet moment ([[UI_SPEC]] § Battle mode), which a loaded machine stretches and every Enter restarts; [[ENVIRONMENT_NOTES]]). `reload:` keeps the game and comes back to the title, where `Enter` is Continue: that checks that something survives a reload. Such a game starts in a random home world; for the same walk every time, use `?new` (World 1) or a seeded save (§ Standing anywhere).
 
-**The API is blocked.** The script aborts every request to `/api/`, as if the server were down (the presence socket at `/api/ws` opens onto nothing, so a run sees nobody and is seen by nobody), and counts the blocked calls in one line at the end; an API response that arrives anyway fails the run. Every Vite proxies `/api` to the primary clone's API (port 3000, the `mathgame` database, which keeps the games kids played before the game had its own address) unless `API_PORT` says otherwise ([[ENVIRONMENT_NOTES]] § This machine is shared with the lawcel project): an unblocked page would meet whoever plays there and make accounts in that database. The game plays and saves in the page all the same. `--api` lets the calls through, for accounts or presence against your own API and database (§ Running); there, failed calls (no API behind the proxy, a `409`) are listed at the end and do not fail the run. A throwaway Playwright script (the recipes below) is a fresh browser too: block the API the same way before its first `goto`, with `await context.route((u) => /^\/api(\/|$)/.test(u.pathname), (r) => r.abort())`, and the presence socket, which no `route` catches, with `await context.routeWebSocket((u) => /^\/api(\/|$)/.test(u.pathname), () => {})`.
+**The API is blocked.** The script aborts every request to `/api/`, as if the server were down (the presence socket at `/api/ws` opens onto nothing, so a run sees nobody and is seen by nobody), and counts the blocked calls in one line at the end; an API response that arrives anyway fails the run. Every Vite proxies `/api` to the primary clone's API (port 3000, the `mathgame` database) unless `API_PORT` says otherwise ([[ENVIRONMENT_NOTES]] § This machine is shared with the lawcel project): an unblocked page would meet whoever plays there and make accounts in that database. The game plays and saves in the page all the same. `--api` lets the calls through, for accounts or presence against your own API and database (§ Running); there, failed calls (no API behind the proxy, a `409`) are listed at the end and do not fail the run. A throwaway Playwright script (the recipes below) is a fresh browser too: block the API the same way before its first `goto`, with `await context.route((u) => /^\/api(\/|$)/.test(u.pathname), (r) => r.abort())`, and the presence socket, which no `route` catches, with `await context.routeWebSocket((u) => /^\/api(\/|$)/.test(u.pathname), () => {})`.
 
 `--keys` is a comma-separated script run in order. A plain token is a key name, optionally `*n` to repeat it (`ArrowRight*5`, `Enter`, `3`). The rest take an argument:
 
@@ -334,22 +334,13 @@ A key missing from any file fails `copy-files.test.ts`; what a gap does on scree
 
 ## Database
 
-Local Postgres runs in Docker (`docker-compose.yml`, host port 5433, database `mathgame`, user/password `postgres`). `pnpm db:psql -c "<sql>"` runs a query from the primary clone; from a worktree it looks for the wrong container, so use `docker compose -p mathgame exec -T postgres psql -U postgres -d mathgame -c "<sql>"` ([[ENVIRONMENT_NOTES]] § No `psql` on the PATH). `/reset` recreates the database from scratch with `docker compose down -v`, which deletes everything this Mac's `mathgame` database holds, its accounts and the kids' games the retired anonymous backup kept (below) included: only the human runs it.
+Local Postgres runs in Docker (`docker-compose.yml`, host port 5433, database `mathgame`, user/password `postgres`). `pnpm db:psql -c "<sql>"` runs a query from the primary clone; from a worktree it looks for the wrong container, so use `docker compose -p mathgame exec -T postgres psql -U postgres -d mathgame -c "<sql>"` ([[ENVIRONMENT_NOTES]] § No `psql` on the PATH). `/reset` recreates the database from scratch with `docker compose down -v`, which deletes everything this Mac's `mathgame` database holds: only the human runs it.
 
 Each checkout's server tests use a database of their own on the same instance, created and migrated by the tests themselves (see § Testing ideology): `mathgame_<folder>_<hash>_test`, from the checkout's folder name and 8 hex digits of the SHA-256 of its full path (`test/database.ts`). No two checkouts share one (a shared one let a run empty the tables under another, and two runs register the same names, one getting a `409`). Two runs in one checkout at once still share it ([[DEFERRED]]), so run one at a time there. `TEST_DATABASE_URL` overrides the URL, for CI or a database named by hand; the name must end in `_test`. The deploy workflow's `test` job and `checks.yml` set it to `mathgame_ci_test` on the Postgres beside the job.
 
 Nothing drops a checkout's test database when the worktree goes. The setup writes the checkout's folder into the database's comment, and `pnpm db:prune-tests` reads it: it lists every checkout's test database with its folder and drops each one whose folder no longer exists, printing it first; `--dry-run` only lists. It works through the server's `postgres` database and matches only the names `test/database.ts` makes: never `mathgame`, and never a test database named by hand, which it lists as left alone. Run it from any checkout after removing worktrees (`git gtr rm`, `git gtr clean --merged`).
 
-**A game in the retired anonymous backup.** This Mac's `mathgame` database holds what the retired anonymous backup kept for each browser that played through the tunnel ([[DECISIONS]] § Saves): the newest save in `saves`, by the player's id (`localStorage['animath.player']` in the browser, older ones in `animath.player.previous`, `.2`, …), and in `save_backups` every save it was about to lose, replaced by a different game (`reason = 'replaced'`) or unreadable (`'unreadable'`). Nothing reads or writes these tables: a game comes back from them only by moving it into an account (§ Moving a kid's game to production), the newest save with `export-local-save`, a set-aside one by writing its `data` to a file and importing that:
-
-```bash
-docker compose -p mathgame exec -T postgres psql -U postgres -d mathgame -c \
-  "select id, reason, created_at, data->>'seq' as seq, data->'party' as party from save_backups where player_id = '<id>' order by id"
-docker compose -p mathgame exec -T postgres psql -U postgres -d mathgame -At -c \
-  "select data from save_backups where id = <backup id>" > ~/animath-exports/<name>-<backup id>.json
-```
-
-An account's lost games are in `account_save_backups` instead (§ Accounts). The browser keeps its own set-aside copies too, under the keys [[ARCHITECTURE]] § Saving, "Keys", lists with what each holds (an account's under its own keys, § Accounts). To give a kid back a game they left, in their browser's developer tools copy that text into `animath.save` with its `seq` raised above the current save's (and, for an account, above the server's, or the server's newer game wins at the next start), then reload: the title offers it as Continue.
+An account's lost games are in `account_save_backups` (§ Accounts). The browser keeps its own set-aside copies too, under the keys [[ARCHITECTURE]] § Saving, "Keys", lists with what each holds (an account's under its own keys, § Accounts). To give a kid back a game they left, in their browser's developer tools copy that text into `animath.save` with its `seq` raised above the current save's (and, for an account, above the server's, or the server's newer game wins at the next start), then reload: the title offers it as Continue.
 
 ### Migrations
 
@@ -364,7 +355,7 @@ Hand-written SQL, applied by `pnpm db:migrate` (`drizzle-orm`'s migrator, journa
 
 **A migration keeps the build before it working.** A deploy runs the new migrations while the old build still serves, the two builds then answer side by side for a few seconds, and a rollback runs an older build on the newer schema: migrations never go back. So add (a table, a nullable column, a column with a default); rename or drop only in a later PR, once no deployed build reads the old name.
 
-`migrations.test.ts` fails when a `.sql` file has no journal entry or is out of order, and when a migration after `0002` changes the retired anonymous backup's tables ([[INVARIANTS]] § Server).
+`migrations.test.ts` fails when a `.sql` file has no journal entry or is out of order.
 
 ## Accounts
 
@@ -377,7 +368,6 @@ printf '%s' "$PW" | pnpm admin reset-password <name> --stdin  # the password fro
 pnpm admin delete-account <name>                   # only says what it would delete
 pnpm admin delete-account <name> --yes             # deletes the account, its sessions, its save, its set-aside saves and its welcome link
 pnpm admin clear-home <name>                       # forgets the account's own browser and logs it out everywhere; the next browser it logs in on, while logged in nowhere else, becomes its own
-pnpm admin export-local-save <player id> [--from anonymous|account|account:<name>] [--out <folder>]  # a kid's newest save, read-only, into ~/animath-exports/ (this Mac's old database only)
 pnpm admin import-save [--name <name>] [--origin <address>] < save.json             # an account for it, with no password, and a welcome link
 pnpm admin errors [--since 7d] [--new] [--json]    # the error reports the game's pages sent, by message and build (§ Errors and health)
 ```
@@ -439,16 +429,9 @@ Or **give it an account of its own**, so the kid keeps both: write its `data` to
 
 ### Moving a kid's game to production
 
-A game played through the tunnel lives in the kid's browser under the tunnel's address, which the public site cannot read, and in this Mac's `mathgame` database as the retired anonymous backup last took it. It moves as an account ([[DECISIONS]] § Accounts): export the save here, import it on production, and give the kid the welcome link the import prints. Only the admin does this, and the kid's local game is never written to. The export reads the database: a guest's game as the backup last saw it, an account made on the tunnel as its save stands. Progress a guest made after the backup was retired is only in the browser: copy the browser's save instead (on the tunnel's address, in its developer tools: `copy(localStorage['animath.save'])`), paste it into a file in `~/animath-exports/` readable by you alone (`chmod 600`), and import that file (step 2).
+A game the public site cannot read, one in a browser's storage under another address, moves as an account ([[DECISIONS]] § Accounts): copy the save out of that browser, import it on production, and give the kid the welcome link the import prints. Only the admin does this, and the kid's local game is never written to. Once the tunnel's one real game moved (2026-09-27), nothing has needed it; the tables and the export that read the tunnel's games went on 2026-11-21.
 
-1. **Export**, on this Mac, from the primary clone, whose `.env` is the local `mathgame` database. The player id is the kid's (`localStorage['animath.player']` in the kid's browser). A kid who made an account on the tunnel, or whose id the server once stopped knowing, has older ids in `animath.player.previous` (`.2`, …), the game that moved into the account among them, and `animath.player` may then be a later guest game's: export with each id the browser holds, and keep the one whose line (below) is his game:
-
-   ```bash
-   cd ~/git/mathgame
-   pnpm admin export-local-save <player id>
-   ```
-
-   It reads in a read-only session ([[INVARIANTS]] § Server), so it is safe while he plays. It lists every copy of the game it finds with its `seq` and when it was saved: the anonymous backup's, and the account he made locally, if any (found by his name or the game's lineage). Copies of one game: it takes the one saved last. Different games (a new game he started in the account, or another kid's account that took his guest name): it writes nothing and says so; look at the list, and run it again with `--from anonymous`, `--from account` or `--from "account:<name>"`. It writes `~/animath-exports/<name>-<time>.json` (0600; a folder inside a repository is refused) and prints one line: his name, how many animals and which, tokens, tools, world and place, `seq`, when saved. Check that it is his game.
+1. **Copy the save.** In the browser that holds the game, on the address it was played at, open the developer tools and run `copy(localStorage['animath.save'])`; paste it into a file in `~/animath-exports/` readable by you alone (`chmod 600`), never inside a repository. `describeSave`'s line, which the import prints, says whose game it is.
 
 2. **Import**, into production over SSH, the file on stdin. The link's address is `deploy.env`'s domain, handed to the container (`-T`: no terminal, so the file pipes through):
 
@@ -463,7 +446,7 @@ A game played through the tunnel lives in the kid's browser under the tunnel's a
 
 3. **The kid opens the link** on his tablet, picks a password, and plays on where he was ([[UI_SPEC]] § Accounts). `node dist/admin.mjs list` in the container shows "no password yet" until he has. From then on it is an ordinary account: a forgotten password is `reset-password`.
 
-4. **Afterwards.** Delete the export once he has played on production (`rm ~/animath-exports/<file>`). A link lost or too old before he used it: `delete-account <name> --yes` (the account holds only the import), then import again. `reset-password` on an account whose link waits uses the link up.
+4. **Afterwards.** Delete the file once the kid has played on production (`rm ~/animath-exports/<file>`). A link lost or too old before he used it: `delete-account <name> --yes` (the account holds only the import), then import again. `reset-password` on an account whose link waits uses the link up.
 
 To try it without production, import into your own database with your own client's address, then open the link printed there:
 
@@ -475,7 +458,7 @@ DATABASE_URL=postgres://postgres:postgres@localhost:5433/mathgame_<yours> pnpm a
 
 Kids play at https://animath.xyz only (§ Deployment). Before it had its own address the game was shared from this Mac through an ngrok tunnel to the primary clone's dev server; nobody saved a game through it after 2026-09-27, and it was closed on 2026-11-21 with everything that served it (`TUNNEL=1`, the "Animath has moved!" card). Its old link leads nowhere. Vite answers only `localhost` and addresses (its default `allowedHosts`).
 
-The tunnel had put the dev server on the internet, and with it the whole clone: from 2026-09-25 to 2026-11-21 anyone with the link could read `terraform/terraform.tfvars`, the Hetzner token ([[INVARIANTS]] § Serving). The dev server now hands out the client, the engine and the installed libraries only (`DEV_SERVER_SERVES` in `vite.config.ts`). Anything put on another machine's reach again, a tunnel or `--host`, gets the same look first: ask it for a file it should not have. The games played through the tunnel stay in this Mac's `mathgame` database, which a grown-up moves to production from (§ Moving a kid's game to production).
+The tunnel had put the dev server on the internet, and with it the whole clone: from 2026-09-25 to 2026-11-21 anyone with the link could read `terraform/terraform.tfvars`, the Hetzner token ([[INVARIANTS]] § Serving). The dev server now hands out the client, the engine and the installed libraries only (`DEV_SERVER_SERVES` in `vite.config.ts`). Anything put on another machine's reach again, a tunnel or `--host`, gets the same look first: ask it for a file it should not have. Of the games played through it, the one real one moved to production on 2026-09-27; the tables that kept them went on 2026-11-21 ([[DECISIONS]] § Saves).
 
 ## Deployment
 

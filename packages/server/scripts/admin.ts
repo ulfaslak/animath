@@ -2,9 +2,7 @@ import {
 	AdminError,
 	clearAccountHome,
 	deleteAccount,
-	exportLocalSave,
 	importSave,
-	isExportFrom,
 	listAll,
 	listErrors,
 	resetPassword
@@ -19,15 +17,12 @@ import { SAVE_MAX_BYTES } from '../src/save.js';
 //                                                    --stdin reads it, and never says it back)
 //   admin delete-account <name> [--yes]            (says what it would delete without --yes)
 //   admin clear-home <name>                        (logs it out everywhere; the next browser it logs in on, alone, is its own)
-//   admin export-local-save <player id> [--from anonymous|account|account:<name>] [--out <folder>]
 //   admin import-save [--name <name>] [--origin <address>] < save.json
 //   admin errors [--since 7d|24h|90m|<date>|<time>] [--new] [--json]
 //
 // A name is matched as the game matches it: case and how a letter is typed do not matter.
-// Moving a kid's game to production, the two before last: DEVELOPMENT.md § Moving a kid's
-// game to production. export-local-save starts from the retired anonymous backup, so it
-// finds a game only in a database the tunnel's development server backed up to before that
-// backup was retired: this Mac's `mathgame`. errors: the reports the game's pages sent,
+// Moving a kid's game to production, import-save: DEVELOPMENT.md § Moving a kid's game to
+// production. errors: the reports the game's pages sent,
 // grouped by message and build (DEVELOPMENT.md § Errors and health); --new keeps only the
 // groups first heard from since --since, --json prints them as one line for the health watch.
 
@@ -37,7 +32,6 @@ const USAGE = [
 	'  admin reset-password <name> [<new password> | --stdin]',
 	'  admin delete-account <name> [--yes]',
 	'  admin clear-home <name>',
-	'  admin export-local-save <player id> [--from anonymous|account|account:<name>] [--out <folder>]',
 	'  admin import-save [--name <name>] [--origin <address>] < save.json',
 	'  admin errors [--since 7d|24h|90m|<date>|<time>] [--new] [--json]'
 ].join('\n');
@@ -48,7 +42,6 @@ const FLAGS: Record<string, Record<string, boolean>> = {
 	'reset-password': { '--stdin': true },
 	'delete-account': { '--yes': true },
 	'clear-home': {},
-	'export-local-save': { '--from': false, '--out': false },
 	'import-save': { '--name': false, '--origin': false },
 	errors: { '--since': false, '--new': true, '--json': true }
 };
@@ -130,14 +123,9 @@ async function run(args: string[]): Promise<string[]> {
 		case 'delete-account':
 			if (words.length !== 1) break;
 			return deleteAccount(words[0]!, flags.has('--yes'));
-		case 'export-local-save': {
-			const from = value('--from');
-			if (words.length !== 1 || (from !== undefined && !isExportFrom(from))) break;
-			return exportLocalSave(words[0]!, { from, folder: value('--out') });
-		}
 		case 'import-save':
 			if (words.length !== 0) break;
-			// Room for the tabs and line breaks the export writes around the largest save.
+			// Room for the tabs and line breaks a pretty-printed copy puts around the largest save.
 			return importSave(
 				await readStdin('Pipe the save in: admin import-save < save.json', 4 * SAVE_MAX_BYTES),
 				{

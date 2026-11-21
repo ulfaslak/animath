@@ -1,26 +1,20 @@
 import { SAVE_VERSION, nameKey } from '@mathgame/engine';
 import { eq, sql } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, it, vi } from 'vitest';
-import { AdminError, exportLocalSave, importSave, listAll, resetPassword } from '../src/admin.js';
+import { AdminError, importSave, listAll, resetPassword } from '../src/admin.js';
 import { createApp, hideWelcomeTokens } from '../src/app.js';
 import { db, pool } from '../src/db/index.js';
-import { accountSaves, players, saves, sessions, users, welcomeTokens } from '../src/db/schema.js';
+import { accountSaves, sessions, users, welcomeTokens } from '../src/db/schema.js';
 import { NO_PASSWORD } from '../src/passwords.js';
 import type { AccountLimits } from '../src/rate-limit.js';
-import { findSaves, openReadOnly, type Reader } from '../src/save-export.js';
 import { HOME_COOKIE } from '../src/home.js';
 import { SESSION_COOKIE } from '../src/sessions.js';
 import { WELCOME_DAYS } from '../src/welcome.js';
 
 // Welcome links, end to end against the test database: `import-save` makes
 // an account with no password and a link, the link's routes pick the
-// password and log in once, and `export-local-save` reads a kid's newest
-// save out of a database without writing a thing.
+// password and log in once.
 
 afterAll(() => pool.end());
 
@@ -484,187 +478,5 @@ describe('the request log', () => {
 		for (const line of ['--> POST /api/account/welcome 200 90ms', '<-- GET /api/account/me']) {
 			expect(hideWelcomeTokens(line)).toBe(line);
 		}
-	});
-});
-
-describe('export-local-save', () => {
-	const folders: string[] = [];
-	afterAll(() => {
-		for (const folder of folders) rmSync(folder, { recursive: true, force: true });
-	});
-	function folder(): string {
-		const made = mkdtempSync(join(tmpdir(), 'animath-export-test-'));
-		folders.push(made);
-		return made;
-	}
-
-	/** A player of the anonymous backup, with `save` stored at `savedAt`. */
-	async function player(save: unknown, savedAt = new Date(Date.now() - 60_000)): Promise<string> {
-		const [row] = await db
-			.insert(players)
-			.values({ secretHash: 'x' })
-			.returning({ id: players.id });
-		await db.insert(saves).values({ playerId: row!.id, data: save, updatedAt: savedAt });
-		return row!.id;
-	}
-
-	/** An account holding `save`, saved at `savedAt`. */
-	async function accountWith(name: string, save: Record<string, unknown>, savedAt: Date) {
-		const [row] = await db
-			.insert(users)
-			.values({ name, nameKey: nameKey(name), passwordHash: NO_PASSWORD })
-			.returning({ id: users.id });
-		await db
-			.insert(accountSaves)
-			.values({ userId: row!.id, data: save, seq: save.seq as number, updatedAt: savedAt });
-	}
-
-	it('writes the anonymous backup’s save, as stored, to a file only its owner reads, and says what it holds', async () => {
-		const name = freshName();
-		const id = await player(doc(name));
-		const into = folder();
-		const lines = await exportLocalSave(id, {
-			folder: into,
-			now: new Date('2026-09-27T13:00:00Z')
-		});
-		expect(lines[0]).toMatch(/^Found the anonymous backup: seq 24614, saved \d{4}-.* UTC\.$/);
-		const file = join(into, `${name}-20260927T130000Z.json`);
-		const summary = lines.at(-1)!;
-		expect(summary).toMatch(
-			new RegExp(
-				`^${name}: in nordland 4 animals \\(whale, frog ×2, rabbit "nini"\\), 6 tokens, axe, boat, pickaxe, World 1 at -40,-1000, seq 24614, saved \\d{4}-\\d\\d-\\d\\d \\d\\d:\\d\\d:\\d\\d UTC → `
-			)
-		);
-		expect(summary.endsWith(` → ${file}`)).toBe(true);
-		expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual(doc(name));
-		expect(statSync(file).mode & 0o777).toBe(0o600);
-		// Never over a file that is there.
-		await expect(
-			exportLocalSave(id, { folder: into, now: new Date('2026-09-27T13:00:00Z') })
-		).rejects.toThrow(/is there already/);
-	});
-
-	it('lists the account that holds the game too, takes the one saved last, or the one --from names', async () => {
-		const name = freshName();
-		const id = await player(doc(name), new Date(Date.now() - 120_000));
-		await accountWith(name, doc(name, { seq: 24700 }), new Date(Date.now() - 60_000));
-		const into = folder();
-		const lines = await exportLocalSave(id, { folder: into });
-		expect(lines.slice(0, 2).map((l) => l.replace(/, saved .*/, ''))).toEqual([
-			'Found the anonymous backup: seq 24614',
-			`Found the account "${name}": seq 24700`
-		]);
-		expect(lines).toContain(`Taking the account "${name}", the one saved last.`);
-		expect(lines.at(-1)).toContain('seq 24700');
-		const older = await exportLocalSave(id, { folder: folder(), from: 'anonymous' });
-		expect(older).toContain('Taking the anonymous backup, as --from says.');
-		expect(older.at(-1)).toContain('seq 24614');
-	});
-
-	it('finds an account holding the same game under another name, and says when the two are different games', async () => {
-		// The kid changed the name in the box as the account was made: the game is the same.
-		const name = freshName();
-		const id = await player(doc(name), new Date(Date.now() - 120_000));
-		const renamed = freshName();
-		await accountWith(
-			renamed,
-			doc(renamed, { lineage: `lineage-${name}`, seq: 24650 }),
-			new Date()
-		);
-		const lines = await exportLocalSave(id, { folder: folder() });
-		expect(lines).toContain(`Taking the account "${renamed}", the one saved last.`);
-		expect(lines.join('\n')).not.toContain('different games');
-		// An account under the kid's name holds another game (a friend's, who took the name a
-		// guest had; guests' names are not kept for them): nothing is taken without --from.
-		const other = freshName();
-		const id2 = await player(doc(other), new Date(Date.now() - 120_000));
-		await accountWith(other, doc(other, { lineage: 'a new game', seq: 3 }), new Date());
-		const into = folder();
-		const refused = exportLocalSave(id2, { folder: into });
-		await expect(refused).rejects.toThrow(AdminError);
-		await expect(refused).rejects.toThrow(/Found the anonymous backup.*\n.*Found the account/);
-		await expect(refused).rejects.toThrow(/different games.*nothing was written.*--from/s);
-		expect(readdirSync(into)).toEqual([]);
-		const backup = await exportLocalSave(id2, { folder: into, from: 'anonymous' });
-		expect(backup.at(-1)).toContain('seq 24614');
-		const theirs = await exportLocalSave(id2, { folder: folder(), from: `account:${other}` });
-		expect(theirs.at(-1)).toContain('seq 3');
-		// Two accounts hold games of this player's name or lineage: `account` alone is not enough.
-		const twice = freshName();
-		const id4 = await player(doc(twice), new Date(Date.now() - 120_000));
-		await accountWith(twice, doc(twice, { lineage: 'a newer game' }), new Date());
-		const moved = freshName();
-		await accountWith(moved, doc(moved, { lineage: `lineage-${twice}` }), new Date());
-		await expect(exportLocalSave(id4, { folder: folder(), from: 'account' })).rejects.toThrow(
-			/Several accounts.*account:<name>/s
-		);
-		const chosen = await exportLocalSave(id4, { folder: folder(), from: `account:${moved}` });
-		expect(chosen).toContain(`Taking the account "${moved}", as --from says.`);
-		// A game of someone else's, under another name, is not this player's.
-		const third = freshName();
-		const id3 = await player(doc(third), new Date(Date.now() - 120_000));
-		await accountWith(freshName(), doc(third, { lineage: 'someone else' }), new Date());
-		const alone = await exportLocalSave(id3, { folder: folder() });
-		expect(alone.filter((l) => l.startsWith('Found'))).toHaveLength(1);
-	});
-
-	it('refuses a folder inside a repository, a player it has no save for, and what is not a player id', async () => {
-		const id = await player(doc(freshName()));
-		const repo = fileURLToPath(new URL('../', import.meta.url));
-		await expect(exportLocalSave(id, { folder: join(repo, 'exports') })).rejects.toThrow(
-			/inside the repository/
-		);
-		await expect(
-			exportLocalSave('00000000-0000-4000-8000-000000000000', { folder: folder() })
-		).rejects.toThrow(/no save for the player/);
-		await expect(exportLocalSave('not-a-uuid', { folder: folder() })).rejects.toThrow(
-			/not a player id/
-		);
-		await expect(exportLocalSave(id, { folder: folder(), from: 'account' })).rejects.toThrow(
-			/No account here holds this game/
-		);
-	});
-
-	it('reads through a session that cannot write, and asks it nothing but reads', async () => {
-		const url = process.env.DATABASE_URL!;
-		const session = await openReadOnly(url);
-		try {
-			expect(await session.rows('show default_transaction_read_only')).toEqual([
-				{ default_transaction_read_only: 'on' }
-			]);
-			await expect(session.rows("insert into players (secret_hash) values ('x')")).rejects.toThrow(
-				/read-only transaction/
-			);
-			const asked: string[] = [];
-			const recording: Reader = {
-				rows: (text, params) => {
-					asked.push(text.trim().split(/\s+/)[0]!.toLowerCase());
-					return session.rows(text, params);
-				}
-			};
-			const name = freshName();
-			const id = await player(doc(name));
-			await accountWith(name, doc(name, { seq: 24615 }), new Date());
-			expect(await findSaves(recording, id)).toHaveLength(2);
-			expect(new Set(asked)).toEqual(new Set(['select']));
-		} finally {
-			await session.end();
-		}
-	});
-
-	it('finds only the anonymous backup in a database from before accounts', async () => {
-		const name = freshName();
-		const asked: string[] = [];
-		const noAccounts: Reader = {
-			rows: async (text) => {
-				asked.push(text);
-				if (text.includes('from saves')) return [{ data: doc(name), updated_at: new Date() }];
-				if (text.includes('to_regclass')) return [{ accounts: false }];
-				throw new Error(`unexpected: ${text}`);
-			}
-		};
-		const found = await findSaves(noAccounts, '00000000-0000-4000-8000-000000000001');
-		expect(found.map((c) => c.place)).toEqual(['anonymous']);
-		expect(asked).toHaveLength(2);
 	});
 });

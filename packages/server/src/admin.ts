@@ -26,27 +26,15 @@ import { users } from './db/schema.js';
 import { env } from './env.js';
 import { hashPassword, NO_PASSWORD } from './passwords.js';
 import { SAVE_MAX_BYTES } from './save.js';
-import {
-	defaultExportFolder,
-	describeSave,
-	findSaves,
-	openReadOnly,
-	placeOf,
-	PLAYER_ID,
-	repositoryAround,
-	stamp,
-	storedName,
-	writeExport,
-	type SaveCandidate
-} from './save-export.js';
+import { describeSave, stamp } from './describe-save.js';
 import { clearHome } from './home.js';
 import { createWelcomeAccount } from './welcome.js';
 
 /**
  * What the admin CLI (`scripts/admin.ts`) does, as functions the tests call.
  * There is no email, so a forgotten password is reset here, by hand, and an
- * account is deleted here. A kid's game moves here from the server it was
- * played on before with `exportLocalSave` there and `importSave` here. The
+ * account is deleted here. A kid's game from somewhere the site cannot read
+ * becomes an account here with `importSave`. The
  * errors the game's pages report are read here too (`listErrors`). Each
  * returns the lines to print.
  */
@@ -254,123 +242,6 @@ function counted(counts: Record<string, number>): string {
 		.join(', ');
 }
 
-/**
- * Which copy of a kid's game to export: the anonymous backup, the one
- * account found, or the account of that name (`account:<name>`).
- */
-export type ExportFrom = 'anonymous' | 'account' | `account:${string}`;
-
-/** Whether `text` is an `ExportFrom`, as the CLI's `--from` takes it. */
-export function isExportFrom(text: string): text is ExportFrom {
-	return text === 'anonymous' || text === 'account' || /^account:.+/s.test(text);
-}
-
-export interface ExportOptions {
-	/** Which copy to take, in place of the one saved last. Needed when they are different games. */
-	from?: ExportFrom;
-	/** The folder the file goes in; `~/animath-exports` by default. */
-	folder?: string;
-	/** The database to read; the server's own (`DATABASE_URL`) by default. */
-	databaseUrl?: string;
-	now?: Date;
-}
-
-/**
- * The newest save of the player `playerId` in this server's database, to a
- * private file for `importSave` on the server the game moves to. The
- * database is only read, in a session that can do nothing else
- * (`openReadOnly`): the kid may be playing on it meanwhile. The player's
- * game can be in two places, the retired anonymous backup (so an old local
- * database: `save-export.ts`) and, once the kid has made an account here,
- * the account's save; each one found is listed, and
- * the one saved last is taken, or the one `from` names. Copies of two
- * different games (another lineage: a new game in the kid's account, or a
- * friend's account that took the name the kid had as a guest) are never
- * chosen between by time: nothing is written without `from`.
- */
-export async function exportLocalSave(
-	playerId: string,
-	options: ExportOptions = {}
-): Promise<string[]> {
-	if (!PLAYER_ID.test(playerId)) {
-		throw new AdminError(
-			`"${playerId}" is not a player id: a uuid, as the kid's browser keeps it in animath.player.`
-		);
-	}
-	const folder = options.folder ?? defaultExportFolder();
-	const repository = repositoryAround(folder);
-	if (repository) {
-		throw new AdminError(
-			`${folder} is inside the repository ${repository}: a kid's save goes to a folder outside any repository.`
-		);
-	}
-	const reader = await openReadOnly(options.databaseUrl ?? env.DATABASE_URL);
-	let found: SaveCandidate[];
-	try {
-		found = await findSaves(reader, playerId);
-	} finally {
-		await reader.end();
-	}
-	if (found.length === 0) {
-		throw new AdminError(`The anonymous backup has no save for the player ${playerId}.`);
-	}
-	const lines = found.map(
-		(c) => `Found ${placeOf(c)}: seq ${saveSeq(c.doc)}, saved ${stamp(c.savedAt)}.`
-	);
-	if (options.from === undefined && new Set(found.map((c) => saveLineage(c.doc))).size > 1) {
-		throw new AdminError(
-			[
-				...lines,
-				'These are different games, not copies of one, so nothing was written: an account may be',
-				"another kid's who took this name. Check which one this kid plays now, and pick it with",
-				'--from anonymous, --from account, or --from "account:<name>".'
-			].join('\n')
-		);
-	}
-	const chosen = chooseSave(found, options.from);
-	lines.push(
-		options.from
-			? `Taking ${placeOf(chosen)}, as --from says.`
-			: `Taking ${placeOf(chosen)}, the one saved last.`
-	);
-	const name = storedName(chosen.doc) ?? chosen.account ?? 'save';
-	let file: string;
-	try {
-		file = await writeExport(chosen.doc, name, folder, options.now ?? new Date());
-	} catch (error) {
-		if ((error as { code?: unknown }).code !== 'EEXIST') throw error;
-		throw new AdminError(`An export of that name is there already: run it again in a second.`);
-	}
-	lines.push(`${describeSave(chosen.doc, chosen.savedAt)} → ${file}`);
-	return lines;
-}
-
-/** The candidate `from` names, else the one saved last. */
-function chooseSave(found: SaveCandidate[], from?: ExportFrom): SaveCandidate {
-	if (from === undefined) return found.at(-1)!;
-	const named = from.startsWith('account:') ? nameKey(from.slice('account:'.length)) : null;
-	const matching = found.filter((c) =>
-		named === null
-			? c.place === from
-			: c.place === 'account' && c.account !== undefined && nameKey(c.account) === named
-	);
-	if (matching.length === 0) {
-		throw new AdminError(
-			from === 'anonymous'
-				? 'The anonymous backup has no save for this player.'
-				: named === null
-					? 'No account here holds this game: take the anonymous backup (--from anonymous).'
-					: `No account found for this game is called "${from.slice('account:'.length)}".`
-		);
-	}
-	if (matching.length > 1) {
-		throw new AdminError(
-			`Several accounts hold games of this player (${matching.map((c) => c.account).join(', ')}): pick one with --from "account:<name>".`
-		);
-	}
-	return matching[0]!;
-}
-
 export interface ImportOptions {
 	/** The account's name, in place of the save's own. The character takes it too. */
 	name?: string;
@@ -415,7 +286,7 @@ function linkOrigin({ origin, domain }: ImportOptions): string {
 const NAME_RULE = `${MIN_NAME_LENGTH} to ${MAX_NAME_LENGTH} letters or numbers, words joined by single spaces or hyphens, and nothing rude`;
 
 /**
- * A kid's save (`exportLocalSave`'s file, as `text`) becomes an account
+ * A kid's save document (as `text`: a browser's `animath.save`) becomes an account
  * here: named as the save's player (or `name`), holding the save with that
  * name on it, with no password, and a welcome link that lets the kid pick
  * one and play ([[DECISIONS]] § Accounts). The save is checked and upgraded
@@ -429,7 +300,7 @@ export async function importSave(text: string, options: ImportOptions = {}): Pro
 	try {
 		doc = JSON.parse(text);
 	} catch {
-		throw new AdminError('That is not JSON: pipe in the file export-local-save wrote.');
+		throw new AdminError('That is not JSON: pipe in a save file.');
 	}
 	const checked = validateSaveWrite(doc);
 	if (!checked.ok) {
