@@ -1,3 +1,7 @@
+/* Nunito from the game's own server, never another host's (DECISIONS § Client). */
+@import '@fontsource/nunito/600.css';
+@import '@fontsource/nunito/800.css';
+
 :root {
 	--font-ui: 'Nunito', system-ui, sans-serif;
 	--panel-bg: rgba(255, 252, 245, 0.92);

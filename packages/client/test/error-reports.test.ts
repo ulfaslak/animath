@@ -439,7 +439,7 @@ describe('the page', () => {
 			src: 'https://animath.xyz/immutable/index-abc.js?v=1#x'
 		});
 		fireDown('error', { tagName: 'IMG', src: 'https://animath.xyz/favicon.svg' });
-		fireDown('error', { tagName: 'LINK', href: 'https://fonts.googleapis.com/css2' });
+		fireDown('error', { tagName: 'LINK', href: 'https://animath.xyz/immutable/index-abc.css' });
 		expect(sent.map((r) => [r.message, r.stack])).toEqual([
 			['a script did not run', '/immutable/index-abc.js']
 		]);
