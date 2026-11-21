@@ -426,7 +426,14 @@ export function listenTo(page: Window, send: (report: ErrorReport) => void = pos
 		const found = violationOf(event, origin);
 		if (found) notices.report({ message: found.message }, false, found.where);
 	});
-	return reports;
+	// What the page is doing reaches both: a notice tells the mode as an error does.
+	return {
+		report: reports.report,
+		setContext(context) {
+			reports.setContext(context);
+			notices.setContext(context);
+		}
+	} satisfies ErrorReports;
 }
 
 /** The most security-policy notices a tab sends in `REPORT_WINDOW_MS`, beside its `MAX_REPORTS` errors. */

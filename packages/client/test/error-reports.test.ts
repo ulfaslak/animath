@@ -406,7 +406,7 @@ describe('the page', () => {
 				listeners.push({ type, listener, down: down === true })
 		} as unknown as Window;
 		const sent: ErrorReport[] = [];
-		listenTo(page, (report) => sent.push(report));
+		const reports = listenTo(page, (report) => sent.push(report));
 		// On the page itself every listener hears it, whichever way it listens.
 		const fire = (type: string, event: Record<string, unknown>) => {
 			for (const l of listeners) if (l.type === type) l.listener({ target: page, ...event });
@@ -414,7 +414,7 @@ describe('the page', () => {
 		const fireDown = (type: string, target: unknown) => {
 			for (const l of listeners) if (l.type === type && l.down) l.listener({ target });
 		};
-		return { sent, fire, fireDown };
+		return { sent, fire, fireDown, reports };
 	}
 
 	it('reports what nothing caught on it, without a cookie, as it happens', () => {
@@ -518,8 +518,9 @@ describe('the page', () => {
 		}
 	});
 
-	it("sends a tab's security-policy notices on a budget of their own, beside its errors'", () => {
-		const { sent, fire } = listening();
+	it("sends a tab's security-policy notices on a budget of their own, beside its errors', in the page's mode", () => {
+		const { sent, fire, reports } = listening();
+		reports.setContext({ mode: () => 'battle', words: () => [] });
 		for (const blockedURI of ['inline', 'eval', 'data', 'blob']) {
 			fire('securitypolicyviolation', {
 				effectiveDirective: 'img-src',
@@ -530,11 +531,11 @@ describe('the page', () => {
 		for (const message of ['a is undefined', 'b is undefined', 'c is undefined']) {
 			fire('error', { error: new TypeError(message), message: `Uncaught TypeError: ${message}` });
 		}
-		expect(sent.map((r) => r.message)).toEqual([
-			"the page's security policy would refuse img-src: inline",
-			'TypeError: a is undefined',
-			'TypeError: b is undefined',
-			'TypeError: c is undefined'
+		expect(sent.map((r) => [r.message, r.mode])).toEqual([
+			["the page's security policy would refuse img-src: inline", 'battle'],
+			['TypeError: a is undefined', 'battle'],
+			['TypeError: b is undefined', 'battle'],
+			['TypeError: c is undefined', 'battle']
 		]);
 		expect(MAX_POLICY_REPORTS).toBe(1);
 	});
