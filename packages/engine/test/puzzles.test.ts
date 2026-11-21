@@ -939,9 +939,9 @@ describe('difficulty mapping', () => {
 	// ask an easy one's very puzzle. Two checks, because a sample sees only so much:
 	// - from the same seed two steps that ask alike draw the same puzzles, however many they hold;
 	// - a step all of whose puzzles the step below draws too is inside it. A sample of the step
-	//   below holds all its puzzles only where they are few (a box of ice blocks, a floor in
-	//   squares), so a step inside one of thousands of sums is left to its kind's own ladder test
-	//   (`skillBandsFall` above, `puzzle-kinds.test.ts`).
+	//   below holds all its puzzles only where they are some thousands at most (a box of ice
+	//   blocks, floors and fences), so a step inside one of a million sums is left to its kind's
+	//   own ladder test (`skillBandsFall` above, `puzzle-kinds.test.ts`).
 	it('every kind: each difficulty asks a puzzle the one below never does', () => {
 		const [ABOVE, BELOW, MOST] = [400, 4_000, 250_000];
 		const repeats: string[] = [];
@@ -959,14 +959,16 @@ describe('difficulty mapping', () => {
 				const above = draw(d, 7300 + d, ABOVE);
 				const below = new Set(draw(d - 1, 7100 + d, BELOW));
 				let fresh = above.filter((p) => !below.has(p));
-				// Few new ones may be the step below's that its sample missed. Draw more of the step
-				// below, three times as many each round, until a round finds none of the new ones
-				// (they are new) or none are left (the step is inside the one below).
-				for (let n = 2 * BELOW; fresh.length > 0 && fresh.length < ABOVE / 3 && n <= MOST; n *= 3) {
+				// The new ones may be the step below's that its sample missed. Draw more of the step
+				// below, three times as many each round, while a round finds a fifth or more of
+				// those left: a step inside the one below runs out of new ones in a few rounds, and
+				// one that asks something else keeps them.
+				for (let n = 2 * BELOW; fresh.length > 0 && fresh.length < ABOVE && n <= MOST; n *= 3) {
 					for (const p of draw(d - 1, 7200 + d + n, n)) below.add(p);
 					const left = fresh.filter((p) => !below.has(p));
-					if (left.length === fresh.length) break;
+					const found = fresh.length - left.length;
 					fresh = left;
+					if (found < fresh.length / 4) break;
 				}
 				if (fresh.length === 0) repeats.push(`${kind}: ${d - 1} asks every puzzle ${d} asks`);
 			}
