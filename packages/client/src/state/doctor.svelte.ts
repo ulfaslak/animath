@@ -179,7 +179,7 @@ export function hurtIndexes(party: readonly AnimalInstance[]): number[] {
 	return out;
 }
 
-/** The tabs the card shows: heal, set free and shop, and fly when there is another land to list. */
+/** The tabs the card shows: heal, set free, shop and ask, and fly when there is another land to list. */
 export function doctorTabs(lands: readonly LandId[]): DoctorTab[] {
 	return DOCTOR_TABS.filter((tab) => tab !== 'fly' || lands.length > 0);
 }

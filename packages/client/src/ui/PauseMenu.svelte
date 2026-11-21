@@ -61,7 +61,8 @@
 	 * `game.party`, `game.world`, `game.home`, `pause`, `language` and
 	 * `sfx.on`; keys are `PauseController`'s, so nothing here dispatches. The name box binds
 	 * `pause.draft` and keeps the focus while it is open, so typing lands in it.
-	 * Every word comes from the copy files (`pause.*`, `hud.*`, `team.*`).
+	 * Every word comes from the copy files (`pause.*` and its screens' own:
+	 * `worlds.*`, `book.*`, `lands.*`, `puzzles.*`, `team.*`, `party.*`, `hud.*`, `account.*`).
 	 *
 	 * A click or a tap is a key press (`data-press`, `input/taps.ts`, which
 	 * draws what the tap did before the tap is over, so the name box can bring

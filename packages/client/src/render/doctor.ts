@@ -11,7 +11,8 @@ import { DOCTOR_COLORS as C } from './palette';
  * every shape is built once for all the tents (`DOCTOR_GEOMETRIES`, which
  * `tiles.ts` counts among its shared shapes). So a tent's doctor and pot
  * are meshes placed and turned, never geometry of their own: a chunk still
- * owns nothing on the GPU but its instance buffers and its light, and a
+ * owns nothing on the GPU but its instance buffers and its campfire's
+ * painted glow, and a
  * tent on screen costs twelve draw calls more, not twenty-seven, and two
  * more in the sun's shadow (the body and the hat; the rest are too small to
  * cast one worth drawing).

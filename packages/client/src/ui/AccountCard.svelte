@@ -14,8 +14,11 @@
 
 	/**
 	 * The account card ([[UI_SPEC]] § Accounts): make an account with the
-	 * game on screen (`register`), log in to one (`login`), or pick the
-	 * password of the account a welcome link opens (`welcome`). Two boxes, the
+	 * game on screen (`register`; from Continue on a guest's game, the gate,
+	 * `from: 'gate'`, with its own words), log in to one (`login`; on the
+	 * account's own browser by the name alone, one box), pick the password of
+	 * the account a welcome link opens (`welcome`), or a new password on the
+	 * account's own browser (`password`). Two boxes, the
 	 * name and a secret password, a button that shows the password as typed,
 	 * and under them the password rule, or kindly why the card did not go on.
 	 * The welcome card's name is the account's, shown and never typed; while

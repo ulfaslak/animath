@@ -134,7 +134,7 @@ export function shiftOf(
 }
 
 /** A box on the screen, in CSS pixels: the carried card, the column's visible part. */
-export interface Span {
+interface Span {
 	readonly top: number;
 	readonly bottom: number;
 }

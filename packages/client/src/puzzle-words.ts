@@ -25,7 +25,7 @@ import { t } from './copy';
  * (`BattlePanel`'s last fit step) lets it go, and a screen reader still
  * reads it.
  */
-export type QuestionPart =
+type QuestionPart =
 	{ text: string; aside?: true } | { fraction: readonly [number, number] } | { shape: number };
 
 /** Where a part that is not text goes, until the text is cut there. */

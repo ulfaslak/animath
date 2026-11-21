@@ -32,18 +32,22 @@ import { game } from './game.svelte';
  * What the explore HUD's message line says (UI_SPEC § Explore mode): the
  * latest thing said, for a few seconds, and under it the prompt for what
  * Enter does in front of the player (talk to the doctor at a tent, chop a
- * tree or break a rock with the tool it takes), else, while the team needs
- * the doctor, that it is tired and where to go, or the controls hint for the
- * first few steps.
+ * tree, break a rock or an ice block, or fish at a hole, with the tool it
+ * takes), else, while the team needs the doctor, that it is tired and where
+ * to go, or the controls hint for the first few steps.
  *
  * Things said are the authority's `message` events, plus lines the client
  * words itself from events that carry no words: the doctor's goodbye
- * (`doctor-visit-ended`), how to find a doctor (`nothing-to-interact`), that
- * the doctor sells the tool a tree or a rock takes (`tool-needed`, and the
- * first bump into one without it, once a game), who
- * goes first after a party edit (`party-edited`, see `leadNotice`), and what
- * start-up found about the save (`notice`, from `main.ts`). They are kept as
- * data and worded when shown, in the language on screen.
+ * (`doctor-visit-ended`), how to find a doctor or how to fly
+ * (`nothing-to-interact`), that the doctor sells the tool a tree, a rock, an
+ * ice block or a fishing hole takes (`tool-needed`, and the first bump into
+ * one without it, once a game), a cast that caught nothing (`line-cast`), a
+ * take-off with nowhere to land (`take-off-refused`), the bird that follows
+ * (`bird-follows`), who goes first after a party edit (`party-edited`, see
+ * `leadNotice`), and lines the page hands it: what start-up found about the
+ * save (`notice`), the account's (`accountNotice`), playing together's
+ * (`presence`, `match`) and the druid's surprise (`surprise`). They are kept
+ * as data and worded when shown, in the language on screen.
  *
  * Their seconds count only while the explore HUD is on screen (`tick`, from
  * the frame loop), so a line said while the battle screen or the doctor's
@@ -408,8 +412,9 @@ class HudView {
 	apply(event: GameEvent): void {
 		switch (event.type) {
 			case 'player-blocked': {
-				// The first bump into a tree or a rock the kid has no tool for says the doctor
-				// sells one, once a game: a key held against a tree bumps every frame.
+				// The first bump into a tree, a rock, an ice block or a fishing hole the kid has no
+				// tool for says the doctor sells one, once a game: a key held against a tree bumps
+				// every frame.
 				if (event.playerId !== game.playerId) break;
 				const ahead = this.ahead;
 				if (!ahead || game.items.includes(ahead.tool) || this.toolHints.has(ahead.kind)) break;
@@ -419,7 +424,8 @@ class HudView {
 				break;
 			}
 			case 'tool-needed':
-				// Enter at a tree or a rock without its tool: always said, since the kid asked
+				// Enter at a tree, a rock, an ice block or a fishing hole without its tool: always
+				// said, since the kid asked
 				// (and, were the tool not on sale, only how to find a doctor).
 				if (event.playerId !== game.playerId) break;
 				this.toolHints.add(event.kind);

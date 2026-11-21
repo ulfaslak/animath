@@ -10,7 +10,7 @@ import type { Puzzle, PuzzleKind, PuzzleTopic } from '../puzzles/types.js';
  * (reducer.ts) advances it: intents in, a new state plus a list of events out,
  * the same shape as a battle.
  *
- * Three things happen at the doctor, each behind a puzzle:
+ * Five things happen at the doctor, each behind a puzzle:
  * - **Healing.** The player picks a hurt animal and the doctor asks one
  *   puzzle. A right answer heals every hurt animal of that species to full
  *   HP; a wrong one changes nothing but the puzzle.
@@ -95,7 +95,7 @@ export type DoctorIntent =
 	| { type: 'fly'; land: string }
 	/** Ask about an animal not caught yet. Asks a puzzle at that animal's healing difficulty. */
 	| { type: 'reveal' }
-	/** Answer the puzzle that is open: a healing puzzle or a token sum. */
+	/** Answer the puzzle that is open: a healing puzzle, a token sum, the fare, or the druid's puzzle about an animal. */
 	| { type: 'answer'; input: string }
 	/** Say yes to the trip the druid offers (`offering`): off they fly, no fare asked. */
 	| { type: 'accept-offer' }

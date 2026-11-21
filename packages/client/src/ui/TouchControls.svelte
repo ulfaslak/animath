@@ -8,7 +8,7 @@
 	import { hud } from '../state/hud.svelte';
 
 	/**
-	 * The touch controls in explore (UI_SPEC § Touch): the D-pad in the bottom
+	 * The touch controls in explore (UI_SPEC § Pointer and touch): the D-pad in the bottom
 	 * left corner and the Talk and Menu buttons in the bottom right, where the
 	 * thumbs of a kid holding a tablet rest, and once the glider is owned, Fly
 	 * over Talk. Each is a key (`input/press.ts`): an arrow held down while the

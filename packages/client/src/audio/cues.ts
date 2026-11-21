@@ -41,7 +41,7 @@ export type CueName =
 	| 'plane'
 	| 'hint';
 
-export type Wave = 'sine' | 'triangle' | 'noise';
+type Wave = 'sine' | 'triangle' | 'noise';
 
 export interface Voice {
 	/** Seconds after the cue starts. */

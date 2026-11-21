@@ -25,6 +25,10 @@ app:
     title: Animath er flyttet!
     go: Spil på {domain}
     stay: Spil videre her
+  notLoaded:
+    title: Animath ville ikke starte.
+    retry: Prøv igen
+    grownUps: 'Til voksne: Tjek at enheden er på internettet og prøv igen.'
 
 keys:
   esc: Esc

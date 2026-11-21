@@ -14,7 +14,7 @@
  *   mDNS `.local` name).
  * - `elsewhere`: any other address, the old tunnel's among them.
  */
-export type HostKind = 'home' | 'local' | 'elsewhere';
+type HostKind = 'home' | 'local' | 'elsewhere';
 
 /** Where a page on `hostname` (`location.hostname`) runs, for the game at `domain`. */
 export function hostKind(hostname: string, domain: string): HostKind {

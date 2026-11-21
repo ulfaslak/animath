@@ -6,7 +6,7 @@
 	 * that: how many were tried, and so how many were missed, stays in the
 	 * record for the game's makers and never reaches the page.
 	 */
-	export interface StatRow {
+	interface StatRow {
 		topic: PuzzleTopic;
 		right: number;
 	}

@@ -82,7 +82,7 @@ export function presenceUrl(href: string): string {
 	return url.toString();
 }
 
-export function browserDeps(): ConnectionDeps {
+function browserDeps(): ConnectionDeps {
 	return {
 		open: (url) => new WebSocket(url) as unknown as SocketLike,
 		url: () => presenceUrl(location.href),

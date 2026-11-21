@@ -441,6 +441,27 @@ const LADDERS: readonly Partial<Record<PuzzleKind, string>>[] = [
 		balance: 'e7d15a69',
 		units: '3baf28fe',
 		blocks: '9a254a68'
+	},
+	// 2: floors and fences' 3, 8 and 9, so that no step asks only what the one below asks.
+	{
+		add: 'fdb0f914',
+		sub: '50ac249a',
+		mul: 'ab7c922c',
+		div: 'aae252ce',
+		missing: 'b4ab71a3',
+		sequence: 'f7de6062',
+		sqrt: 'bafc803c',
+		double: '7419f2a1',
+		thermometer: 'ea63120f',
+		kroner: 'baf2c1ba',
+		fraction: 'd82fdde6',
+		shape: '157a8401',
+		barchart: '20383366',
+		clock: '32d98dae',
+		numberline: 'e047f570',
+		balance: 'e7d15a69',
+		units: '3baf28fe',
+		blocks: '9a254a68'
 	}
 ];
 

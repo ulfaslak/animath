@@ -12,7 +12,7 @@
  * - `loggedOut`: logged out; the title, with the guest game if there is one,
  *   saying the account's game is safe and offering to log in to it again.
  */
-export const ACCOUNT_NOTES = ['saved', 'welcome', 'movedAhead', 'loggedOut'] as const;
+const ACCOUNT_NOTES = ['saved', 'welcome', 'movedAhead', 'loggedOut'] as const;
 export type AccountNote = (typeof ACCOUNT_NOTES)[number];
 
 /** A note for the next start, and the account it is about when it names one. */

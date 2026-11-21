@@ -24,8 +24,9 @@ export type MatchStage =
 
 /**
  * Why the Challenge button can't be pressed: the engine's rule
- * (`challengeRefusal`, but never `far`: nobody within reach is no button),
- * the player's own team (`no-team`), or a No a moment ago (`wait`).
+ * (`challengeRefusal`, but never `far`: nobody within reach is no button;
+ * nor `busy`: the button is only up while the player explores), the
+ * player's own team (`no-team`), or a No a moment ago (`wait`).
  */
 export type ButtonRefusal = Exclude<ChallengeRefusal, 'far' | 'busy'> | 'no-team' | 'wait';
 
