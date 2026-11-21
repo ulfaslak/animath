@@ -5,7 +5,8 @@
  * a keyboard. It prints each piece that leaves its card or the safe area,
  * each button (Back, the number pad's keys, the tabs, Set free and Bye, the
  * confirm's choices) cut or covered, each piece of the right-hand side over
- * another, and the doctor's line under the badge or the tokens, and exits
+ * another, each number or word of a puzzle's picture under 16 px on the
+ * screen, and the doctor's line under the badge or the tokens, and exits
  * non-zero when anything is. A screenshot of one state shows one state:
  * #154, #160, #161, #162 and #166 each found a state or a size the check
  * before them had not looked at.
@@ -32,7 +33,8 @@
  * bear's sequence) and the longest sums in words (units), which must break
  * only between words; the paraglider's price (the priciest tool); balances and
  * rewards of four and five digits (a hand-over of 999 bears brings 29,970);
- * each beat after a right answer, when the doctor's lines are longest; and
+ * each beat after a right answer, when the doctor's lines are longest, and
+ * the reward after a picture puzzle of each kind, beside the list; and
  * the tabs' own sides with every line they can show at once.
  */
 import { chromium } from 'playwright-core';

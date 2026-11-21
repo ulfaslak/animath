@@ -326,7 +326,7 @@ Who comes out depends on who leads your party (§ Your party). With a rabbit in 
 - **Leaving**: Bye or Escape (§ Controls, § Touch and mouse). The druid says "Bye! Come back any time." on the bottom line.
 - **On a phone held sideways** the druid's card takes nearly all of the screen, and a puzzle and its number pad take the whole card, the list, the tabs and Bye out of the way until you tap Back; answer right and the list comes back for the reward, with the sum, your answer and "Correct!" beside it ([[UI_SPEC]] § Doctor, "On a phone held sideways").
 - **A long nickname** (twelve W's) in the druid's line goes on under the badge and the tokens, never under the tokens alone, and a very long line gets a row of its own in smaller letters ([[UI_SPEC]] § Doctor).
-- **Answer right** and, while the reward plays (the heal's stars, the goodbye, the tokens, the tool's tick), the puzzle shows only the sum, your answer and "Correct!": the number pad, the story and Back are gone until the list is back (Escape still says bye meanwhile).
+- **Answer right** and, while the reward plays (the heal's stars, the goodbye, the tokens, the tool's tick), the puzzle shows only the sum, your answer and "Correct!": the number pad, the story and Back are gone until the list is back (Escape still says bye meanwhile). A puzzle with a picture (a number line, a heal of an Arctic animal) shows its question in words without the picture then.
 - **A crowded card packs itself**: when the right-hand side would not fit (a long druid's line, twelve-W names, a five-digit sum), its lines move closer, then its words shrink, then its hints go, and last the sum shrinks ([[UI_SPEC]] § Doctor). Back, OK and the tabs are always whole, at every size, in both languages.
 
 ## Puzzles solved
