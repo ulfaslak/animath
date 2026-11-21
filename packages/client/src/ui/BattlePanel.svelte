@@ -940,7 +940,7 @@
 	.puzzle:global([data-fit~='small']) {
 		--hint-size: 20px;
 	}
-	/* `least`: the hint and the answer at their smallest, the druid's least. */
+	/* `least`: the hint at its smallest, as the druid's (17 px), and the answer box smaller. */
 	.puzzle:global([data-fit~='least']) {
 		--hint-size: 17px;
 	}
