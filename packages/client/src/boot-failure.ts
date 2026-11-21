@@ -9,6 +9,7 @@
  * lazily after that, so this is the one place a missing file shows.
  *
  * The page reloads itself once, then shows a card with a button to try again.
+ * An error the game's own code throws as it starts gets neither (`failureOf`).
  * The tab remembers the reload (`sessionStorage`, which a reload keeps) until
  * the game has loaded, so a second failure in a row shows the card, and a page
  * never reloads itself twice in a row. `index.html`'s inline script does the
@@ -71,22 +72,37 @@ export function readsTheGame(): boolean {
 }
 
 /**
+ * What a browser says when a file of an import did not download: Chrome's
+ * (and every browser built on it), Firefox's, Safari's, and Vite's for a
+ * stylesheet the import needs. Nothing else counts: an error the game's own
+ * code throws as it starts is not a missing file, and another try would not
+ * help it.
+ */
+const NOT_DOWNLOADED =
+	/Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Unable to preload CSS/i;
+
+/**
  * Why the game did not start, from what its import was rejected with:
  * - `no-webgl`: the renderer was refused a context for its own settings
  *   (three.js says WebGL);
  * - `too-old`: the game's code is syntax this browser cannot read. A Safari
  *   before 15 can say so as it says a file did not download, so the browser
  *   is asked itself (`reads`);
- * - `not-loaded`: anything else, a file that did not download above all.
+ * - `not-loaded`: a file of it did not download (`NOT_DOWNLOADED`);
+ * - `other`: anything else, an error in the game's own code.
  */
-export function failureOf(error: unknown, reads: boolean): 'no-webgl' | 'too-old' | 'not-loaded' {
+export function failureOf(
+	error: unknown,
+	reads: boolean
+): 'no-webgl' | 'too-old' | 'not-loaded' | 'other' {
 	let said = '';
 	try {
 		said = String(error);
 	} catch {
-		// Something that cannot say what it is says nothing about WebGL.
+		// Something that cannot say what it is says nothing.
 	}
 	if (said.includes('WebGL')) return 'no-webgl';
 	if (error instanceof SyntaxError || !reads) return 'too-old';
-	return 'not-loaded';
+	if (NOT_DOWNLOADED.test(said)) return 'not-loaded';
+	return 'other';
 }

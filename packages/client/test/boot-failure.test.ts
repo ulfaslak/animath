@@ -54,13 +54,27 @@ describe('why the game did not start', () => {
 		expect(failureOf(new TypeError('Importing a module script failed.'), false)).toBe('too-old');
 	});
 
-	it('is a file that did not download when what was thrown cannot say what it is', () => {
-		const mute = {
-			toString() {
-				throw new Error('no');
+	it("is the game's own code for anything else, which another try would not help", () => {
+		for (const error of [
+			// three.js on a context lost as it was made, in Safari.
+			new TypeError(
+				"null is not an object (evaluating 'gl.getShaderPrecisionFormat(gl.VERTEX_SHADER, gl.HIGH_FLOAT).precision')"
+			),
+			new ReferenceError('game is not defined'),
+			new Error('startBattle: the party is empty'),
+			'rejected with a string',
+			undefined,
+			{
+				toString() {
+					throw new Error('cannot say');
+				}
 			}
-		};
-		expect(failureOf(mute, true)).toBe('not-loaded');
+		]) {
+			expect(
+				failureOf(error, true),
+				String(error instanceof Error ? error.message : typeof error)
+			).toBe('other');
+		}
 	});
 
 	it("asks this browser about the game's newest syntax, the line index.html asks about", () => {
