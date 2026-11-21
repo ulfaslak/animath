@@ -177,7 +177,7 @@ export const FIGHT_GEOMETRIES: readonly THREE.BufferGeometry[] = [
 ];
 
 /** The thought bubble over a player thinking now: the puzzle as numbers (null: choosing), and how their last answer went. */
-export interface ThoughtMark {
+interface ThoughtMark {
 	puzzle: PuzzleFace | null;
 	/** Right or wrong, while its little pop or wobble plays; `beat` counts them, so each one plays anew. */
 	mood: 'right' | 'wrong' | null;
@@ -202,7 +202,7 @@ export interface BarMark {
 }
 
 /** A damage number floating up from the animal hit: `id` is its own, for the page to play it once; `key` its animal's bar's. */
-export interface PopMark {
+interface PopMark {
 	id: number;
 	key: string;
 	at: THREE.Vector3;
@@ -211,7 +211,7 @@ export interface PopMark {
 }
 
 /** What the page draws over the battles this frame (`PresenceController.overlay`). */
-export interface FightMarks {
+interface FightMarks {
 	thoughts: Map<string, ThoughtMark>;
 	bars: BarMark[];
 	pops: PopMark[];

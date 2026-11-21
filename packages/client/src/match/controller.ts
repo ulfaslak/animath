@@ -127,7 +127,7 @@ const ASK_AGAIN_SECONDS = 30;
  * after it (`animath.wentBack.<pid>`): every tab and reload of theirs keeps
  * their Back, and nobody else's page reads it.
  */
-export const WENT_BACK_KEY = 'animath.wentBack';
+const WENT_BACK_KEY = 'animath.wentBack';
 
 /** The key of `pid`'s Back (`WENT_BACK_KEY`). */
 export function wentBackKey(pid: string): string {

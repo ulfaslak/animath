@@ -104,7 +104,7 @@ export const WATER_TOP = 0.2;
 export const ICE_TOP = 0.36;
 
 /** Whether a tile is The Arctic's, which draws its water, rocks and trees its own way. */
-export function isArcticTile(tile: Tile): boolean {
+function isArcticTile(tile: Tile): boolean {
 	return BIOME_POLE[tile.biome] !== null;
 }
 

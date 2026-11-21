@@ -19,18 +19,17 @@ import { attackName } from '../names';
  * function here works the same on it.
  */
 export const WILD_MOVES = ['leash', 'switch', 'run'] as const;
-export type WildMove = (typeof WILD_MOVES)[number];
+type WildMove = (typeof WILD_MOVES)[number];
 
 /** A friendly match's moves: Switch, then Leave (the other player wins). */
 export const MATCH_MOVES = ['switch', 'leave'] as const;
-export type MatchMove = (typeof MATCH_MOVES)[number];
+type MatchMove = (typeof MATCH_MOVES)[number];
 
 /** Any move of either row. */
 export type FightMove = WildMove | MatchMove;
 
 /** What a row of the action menu does: every attack in order, then the moves. */
-export type BattleAction<M extends string = WildMove> =
-	{ kind: 'attack'; index: number } | { kind: M };
+type BattleAction<M extends string = WildMove> = { kind: 'attack'; index: number } | { kind: M };
 
 /** What the menu row at `cursor` does, given how many attacks the animal has and the moves after them. */
 export function actionAt<M extends string>(
@@ -60,7 +59,7 @@ export function rowOf<M extends string>(kind: M, attackCount: number, moves: rea
  */
 export type Levels = Readonly<Record<string, AttackLevel>>;
 
-export function levelOf(levels: Levels, speciesId: string, attackId: string): AttackLevel {
+function levelOf(levels: Levels, speciesId: string, attackId: string): AttackLevel {
 	return levels[`${speciesId}/${attackId}`] ?? ATTACK_LEVELS[0];
 }
 
@@ -87,7 +86,7 @@ export function levelWord(level: AttackLevel): string {
 }
 
 /** One attack row as the panel draws it: its name, its own level and that level's word. */
-export interface AttackRow {
+interface AttackRow {
 	/** 1-based, as the engine counts attacks. */
 	index: number;
 	/** In the language on screen. */
@@ -110,10 +109,10 @@ export interface Menu {
 }
 
 /** What a key on the action menu picked: an attack at its level, or a move (`switch` opens the party list). */
-export type MenuChoice<M extends string = WildMove> =
+type MenuChoice<M extends string = WildMove> =
 	{ kind: 'attack'; attackIndex: number; level: AttackLevel } | { kind: M };
 
-export interface MenuKey<M extends string = WildMove> {
+interface MenuKey<M extends string = WildMove> {
 	menu: Menu;
 	/** False for a key the menu has no use for, so the browser keeps it. */
 	handled: boolean;
@@ -216,7 +215,7 @@ export function pickedMenu(
 }
 
 /** What a key on the party list picked: the highlighted animal, or going back to the menu. */
-export type ListChoice = 'pick' | 'back';
+type ListChoice = 'pick' | 'back';
 
 /**
  * One key on the party list of `count` animals. Up/down (W/S) move the

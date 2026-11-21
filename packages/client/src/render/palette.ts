@@ -109,7 +109,7 @@ export const TRAINER_LOOKS: readonly TrainerLook[] = [
  * greener than the ground round it, with blades standing up in it; the
  * river's is a reed bed on the sand, yellower, with tall reeds.
  */
-export interface BiomeLook {
+interface BiomeLook {
 	/** Plain ground: grass, and the ground under a tree or a tent. */
 	ground: number;
 	/** The ground of an encounter tile. */

@@ -22,7 +22,7 @@ import type { KeyValueStore } from '../save/storage';
  */
 
 /** The switch that carries a welcome link's token, after `#` (or `?`). */
-export const WELCOME_PARAM = 'welcome';
+const WELCOME_PARAM = 'welcome';
 
 /** The key a tab keeps a welcome link's token under between its own starts (`sessionStorage`). */
 export const WELCOME_KEY = 'animath.welcome';

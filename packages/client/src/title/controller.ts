@@ -60,7 +60,7 @@ import {
  * since picking starts a game, and the card's button (Enter) picks.
  */
 
-export interface TitleHooks {
+interface TitleHooks {
 	/**
 	 * Continue: the authority picks up `game`, and saving begins. `name`: the
 	 * player's name, given just now for a game saved without one; the host

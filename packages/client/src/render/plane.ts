@@ -311,7 +311,7 @@ export const CALM_PLANE_SECONDS = 0.5;
  * first number to its second. `hold`: it stays, parked, until the next part
  * is said (`PlaneTrip.then`).
  */
-export interface PlaneLeg {
+interface PlaneLeg {
 	way: PlanePose['way'];
 	ride: readonly [number, number];
 	seconds: number;

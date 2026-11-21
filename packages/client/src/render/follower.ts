@@ -87,7 +87,7 @@ const SIDES: Record<Direction, [Direction, Direction]> = {
 };
 
 /** Seconds the one following takes to shrink away, and the new lead to grow in. */
-export const SWAP_OUT_SECONDS = 0.2;
+const SWAP_OUT_SECONDS = 0.2;
 export const SWAP_IN_SECONDS = 0.35;
 /** How high each species bounces on a step, in tiles: the small ones bound, the big ones plod. */
 const HOP: Record<string, number> = {

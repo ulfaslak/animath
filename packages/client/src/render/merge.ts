@@ -52,7 +52,7 @@ export function markJoint<T extends THREE.Object3D>(node: T): T {
 const isJoint = (o: THREE.Object3D): boolean => o.userData.joint === true;
 
 /** How a merged figure keeps its joints apart: bones of one mesh, or a mesh per group. */
-export type MergeMode = 'skinned' | 'grouped';
+type MergeMode = 'skinned' | 'grouped';
 
 /**
  * How far a skinned figure's joints may reach beyond its box as built, as a

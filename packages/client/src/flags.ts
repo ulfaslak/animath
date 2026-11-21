@@ -19,7 +19,7 @@ import type { LocalAuthorityOptions } from './authority/local';
  * The page's URL switches, read once at load. None is a setting a player
  * needs: each exists to look at something (CHEATSHEET § Hidden behaviour).
  */
-export interface Flags {
+interface Flags {
 	/**
 	 * `?zoo`: one of every species stands by the spawn tile, to check the
 	 * figures; `?zoo=tired` lays every one of them down to rest, as a tired
