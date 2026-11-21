@@ -877,8 +877,31 @@ Found by Phase 2.5's cold review, which planted each case. Fixed in the same PR,
 
 Codified: `scripts/negctl.sh` (a baseline run first), `scripts/check-learned.mjs` (names specific enough to be guards), `handlers.test.ts` (what a handler takes again at `travelled`).
 
+### 2026-10-28 — number patterns from the gaps (fix/sequence-balance, PR #236) — a second knob turned unasked and unsimulated, and prose that claimed a bound the tables broke `[learned]`
+
+- **A fix to make a topic easier also made part of it harder.** The fix was "fewer patterns that need a trick". On the side, the counting bands at difficulty 6–10 were raised to three-digit numbers, so that counting, now half of all sequences, would not be "too easy". That made the half the struggling kids could already do harder. The simulation modelled counting with a flat accuracy, so it could not see the change, and #7 had already settled what the top's counting asks. The adversarial review caught it, and the counting bands went back to main's. A balance fix turns only the knob the evidence points at. Any other number it moves gets its own simulation, one that can see that number.
+- **Prose claimed a bound the tables broke.** "A bear's counting is three-digit" was written from the table's start band, but the start plus four steps reached 1240: a third of difficulty-10 counting showed a four-digit number. A bound in prose is read off the generator's output (the largest number shown and asked), never off one band.
+- **A comment described the starter level, not the attack.** "A tier-1 animal's hardest level asks no other pattern" was false: the strongest tier-1 attacks reach difficulty 5 on hard. A claim about "an animal" is checked against `puzzleDifficulty` for every attack and level it names.
+
+Codified: [[DEVELOPMENT]] § Testing ideology: a balance PR names every number it moves, each with a simulation that can see it; a number in prose comes from the extremes the code reaches, never from a table read by eye; a claim about what an animal asks is read through `puzzleDifficulty` for every attack's three levels.
+
 ### 2026-11-20 — puzzle hints (feat/puzzle-hints) — `pkill -f vitest` run as the shared user `[learned]`
 
 - **A stale test run was stopped by name, not by its id.** Every agent on this machine runs as the same user, so `pkill -f vitest` would stop any other agent's test run too. Stop your own with its task id, or `kill` the pids you started.
 
 Codified: [[ENVIRONMENT_NOTES]] § This machine is shared with the lawcel project (every agent runs as the same user).
+
+### 2026-11-20 — school-year ladders for Nordland's kinds (feat/nordland-ladders, PR #243, #235) — ladder steps designed one kind at a time, not against how attacks reach them, and prose claims again not measured `[learned]`
+
+- **Two neighbouring steps were the same.** To give a school year two difficulties, the first draft repeated a step (times 5 = 6, roots 3 = 4 and 5 = 6). `puzzleDifficulty` puts an attack's levels on neighbouring difficulties, so 21 attacks asked the very same sums on two levels for different damage: the trap of #32, again. Found by the adversarial review. A table indexed by difficulty is checked against every attack's three levels, not only read as a ladder.
+- **Steps out of reach were quoted as the top.** No animal asks multiplication above 9 or a missing number above 6, so the brief's "18 × 15" sat on a step no kid could meet, and the prose promised it. Found by the review. Before writing what a step gives kids, find the highest difficulty any attack and the druid ask of that kind.
+- **Prose claims written from the band ends.** "Across a hundred" and "across a thousand" held for 50–75% of puzzles, and "neither number is a multiple of ten" was false for the sum. Same category as 2026-10-28's second item: a claim is measured from the generator's output, or tested.
+
+Codified: [[DEVELOPMENT]] § Testing ideology (a ladder is tested as the puzzles it makes; a number in prose never comes from a table read by eye) and `puzzles.test.ts`'s every-kind ladder test, which fails when a step asks the very puzzles of the one below, or only puzzles the one below asks where the step below is small enough to sample, and pins the steps that are not (`UNSAMPLED`).
+
+### 2026-11-20 — the Arctic's ladders on the school-year scale (feat/arctic-ladders, PR #242) — two equal steps on a ladder, and a band end no puzzle can reach `[learned]`
+
+- **A ladder that holds a skill for two years held it for two equal steps.** The approved scale put whole hours at 1–2 and a quarter past and to at 4–5, and the clock's table wrote both pairs as the same row. Every test of a ladder checked that its bands never fall; none checked that they rise. So an Arctic tern's Long Trip asked the same clocks on easy and on medium, and the fox's Snow Dive, the Adélie's Belly Slide and the gentoo's Fast Swim the same on medium and hard, the harder level hitting harder for nothing (#32's failure in a new place; the same day the Nordland ladders made the same mistake, the entry above). The mapping test compares difficulty numbers, not the puzzles they draw. Found by the adversarial review; `puzzles.test.ts` now draws every kind at neighbouring difficulties from the same seed and fails when they match.
+- **A band end written in the table but never asked.** The balance's box was 2–9 at 8, but `a × □ = b × c` needs a product another pair makes, and 2 × 2–5 never has one, so the box was always 3–9 and PRODUCT copied the table's 2–9. Found by the adversarial review. Prose taken from a table is a claim about what the generator does: sample the ends, not the table.
+
+Codified: [[DEVELOPMENT]] § Testing ideology (a ladder is tested as the puzzles it makes; a band end no puzzle can reach is never quoted) and `puzzles.test.ts`'s every-kind ladder test, which fails when a step asks the very puzzles of the one below, or only puzzles the one below asks where the step below is small enough to sample, and pins the steps that are not (`UNSAMPLED`).

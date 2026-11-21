@@ -23,18 +23,19 @@ export interface ShapeStep {
  * Index = difficulty − 1. The floor of a rectangle in squares (1–3), the
  * fence too (4), then the sides' lengths written on (5–6), an L (half the
  * shapes at 7, every one at 8), and a side missing (9–10). Both ends of
- * `side` never fall.
+ * `side` never fall, and every step asks a shape the step below never does:
+ * a longer side, or something new to find.
  */
 export const SHAPE_LADDER: readonly ShapeStep[] = [
 	{ side: [2, 4], grid: true, fence: false, l: 0, missing: 0 },
 	{ side: [2, 5], grid: true, fence: false, l: 0, missing: 0 },
-	{ side: [3, 5], grid: true, fence: false, l: 0, missing: 0 },
+	{ side: [3, 6], grid: true, fence: false, l: 0, missing: 0 },
 	{ side: [3, 6], grid: true, fence: true, l: 0, missing: 0 },
 	{ side: [3, 7], grid: false, fence: true, l: 0, missing: 0 },
 	{ side: [4, 9], grid: false, fence: true, l: 0, missing: 0 },
 	{ side: [4, 10], grid: false, fence: true, l: 0.5, missing: 0 },
-	{ side: [5, 10], grid: false, fence: true, l: 1, missing: 0 },
-	{ side: [6, 12], grid: false, fence: true, l: 0.5, missing: 0.5 },
+	{ side: [5, 11], grid: false, fence: true, l: 1, missing: 0 },
+	{ side: [6, 11], grid: false, fence: true, l: 0.5, missing: 0.5 },
 	{ side: [8, 12], grid: false, fence: true, l: 0.5, missing: 0.5 }
 ];
 
