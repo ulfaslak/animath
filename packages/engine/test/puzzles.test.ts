@@ -3,6 +3,7 @@ import { ANIMALS } from '../src/animals/catalog.js';
 import { ATTACK_LEVELS, type AttackLevel } from '../src/animals/types.js';
 import { attackDamage } from '../src/battle/damage.js';
 import { Rng } from '../src/rng.js';
+import { turn } from './turn.js';
 import { UNIT_PAIRS } from '../src/puzzles/face.js';
 import { healingDifficulty, puzzleDifficulty } from '../src/puzzles/difficulty.js';
 import {
@@ -938,33 +939,62 @@ describe('difficulty mapping', () => {
 	// harder; a step inside the one below (floors and fences' 3 in 2, 8 in 7 and 10 in 9) let a
 	// medium attack ask only puzzles an easy one asks. Two checks, because a sample sees only so much:
 	// - from the same seed two steps that ask alike draw the same puzzles, however many they hold;
-	// - a step all of whose puzzles the step below draws too is inside it. A sample of the step
-	//   below holds all its puzzles only where they are some thousands at most (a box of ice
-	//   blocks, floors and fences), so a step inside one of a million sums is left to its kind's
-	//   own ladder test (`skillBandsFall` above, `puzzle-kinds.test.ts`), and so is one form of a
-	//   step inside the step below's while its other form asks something new (ice blocks' 9).
-	it('every kind: each difficulty asks a puzzle the one below never does', () => {
+	// - a step all of whose 400 puzzles turn up among the step below's is inside it. 4,000 of the
+	//   step below are drawn, then more in rounds three times as big while a round finds a quarter
+	//   or more of those still missing; a step below with under 8 of its 4,000 seen once was seen
+	//   whole, and needs no more.
+	// A step below more than half of whose 4,000 differ is too big for any sample: there only a
+	// check of the kind's own table finds a step inside it. `UNSAMPLED` lists those steps, so a
+	// ladder change that adds one shows here; shape, ice blocks, units and the number line have a
+	// table check (`puzzle-kinds.test.ts`), the kinds in `UNSAMPLED` have none yet. Neither check
+	// sees one form of a step inside the step below's beside a new form (ice blocks' 9: its own).
+	// Cost: about 2 s alone at a load of 6 to 10, nearly all of it the first 4,000 draws at each of
+	// some 150 steps: about 47 s at a load of 150, scaled from 1.4 s alone at 4.6. Async, a turn between
+	// kinds (DEVELOPMENT § Testing ideology).
+	const UNSAMPLED = [
+		'add 6,7,8,9,10',
+		'sub 6,7,8,9,10',
+		'missing 9,10',
+		'kroner 9,10',
+		'barchart 3,4,5,6,7,8,9,10',
+		'clock 9,10',
+		'balance 5,6,7,8,9,10'
+	];
+	it('every kind: each difficulty asks a puzzle the one below never does', async () => {
 		const [ABOVE, BELOW, MOST] = [400, 4_000, 250_000];
 		const repeats: string[] = [];
+		const unsampled: string[] = [];
 		for (const kind of ALL_PUZZLE_KINDS) {
+			await turn();
 			const { minDifficulty, maxDifficulty } = getGenerator(kind);
 			const draw = (at: number, seed: number, n: number) => {
 				const rng = new Rng(seed);
 				return Array.from({ length: n }, () => getGenerator(kind).generate(rng, at).prompt);
 			};
+			const big: number[] = [];
 			for (let d = minDifficulty + 1; d <= maxDifficulty; d++) {
 				if (draw(d, 900 + d, 50).join() === draw(d - 1, 900 + d, 50).join()) {
 					repeats.push(`${kind}: ${d} asks what ${d - 1} asks`);
 					continue;
 				}
 				const above = draw(d, 7300 + d, ABOVE);
-				const below = new Set(draw(d - 1, 7100 + d, BELOW));
+				const times = new Map<string, number>();
+				for (const p of draw(d - 1, 7100 + d, BELOW)) times.set(p, (times.get(p) ?? 0) + 1);
+				const below = new Set(times.keys());
+				if (below.size > BELOW / 2) {
+					big.push(d);
+					continue;
+				}
 				let fresh = above.filter((p) => !below.has(p));
-				// The new ones may be the step below's that its sample missed. Draw more of the step
-				// below, three times as many each round, while a round finds a fifth or more of
-				// those left: a step inside the one below runs out of new ones in a few rounds, and
-				// one that asks something else keeps them.
-				for (let n = 2 * BELOW; fresh.length > 0 && fresh.length < ABOVE && n <= MOST; n *= 3) {
+				const once = [...times.values()].filter((t) => t === 1).length;
+				// The new ones may be the step below's that its sample missed: draw more of it while
+				// each round finds some. A step inside the one below runs out of new ones in a few
+				// rounds, and one that asks something else keeps them.
+				for (
+					let n = 2 * BELOW;
+					once >= 8 && fresh.length > 0 && fresh.length < ABOVE && n <= MOST;
+					n *= 3
+				) {
 					for (const p of draw(d - 1, 7200 + d + n, n)) below.add(p);
 					const left = fresh.filter((p) => !below.has(p));
 					const found = fresh.length - left.length;
@@ -973,9 +1003,11 @@ describe('difficulty mapping', () => {
 				}
 				if (fresh.length === 0) repeats.push(`${kind}: ${d - 1} asks every puzzle ${d} asks`);
 			}
+			if (big.length > 0) unsampled.push(`${kind} ${big.join(',')}`);
 		}
 		expect(repeats).toEqual([]);
-	}, 60_000);
+		expect(unsampled).toEqual(UNSAMPLED);
+	}, 150_000);
 
 	it('any tier, any attack up to the eighth: each level is one step harder, and hard never passes the top', () => {
 		const problems: string[] = [];
