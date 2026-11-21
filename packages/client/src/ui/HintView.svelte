@@ -4,7 +4,7 @@
 
 	/**
 	 * A puzzle's hint, drawn from the engine's `puzzleHint` (UI_SPEC § Battle
-	 * mode, "Hints"), in the trainer's blue:
+	 * mode, "Hint"), in the trainer's blue:
 	 * - an equation on a line of its own under the prompt, the wand before
 	 *   it, each part to work out first on a pale pill of sky ("? = (10 × 8)
 	 *   + (3 × 8)"); it wraps between its pieces, never inside a pill;
