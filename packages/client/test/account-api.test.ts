@@ -8,6 +8,7 @@ import {
 	changePassword,
 	getAccountSave,
 	homeAccounts,
+	keepGame,
 	login,
 	loginAtHome,
 	logout,
@@ -161,6 +162,43 @@ describe('login and logout', () => {
 		expect(await logout('Ida')).toBe('offline');
 		answer('network error');
 		expect(await logout('Ida')).toBe('offline');
+	});
+});
+
+describe('a guest game kept with the account', () => {
+	it('is sent as it is, naming its account, and is kept only on the API’s own { ok: true }', async () => {
+		const seen = answer({ status: 200, json: { ok: true } });
+		const guest = { version: 6, lineage: 'guest', seq: 3, name: 'Pip' };
+		expect(await keepGame('Søren', guest)).toBe(true);
+		expect(seen).toHaveLength(1);
+		expect(seen[0]!.url).toBe('/api/account/keep');
+		expect(seen[0]!.init?.method).toBe('POST');
+		const headers = new Headers(seen[0]!.init?.headers);
+		expect(headers.get('x-animath-account')).toBe('S%C3%B8ren');
+		expect(headers.get('content-type')).toBe('application/json');
+		expect(JSON.parse(String(seen[0]!.init?.body))).toEqual(guest);
+	});
+
+	it.each<[string, Answer]>([
+		["200 and a proxy's page", { status: 200, html: page }],
+		['200 without ok', { status: 200, json: {} }],
+		['401 not logged in', { status: 401, json: { error: 'not logged in' } }],
+		['401 account renamed', { status: 401, json: { error: 'account renamed', name: 'Bo' } }],
+		['429 too many tries', { status: 429, json: { error: 'too many tries', retryAfter: 9 } }],
+		['503 a newer build’s', { status: 503, json: { error: 'this save is newer' } }],
+		['no answer', 'network error']
+	])('%s is not kept', async (_, a) => {
+		answer(a);
+		expect(await keepGame('Ida', doc)).toBe(false);
+	});
+
+	it('a refusal (400, 413) is not kept, and is said to developers once', async () => {
+		const said = vi.spyOn(console, 'error').mockImplementation(() => {});
+		answer({ status: 400, json: { error: 'bad save', detail: 'party must be a list' } });
+		expect(await keepGame('Ida', doc)).toBe(false);
+		answer({ status: 413, json: { error: 'body is bigger than 1048576 bytes' } });
+		expect(await keepGame('Ida', doc)).toBe(false);
+		expect(said).toHaveBeenCalledTimes(2);
 	});
 });
 

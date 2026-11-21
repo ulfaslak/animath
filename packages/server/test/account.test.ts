@@ -31,6 +31,7 @@ import {
 	SAVE_FROM_NEWER_BUILD,
 	SAVE_MAX_BYTES,
 	STORED_FROM_NEWER_BUILD,
+	keepAccountGame,
 	writeAccountSave
 } from '../src/save.js';
 import {
@@ -182,6 +183,10 @@ class Browser {
 	}
 	putSave(doc: unknown, extra: Record<string, string> = {}) {
 		return this.request('PUT', '/save', doc, this.named(extra));
+	}
+	/** The guest game the password gate passed over, for the account to keep. */
+	keep(doc: unknown, extra: Record<string, string> = {}) {
+		return this.request('POST', '/keep', doc, this.named(extra));
 	}
 }
 
@@ -1076,6 +1081,137 @@ describe('the account save', () => {
 	});
 });
 
+describe('a guest game kept with the account (the password gate)', () => {
+	it("keeps another game among the account's set-aside games, as `guest`, and leaves its save alone", async () => {
+		const { browser, name } = await account(doc(5));
+		const guest = doc(2, 'guest-game', { name: 'Pip', tokens: 3 });
+		const res = await browser.keep(guest);
+		expect(res.status).toBe(200);
+		expect(await res.json()).toEqual({ ok: true });
+		expect(res.headers.get('set-cookie')).toBeNull();
+		expect(await keptAside(name)).toEqual([{ data: guest, reason: 'guest' }]);
+		expect(await storedSave(name)).toEqual(doc(5));
+		// The account's own saves go on as before, the kept game never in their way.
+		expect((await browser.putSave(doc(6))).status).toBe(200);
+		expect(await storedSave(name)).toEqual(doc(6));
+	});
+
+	it('keeps it for an account with no save yet, and keeps an older version as this build reads it', async () => {
+		const { browser, name } = await account();
+		expect((await browser.keep(docV1(4, 'guest-game'))).status).toBe(200);
+		const [kept] = await keptAside(name);
+		expect(kept).toMatchObject({ reason: 'guest', data: { version: SAVE_VERSION, seq: 4 } });
+		expect(await storedSave(name)).toBeNull();
+	});
+
+	it('the same game as the account’s, as far along or behind, is held already: nothing kept; further along, kept', async () => {
+		const { browser, name } = await account(doc(5, 'game-a'));
+		for (const seq of [5, 3]) {
+			const res = await browser.keep(doc(seq, 'game-a', { tokens: seq }));
+			expect(res.status).toBe(200);
+			expect(await res.json()).toEqual({ ok: true });
+		}
+		expect(await keptAside(name)).toEqual([]);
+		const ahead = doc(6, 'game-a', { tokens: 60 });
+		expect((await browser.keep(ahead)).status).toBe(200);
+		expect(await keptAside(name)).toEqual([{ data: ahead, reason: 'guest' }]);
+		expect(await storedSave(name)).toEqual(doc(5, 'game-a'));
+	});
+
+	it('the same game sent again (an answer the page never heard) is kept once; racing sends too', async () => {
+		const { browser, name } = await account(doc(5));
+		const guest = doc(2, 'guest-game');
+		expect((await browser.keep(guest)).status).toBe(200);
+		expect((await browser.keep({ ...guest })).status).toBe(200);
+		expect(await keptAside(name)).toHaveLength(1);
+		const other = doc(3, 'other-guest-game');
+		const results = await Promise.all(Array.from({ length: 6 }, () => browser.keep(other)));
+		expect(results.map((r) => r.status)).toEqual([200, 200, 200, 200, 200, 200]);
+		expect((await keptAside(name)).map((k) => (k.data as { lineage: string }).lineage)).toEqual([
+			'guest-game',
+			'other-guest-game'
+		]);
+	});
+
+	it('keeps kept games within the set-aside budget with the replaced ones, newest first', async () => {
+		const { browser, name } = await account(doc(1, 'A'));
+		const big = (seq: number, lineage: string) =>
+			doc(seq, lineage, { notes: randomBytes(600_000).toString('base64') });
+		expect((await browser.putSave(big(2, 'B'))).status).toBe(200);
+		expect((await browser.keep(big(1, 'guest-1'))).status).toBe(200);
+		expect((await browser.keep(big(1, 'guest-2'))).status).toBe(200);
+		expect((await browser.keep(big(1, 'guest-3'))).status).toBe(200);
+		const user = await userRow(name);
+		const kept = await db
+			.select({
+				lineage: sql<string>`${accountSaveBackups.data}->>'lineage'`,
+				bytes: sql<number>`pg_column_size(${accountSaveBackups.data})`
+			})
+			.from(accountSaveBackups)
+			.where(eq(accountSaveBackups.userId, user!.id))
+			.orderBy(accountSaveBackups.id);
+		expect(kept.map((k) => k.lineage)).toEqual(['guest-2', 'guest-3']);
+		expect(kept.reduce((n, k) => n + Number(k.bytes), 0)).toBeLessThanOrEqual(ACCOUNT_BACKUP_BYTES);
+	});
+
+	it('401 without a session or with another account’s; 400 without the account named', async () => {
+		const { browser: mine, name } = await account(doc(5));
+		const other = await account(doc(1));
+		const res = await new Browser().keep(doc(2, 'guest-game'));
+		expect(res.status).toBe(401);
+		expect(await res.json()).toEqual({ error: 'not logged in' });
+		const swapped = new Browser();
+		swapped.cookie = other.browser.cookie;
+		swapped.account = name;
+		expect((await swapped.keep(doc(2, 'guest-game'))).status).toBe(401);
+		const bare = new Browser();
+		bare.cookie = mine.cookie;
+		expect((await bare.keep(doc(2, 'guest-game'))).status).toBe(400);
+		expect(await keptAside(name)).toEqual([]);
+		expect(await keptAside(other.name)).toEqual([]);
+	});
+
+	it('refuses what a save PUT refuses: not JSON, a bad save, one too deep, one too big, a newer build’s', async () => {
+		const { browser, name } = await account(doc(5));
+		const notJson = await browser.keep('{"version":1,');
+		expect(notJson.status).toBe(400);
+		expect(await notJson.json()).toEqual({ error: 'body is not valid JSON' });
+		const refused = await browser.keep({ ...doc(1, 'guest-game'), party: 'none' });
+		expect(refused.status).toBe(400);
+		expect(await refused.json()).toEqual({ error: 'bad save', detail: 'party must be a list' });
+		expect((await browser.keep({ ...doc(1, 'guest-game'), seq: undefined })).status).toBe(400);
+		expect((await browser.keep({ ...doc(1, 'guest-game'), lineage: undefined })).status).toBe(400);
+		for (const deep of nestedTexts(100_000)) {
+			expect((await browser.keep(withDeep(doc(1, 'guest-game'), deep))).status).toBe(400);
+		}
+		expect((await browser.keep({ ...doc(1, 'guest-game'), name: 'Pip\u0000' })).status).toBe(400);
+		const body = JSON.stringify(doc(1, 'guest-game', { notes: 'x'.repeat(SAVE_MAX_BYTES) }));
+		expect((await browser.keep(body)).status).toBe(413);
+		for (const newer of NEWER_DOCS) {
+			const res = await browser.keep({ ...newer, lineage: 'guest-game' });
+			expect(res.status, JSON.stringify(newer)).toBe(503);
+			expect(await res.json()).toEqual({ error: SAVE_FROM_NEWER_BUILD });
+		}
+		const typed = await browser.keep(JSON.stringify(doc(1, 'guest-game')), {
+			'content-type': 'text/plain'
+		});
+		expect(typed.status).toBe(415);
+		const foreign = await browser.keep(doc(1, 'guest-game'), {
+			host: 'animath.example',
+			origin: 'https://evil.example'
+		});
+		expect(foreign.status).toBe(403);
+		expect(await keptAside(name)).toEqual([]);
+		expect(await storedSave(name)).toEqual(doc(5));
+	});
+
+	it('an account deleted meanwhile keeps nothing', async () => {
+		expect(await keepAccountGame(randomUUID(), doc(1, 'guest-game') as SaveWrite)).toEqual({
+			kind: 'gone'
+		});
+	});
+});
+
 describe('what a request must be', () => {
 	it('415 for a POST or PUT that is not declared JSON', async () => {
 		const { browser } = await account();
@@ -1316,8 +1452,23 @@ describe('rate limits', () => {
 			expect((await as(mine.browser).putSave(doc(seq))).status).toBe(200);
 		await expectTooMany(await as(mine.browser).putSave(doc(4)));
 		await expectTooMany(await as(mine.browser).putSave('not even JSON'));
+		await expectTooMany(await as(mine.browser).keep(doc(1, 'guest-game')));
 		expect((await as(theirs.browser).putSave(doc(1))).status).toBe(200);
 		expect((await as(mine.browser).getSave()).status).toBe(200);
+		expect(await keptAside(mine.name)).toEqual([]);
+	});
+
+	it('counts games kept with the account among its save PUTs', async () => {
+		const limited = createApp({ limits: TIGHT });
+		const { browser } = await account();
+		const as = new Browser(limited);
+		as.cookie = browser.cookie;
+		as.account = browser.account;
+		expect((await as.keep(doc(1, 'guest-1'))).status).toBe(200);
+		expect((await as.keep(doc(1, 'guest-2'))).status).toBe(200);
+		expect((await as.putSave(doc(1))).status).toBe(200);
+		await expectTooMany(await as.keep(doc(1, 'guest-3')));
+		await expectTooMany(await as.putSave(doc(2)));
 	});
 
 	it("limits an account's new names: two land, then it waits; a taken one or the same name counts none", async () => {

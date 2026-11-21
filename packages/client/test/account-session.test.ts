@@ -14,6 +14,7 @@ import {
 	logoutPending,
 	moveAccountGame,
 	moveGuestGameIn,
+	putGuestGameAway,
 	releaseLogout,
 	rememberLogout,
 	takeAccountGame
@@ -273,6 +274,46 @@ describe('logging in', () => {
 		takeAccountGame(store, 'Ida', JSON.parse(saveText(30)));
 		logInHere(store, 'Ida');
 		expect(store.get(KEYS.save)).toBe(guest);
+	});
+});
+
+describe('the guest game the password gate passed over, once the server keeps it', () => {
+	it('is put away among the games put away, after any there already, and the guest key emptied', () => {
+		const older = saveText(2, 'older');
+		const guest = saveText(7, 'guest');
+		store.set(KEYS.previous, older);
+		store.set(KEYS.save, guest);
+		expect(putGuestGameAway(store, guest)).toBe(true);
+		expect(store.get(KEYS.save)).toBeNull();
+		expect(store.get(KEYS.previous)).toBe(older);
+		expect(store.get(`${KEYS.previous}.2`)).toBe(guest);
+	});
+
+	it('a guest key holding other text now (another tab played on) stays as it is', () => {
+		const sent = saveText(7, 'guest');
+		const later = saveText(8, 'guest');
+		store.set(KEYS.save, later);
+		expect(putGuestGameAway(store, sent)).toBe(false);
+		expect(store.get(KEYS.save)).toBe(later);
+		expect(store.get(KEYS.previous)).toBeNull();
+	});
+
+	it('a browser with no room to put it away leaves it where it is', () => {
+		const guest = saveText(7, 'guest');
+		store.set(KEYS.save, guest);
+		store.failKeys.add(KEYS.previous);
+		expect(putGuestGameAway(store, guest)).toBe(false);
+		expect(store.get(KEYS.save)).toBe(guest);
+	});
+
+	it('leaves every account key as it was', () => {
+		const guest = saveText(7, 'guest');
+		store.set(KEYS.save, guest);
+		const keys = gameKeys({ name: 'Ida' });
+		store.set(keys.save, saveText(30));
+		const before = new Map(store.data);
+		putGuestGameAway(store, guest);
+		for (const key of Object.values(keys)) expect(store.get(key)).toBe(before.get(key) ?? null);
 	});
 });
 

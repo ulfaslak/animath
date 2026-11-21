@@ -855,6 +855,107 @@ describe('the password gate', () => {
 		expect([account.card, account.from, account.nameDraft]).toEqual(['login', 'gate', 'pip']);
 		expect(loginByNameAlone()).toBe(true);
 	});
+
+	/** At the gate, a guest game named for one of this browser's own accounts: logged in by the name alone. */
+	async function logInAtGate(keep: Answer | ((store: MemoryStore) => Answer)) {
+		account.homeNames = ['Pip'];
+		const view = setup(null);
+		const requests = server({
+			'/api/account/login': { status: 200, json: { user: { name: 'Pip' } } },
+			'/api/account/save': { status: 200, json: JSON.parse(saveText(40, 'Pip', 'account')) },
+			'/api/account/keep': typeof keep === 'function' ? () => keep(view.store) : keep
+		});
+		const guest = saveText(9, 'Pip', 'guest');
+		view.store.set(KEYS.save, guest);
+		view.controller.openGate('Pip');
+		view.quiet();
+		view.press('Enter');
+		await answered();
+		return { ...view, requests, guest };
+	}
+
+	it('logging in instead keeps the guest game with the account on the server, then puts it away here', async () => {
+		const { store, requests, restarts, guest } = await logInAtGate({
+			status: 200,
+			json: { ok: true }
+		});
+		const kept = requests.find((r) => r.url === '/api/account/keep');
+		expect(kept).toMatchObject({ method: 'POST', account: 'Pip', body: JSON.parse(guest) });
+		// Put away as New game puts a game away: the next logout leads to the title, not the gate.
+		expect(store.get(KEYS.save)).toBeNull();
+		expect(store.get(KEYS.previous)).toBe(guest);
+		// The kid plays the account's game, as the login always did, and is told nothing more.
+		expect(JSON.parse(store.get(gameKeys({ name: 'Pip' }).save)!)).toMatchObject({
+			lineage: 'account',
+			seq: 40
+		});
+		expect(currentAccount(store)).toEqual({ name: 'Pip' });
+		expect(restarts).toEqual(['welcome']);
+	});
+
+	it.each<[string, Answer]>([
+		['no answer', 'network error'],
+		['too many saves', { status: 429, json: { error: 'too many tries', retryAfter: 30 } }],
+		['a game it refuses', { status: 400, json: { error: 'bad save', detail: 'party' } }],
+		['a session gone meanwhile', { status: 401, json: { error: 'not logged in' } }],
+		['an older server', { status: 503, json: { error: 'this save is newer' } }]
+	])('a server that does not take it (%s) leaves the guest game where it is; the login goes on', async (_, answer) => {
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		const { store, requests, restarts, guest } = await logInAtGate(answer);
+		expect(requests.some((r) => r.url === '/api/account/keep')).toBe(true);
+		expect(store.get(KEYS.save)).toBe(guest);
+		expect(store.get(KEYS.previous)).toBeNull();
+		expect(currentAccount(store)).toEqual({ name: 'Pip' });
+		expect(restarts).toEqual(['welcome']);
+	});
+
+	it('a guest game played on in another tab while it was sent stays the guest’s', async () => {
+		const later = saveText(10, 'Pip', 'guest');
+		const { store, restarts } = await logInAtGate((store) => {
+			store.set(KEYS.save, later);
+			return { status: 200, json: { ok: true } };
+		});
+		expect(store.get(KEYS.save)).toBe(later);
+		expect(store.get(KEYS.previous)).toBeNull();
+		expect(restarts).toEqual(['welcome']);
+	});
+
+	it('a login from the title, not the gate, sends no game to keep and leaves the guest game alone', async () => {
+		const requests = server({
+			'/api/account/home': { status: 200, json: { names: [] } },
+			'/api/account/login': { status: 200, json: { user: { name: 'Pip' } } },
+			'/api/account/save': { status: 404, json: { error: 'no save yet' } }
+		});
+		const { store, controller, press, quiet, restarts } = setup('Pip');
+		const guest = saveText(9, 'Pip', 'guest');
+		store.set(KEYS.save, guest);
+		controller.openLogin('title');
+		await answered();
+		account.passwordDraft = 'secret';
+		quiet();
+		press('Enter');
+		await answered();
+		expect(requests.some((r) => r.url === '/api/account/keep')).toBe(false);
+		expect(store.get(KEYS.save)).toBe(guest);
+		expect(restarts).toEqual(['welcome']);
+	});
+
+	it('a guest game this build cannot read is not sent, and stays where it is', async () => {
+		account.homeNames = ['Pip'];
+		const requests = server({
+			'/api/account/login': { status: 200, json: { user: { name: 'Pip' } } },
+			'/api/account/save': { status: 404, json: { error: 'no save yet' } }
+		});
+		const { store, controller, press, quiet, restarts } = setup(null);
+		store.set(KEYS.save, '{"version":1,');
+		controller.openGate('Pip');
+		quiet();
+		press('Enter');
+		await answered();
+		expect(requests.some((r) => r.url === '/api/account/keep')).toBe(false);
+		expect(store.get(KEYS.save)).toBe('{"version":1,');
+		expect(restarts).toEqual(['welcome']);
+	});
 });
 
 describe('logging in on the account’s own browser', () => {
