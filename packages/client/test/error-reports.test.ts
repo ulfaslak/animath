@@ -445,6 +445,43 @@ describe('the page', () => {
 		]);
 	});
 
+	it("reports what the page's security policy refuses, by its rule and host, and nothing an extension caused", () => {
+		const { sent, fire } = listening();
+		fire('securitypolicyviolation', {
+			effectiveDirective: 'connect-src',
+			blockedURI: 'wss://animath.xyz/api/ws?guest=abc',
+			sourceFile: 'https://animath.xyz/immutable/index-abc.js?v=1',
+			lineNumber: 3,
+			columnNumber: 14,
+			disposition: 'report'
+		});
+		fire('securitypolicyviolation', {
+			effectiveDirective: 'script-src-elem',
+			blockedURI: 'inline',
+			sourceFile: 'https://animath.xyz/',
+			lineNumber: 40,
+			disposition: 'enforce'
+		});
+		fire('securitypolicyviolation', {
+			effectiveDirective: 'style-src-elem',
+			blockedURI: 'inline',
+			sourceFile: 'chrome-extension://abcdefghijklmnop/content.js',
+			disposition: 'report'
+		});
+		fire('securitypolicyviolation', {
+			effectiveDirective: 'img-src',
+			blockedURI: 'safari-web-extension://1234/icon.png',
+			disposition: 'report'
+		});
+		expect(sent.map((r) => [r.message, r.stack])).toEqual([
+			[
+				"the page's security policy would refuse connect-src: animath.xyz",
+				'/immutable/index-abc.js:3:14'
+			],
+			["the page's security policy refused script-src-elem: inline", '/:40:0']
+		]);
+	});
+
 	it('posts a report as JSON without the cookie, and lets a failed post go', async () => {
 		const calls: unknown[][] = [];
 		vi.stubGlobal('fetch', (...args: unknown[]) => {

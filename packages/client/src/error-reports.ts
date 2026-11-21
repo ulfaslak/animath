@@ -397,7 +397,51 @@ export function listenTo(page: Window, send: (report: ErrorReport) => void = pos
 		},
 		true
 	);
+	// What the page's Content-Security-Policy refused, or would have refused
+	// while it only reports (nginx's app.conf): the page learns of it here,
+	// so the reports go where every other error goes.
+	page.addEventListener('securitypolicyviolation', (event) => {
+		const found = violationOf(event);
+		if (found) reports.report({ message: found.message }, false, found.where);
+	});
 	return reports;
+}
+
+/** What a `securitypolicyviolation` event carries that a report uses. */
+interface ViolationLike {
+	effectiveDirective?: unknown;
+	violatedDirective?: unknown;
+	blockedURI?: unknown;
+	sourceFile?: unknown;
+	lineNumber?: unknown;
+	columnNumber?: unknown;
+	disposition?: unknown;
+}
+
+/** A browser extension's address: what it puts on the page is not the game's to report. */
+const EXTENSION = /^(chrome|moz|safari|safari-web|ms-browser)-extension:/i;
+
+/**
+ * A policy violation as a report tells it, or null for one a browser extension
+ * caused. The message names the rule and what it stopped: a keyword
+ * (`inline`, `eval`, `data`) or the host a load went to, never its path or
+ * query; where it happened is the page's own script, as a stack names it.
+ */
+export function violationOf(event: ViolationLike): { message: string; where: string } | null {
+	const blocked = String(event.blockedURI || '');
+	const source = String(event.sourceFile || '');
+	if (EXTENSION.test(blocked) || EXTENSION.test(source)) return null;
+	const rule = String(event.effectiveDirective || event.violatedDirective || 'unknown').split(
+		' '
+	)[0];
+	let what = blocked || 'unknown';
+	const host = /^[a-z][a-z0-9+.-]*:\/\/([^/?#]*)/i.exec(blocked);
+	if (host) what = host[1] || 'unknown';
+	const report = event.disposition === 'report' ? 'would refuse' : 'refused';
+	const place = source
+		? `${source}:${Number(event.lineNumber) || 0}:${Number(event.columnNumber) || 0}`
+		: '';
+	return { message: `the page's security policy ${report} ${rule}: ${what}`, where: place };
 }
 
 /** The address of the `<script>` an event is on, or null for anything else (the page itself, an image). */
