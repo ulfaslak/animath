@@ -73,7 +73,7 @@ export function arrowMarks(form: NumberLineForm, half: boolean): number[] {
 }
 
 /** Where a number line face's arrow is: `NUMBERLINE` says what its numbers are. */
-export function numberLineAnswer(numbers: readonly number[]): number {
+function numberLineAnswer(numbers: readonly number[]): number {
 	const [from, step, , , mark, half] = numbers as number[];
 	return from! + mark! * step! + (half === NUMBERLINE.half ? step! / 2 : 0);
 }

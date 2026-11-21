@@ -24,7 +24,7 @@ export interface RootForm {
 }
 
 /** The root a form's `k` stands for. */
-export function rootOf(skill: RootSkill, k: number): number {
+function rootOf(skill: RootSkill, k: number): number {
 	return skill === 'table' ? k : skill === 'tens' ? 10 * k : 10 * k + 5;
 }
 
@@ -55,7 +55,7 @@ export const ROOT_LADDER: readonly (readonly RootForm[])[] = [
 ];
 
 /** Every root a step can ask, each once. */
-export function rootsAt(difficulty: number): number[] {
+function rootsAt(difficulty: number): number[] {
 	return step(ROOT_LADDER, difficulty).flatMap(({ skill, of: [lo, hi] }) => {
 		const roots: number[] = [];
 		for (let k = lo; k <= hi; k++) if (skill !== 'table' || k !== 10) roots.push(rootOf(skill, k));

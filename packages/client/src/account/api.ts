@@ -15,6 +15,7 @@ import {
 	type ServerRead,
 	type ServerWrite
 } from '../save/api';
+import type { WelcomeGone } from '../state/account.svelte';
 
 /**
  * The account routes ([[ARCHITECTURE]] § HTTP API), reduced to what the game
@@ -61,9 +62,6 @@ export type PasswordResult =
  * `home`: this browser is that account's own (`home.ts` on the server).
  */
 export type WhoResult = { kind: 'user'; name: string | null; home: boolean } | { kind: 'offline' };
-
-/** A welcome link that logs nobody in: used up, too old, or no link at all. */
-export type WelcomeGone = 'used' | 'expired' | 'unknown';
 
 /** What a welcome link is, as the server says: whose (and only that), or why it won't do. */
 export type WelcomeLook =

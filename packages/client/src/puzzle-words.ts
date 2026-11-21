@@ -22,8 +22,7 @@ import { t } from './copy';
  * question is text; a fraction is drawn stacked and a bar chart's bar by
  * its shape, so those come as parts of their own.
  */
-export type QuestionPart =
-	{ text: string } | { fraction: readonly [number, number] } | { shape: number };
+type QuestionPart = { text: string } | { fraction: readonly [number, number] } | { shape: number };
 
 /** Where a part that is not text goes, until the text is cut there. */
 const FRACTION = '';

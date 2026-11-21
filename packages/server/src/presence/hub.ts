@@ -146,7 +146,7 @@ export class PresenceHub {
 		return this.byPeer.size;
 	}
 
-	/** The rooms with anyone in them, by `placeKey` (`nordland:42`), and how many: for tests and logs. */
+	/** The rooms with anyone in them, by `placeKey` (`nordland:42`), and how many: for tests. */
 	places(): Map<string, number> {
 		return new Map([...this.rooms].map(([key, room]) => [key, room.members.size]));
 	}

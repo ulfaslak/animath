@@ -8,7 +8,7 @@ import { t } from './copy';
  */
 
 /** An HP bar's colour: good above a half, warn above a fifth, bad at a fifth and under. */
-export type HpBand = 'good' | 'warn' | 'bad';
+type HpBand = 'good' | 'warn' | 'bad';
 
 /** The colour of a bar showing `hp` of `max`. */
 export function hpBand(hp: number, max: number): HpBand {
@@ -21,7 +21,7 @@ export function hpBand(hp: number, max: number): HpBand {
  * `tiredSoon` (still playing, but their bar is red: a fifth of their HP or
  * less), `tired` (0 HP); and the HP of all of them together, of `max`.
  */
-export interface StackHealth {
+interface StackHealth {
 	ready: number;
 	tiredSoon: number;
 	tired: number;

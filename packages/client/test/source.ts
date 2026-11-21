@@ -218,9 +218,13 @@ function worded(text: string): boolean {
  * String literals in TypeScript that read as words, as `file:line text`. A
  * template literal's `${…}` counts as a one-letter word, so a sentence around
  * a name is caught and `${a} × ${b} = ?` is not. Messages for developers are
- * skipped: anything inside `new Error(…)` or `console.*(…)`; and so is a
- * shader's source, a literal marked `/* glsl *\/`, which is code.
+ * skipped: anything inside `new Error(…)` or `console.*(…)`; and so is code
+ * held as text, a literal marked `/* glsl *\/` (a shader's source) or
+ * `/* js *\/` (a script's, as `boot-failure.ts` asks the browser to read).
  */
+/** The comments that mark a literal as code held as text. */
+const CODE_TAGS: readonly string[] = ['/* glsl */', '/* js */'];
+
 export function wordedLiterals(file: string, source: string): string[] {
 	const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
 	const found: string[] = [];
@@ -232,7 +236,7 @@ export function wordedLiterals(file: string, source: string): string[] {
 			...(ts.getLeadingCommentRanges(source, at) ?? []),
 			...(ts.getTrailingCommentRanges(source, at) ?? [])
 		];
-		if (comments.some((c) => source.slice(c.pos, c.end) === '/* glsl */')) return true;
+		if (comments.some((c) => CODE_TAGS.includes(source.slice(c.pos, c.end)))) return true;
 		for (let p = node.parent; p; p = p.parent) {
 			if (ts.isNewExpression(p) && p.expression.getText(sf) === 'Error') return true;
 			if (ts.isCallExpression(p) && /^console\./.test(p.expression.getText(sf))) return true;

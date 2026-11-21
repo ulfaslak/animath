@@ -143,7 +143,7 @@ const FOR_DEVELOPERS: Readonly<Record<string, string>> = {
 };
 
 describe('worded literals in TypeScript', () => {
-	it("finds sentences, and skips errors, console lines, keys, sums and a shader's source", () => {
+	it("finds sentences, and skips errors, console lines, keys, sums and a shader's or a script's source", () => {
 		const source = `
 			// A comment with words in it. Fine.
 			const a = 'Go, Pip!';
@@ -154,11 +154,14 @@ describe('worded literals in TypeScript', () => {
 			console.warn(\`battle intent rejected: \${reason}\`);
 			const e = \`Wild \${name} used it\`;
 			const f = /* glsl */ \`void main() { gl_FragColor = vec4( glow, 1.0 ); }\`;
+			const g = /* js */ 'class A { #a = 1; #b() { return #a in this; } }';
+			const h = 'class A { #a = 1; #b() { return #a in this; } }';
 		`;
 		expect(wordedLiterals('fixture.ts', source)).toEqual([
 			'fixture.ts:3 Go, Pip!',
 			'fixture.ts:6 Caught!',
-			'fixture.ts:9 Wild x used it'
+			'fixture.ts:9 Wild x used it',
+			'fixture.ts:12 class A { #a = 1; #b() { return #a in this; } }'
 		]);
 	});
 

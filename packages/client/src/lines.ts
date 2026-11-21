@@ -12,7 +12,7 @@ import { animalWords, attackName, type AnimalRef } from './names';
  */
 
 /** An attack as a line names it: whose, and which (1-based, as the engine counts). */
-export interface AttackRef {
+interface AttackRef {
 	speciesId: string;
 	attackIndex: number;
 }

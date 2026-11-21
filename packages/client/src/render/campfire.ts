@@ -350,7 +350,7 @@ export const GLOW_MATERIAL = new THREE.ShaderMaterial({
 });
 
 /** The ground round a campfire: the height of the top of the tile `dx, dz` over the fire's own. */
-export type GroundAround = (dx: number, dz: number) => number;
+type GroundAround = (dx: number, dz: number) => number;
 
 /** A shape the fire lights, where it stands in the fire's frame. */
 export interface GlowShape {

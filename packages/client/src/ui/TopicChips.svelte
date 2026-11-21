@@ -5,7 +5,9 @@
 	/**
 	 * What kind of sums an attack asks, as pictures: one chip per kind, its
 	 * operator in the prompts' own glyphs (+ − × ÷ √, "?" for a missing
-	 * number, a row of numbers for a pattern). The topics are the engine's
+	 * number, a row of numbers for a pattern, ×2 and ÷2, ┣╋┫ for a number
+	 * line, and a sign of its picture for each of the Arctic's kinds:
+	 * `kindGlyph` in `kinds.ts`). The topics are the engine's
 	 * `puzzleTopics` for the attack at its level; the sentence beside the
 	 * chips names them in words, and each chip says its word to a screen
 	 * reader.

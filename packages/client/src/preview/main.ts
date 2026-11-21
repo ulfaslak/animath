@@ -1,5 +1,6 @@
 import { mount } from 'svelte';
 import { flags } from '../flags';
+import { keyName } from '../input/keyboard';
 import { press } from '../input/press';
 import { watchTaps } from '../input/taps';
 import { watchInput } from '../input/touch.svelte';
@@ -28,7 +29,8 @@ watchTaps(
 
 window.addEventListener('keydown', (e) => {
 	if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
-	if (preview.key(e.key)) e.preventDefault();
+	// By the name every screen reads: H with Caps Lock on or Shift held is still the hint.
+	if (preview.key(keyName(e))) e.preventDefault();
 	const url = new URL(location.href);
 	url.searchParams.set('puzzle', preview.kind);
 	url.searchParams.set('d', String(preview.difficulty));

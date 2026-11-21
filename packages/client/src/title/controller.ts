@@ -29,8 +29,8 @@ import {
 } from '../state/title.svelte';
 
 /**
- * The title ([[UI_SPEC]] § Title): the menu (Continue, New game, the
- * settings), the confirm before a new game puts a saved one away, the
+ * The title ([[UI_SPEC]] § Title): the menu (Continue, New game, "I have
+ * an account", the settings), the confirm before a new game puts a saved one away, the
  * player's name box, the starters side by side, and the name box for the one
  * picked.
  *
@@ -60,7 +60,7 @@ import {
  * since picking starts a game, and the card's button (Enter) picks.
  */
 
-export interface TitleHooks {
+interface TitleHooks {
 	/**
 	 * Continue: the authority picks up `game`, and saving begins. `name`: the
 	 * player's name, given just now for a game saved without one; the host

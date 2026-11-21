@@ -1,5 +1,5 @@
 /**
- * In-memory rate limits for logging in and registering: so many tries per key
+ * In-memory rate limits for the account routes and the error reports: so many tries per key
  * (an IP address, or a name) per window. One server process holds them, so
  * a restart forgets them, which is fine for slowing down guessing.
  *

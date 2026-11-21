@@ -3048,7 +3048,7 @@ export function animateWalk(
 /** Radians a spread wing stands up from level at the middle of its beat: a shallow V. */
 const WING_LIFT = 0.18;
 /** Radians a wing beats either way of that, and how fast: radians of the beat a second. */
-export const WING_BEAT = 0.6;
+const WING_BEAT = 0.6;
 const FLAP_RATE = 10;
 /** How much longer a wing folded down a bird's side grows as it spreads: to a span. */
 export const WING_STRETCH = 1.8;

@@ -30,14 +30,14 @@ export const MASTER_VOLUME = 0.3;
 /** How many recent cues `?debug` shows. */
 const RECENT = 4;
 
-export interface PlayOptions {
+interface PlayOptions {
 	/** Play this many times higher (2 is an octave up). */
 	pitch?: number;
 	/** Start this many seconds from now. */
 	delay?: number;
 }
 
-export interface SfxOptions {
+interface SfxOptions {
 	/** Makes the context on the first unlock; null when there is no WebAudio. */
 	createContext?: () => AudioContext | null;
 	/** Where the setting is remembered; null when there is none. May throw. */

@@ -28,7 +28,7 @@ export const SESSION_DAYS = 365;
  * happens once a month, not at every start.
  */
 const SLIDE_AFTER_DAYS = 30;
-/** A browser logged in to one account on more devices than this loses the least used session. */
+/** An account logged in on more browsers than this loses the session that would expire first. */
 export const MAX_SESSIONS_PER_USER = 20;
 
 /** A token as `newSecret` makes it: 32 bytes in base64url. Anything else is not looked up. */

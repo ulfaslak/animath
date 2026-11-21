@@ -3,6 +3,7 @@ import { Rng } from '../src/rng.js';
 import {
 	BLOCKS,
 	NUMBERLINE,
+	THERMOMETER,
 	UNITS,
 	facePrompt,
 	puzzleFace,
@@ -316,6 +317,27 @@ describe('puzzleHint', () => {
 					if (why) bad.push(`${facePrompt(face)}: ${why}`);
 				}
 		expect(bad.slice(0, 20)).toEqual([]);
+	});
+
+	// "It is 5°. It gets 5° colder." once had the hint 5 − 5: the puzzle again, with nothing easier.
+	it('has a hint for every thermometer but one that starts or ends at 0°', () => {
+		const bad: string[] = [];
+		const g = getGenerator('thermometer');
+		for (let d = g.minDifficulty; d <= g.maxDifficulty; d++) {
+			const rng = new Rng(6100 + d);
+			for (let i = 0; i < 400; i++) {
+				const puzzle = g.generate(rng, d);
+				const face = puzzleFace(puzzle)!;
+				const [how, start, other] = face.numbers as [number, number, number];
+				// A turn's answer is where it ends; a pair's second number is.
+				const turn = how === THERMOMETER.colder || how === THERMOMETER.warmer;
+				const end = turn ? puzzle.answer : other;
+				const hint = puzzleHint(face);
+				if ((start === 0 || end === 0) !== (hint === null))
+					bad.push(`${puzzle.prompt}: ${hint ? 'a hint' : 'no hint'}`);
+			}
+		}
+		expect([...new Set(bad)].slice(0, 20)).toEqual([]);
 	});
 
 	it('holds for every line and place the number line can show, and only one mark past 0 has none', () => {

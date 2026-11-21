@@ -2,8 +2,8 @@ import { hasItem } from '../items/catalog.js';
 import type { AnimalSpec, Biome, Realm } from './types.js';
 
 /**
- * The species catalog. Placeholder roster for the prototype — the real one
- * grows with art. Ordering of `attacks` matters: index 1 is weakest.
+ * The species catalog: every land's species, Nordland's first, then The
+ * Arctic's. Ordering of `attacks` matters: index 1 is weakest.
  * Species and attacks have ids, never names: what a player calls them is in
  * the client's copy files (`species.<id>.name`, `species.<id>.attacks.<id>`).
  * Where each one lives — its biomes, its realms and the ground it favours —
@@ -340,7 +340,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		]
 	},
 	{
-		// Talon Grab asks times tables and missing numbers, not the division #89
+		// Talon Grab asks doubling, times tables and missing numbers, not the division #89
 		// wrote for it: nothing below tier 3 asks division ([[DECISIONS]] § Gameplay).
 		id: 'tawny-owl',
 		tier: 2,
@@ -548,8 +548,8 @@ export const ANIMALS: readonly AnimalSpec[] = [
 	// boar's, the porpoise the mute swan's, the octopus the wolf's, the grey
 	// seal the wolverine's, the whale the bear's and the orca the European
 	// bison's), so a battle at sea is exactly as hard as one on land of its
-	// size; only what the puzzles ask is their own. The small ones ask sums
-	// and number patterns, never a times-table sum (a pattern may double, as
+	// size; only what the puzzles ask is their own. The small ones ask sums,
+	// number patterns and number lines, never a times-table sum (a pattern may double, as
 	// the rabbit's and the frog's do).
 	{
 		id: 'crab',

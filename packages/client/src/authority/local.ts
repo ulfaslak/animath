@@ -138,7 +138,7 @@ const CLOSING_FLED = {
 
 export interface LocalAuthorityOptions {
 	/**
-	 * Start with this party instead of the one squirrel: the `?party=` URL
+	 * Start with this party instead of the land's first starter: the `?party=` URL
 	 * switch, for looking at screens that need a bigger or hurt party. Every
 	 * animal must be valid (a catalog species, HP in `0..maxHp`, unique ids),
 	 * as many as it likes. The game starts with it in species bundles

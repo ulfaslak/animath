@@ -55,7 +55,7 @@ export const MAX_TOPIC_BONUS = 1.6;
  * kinds change together; `record.test.ts` pins every kind's ladder at each
  * version and says when.
  */
-export const LADDER_VERSION = 1;
+export const LADDER_VERSION = 2;
 
 /** One difficulty's answers: how many were judged, and how many of those were right. */
 export type DifficultyCount = readonly [tried: number, right: number];

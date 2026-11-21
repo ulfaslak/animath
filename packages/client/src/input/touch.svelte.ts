@@ -20,7 +20,7 @@ class TouchView {
 export const touch = new TouchView();
 
 /** One input, as far as the choice of controls cares. */
-export type SeenInput =
+type SeenInput =
 	| { kind: 'pointer'; pointerType: string }
 	| { kind: 'key'; key: string; trusted: boolean; typing: boolean };
 

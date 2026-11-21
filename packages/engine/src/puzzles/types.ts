@@ -19,8 +19,8 @@ export type PuzzleKind =
 	| 'units';
 
 /**
- * The kinds the puzzle panel draws a picture for: the Arctic's (#191) and
- * Nordland's number line. The client words their question and draws their
+ * The kinds the puzzle panel draws a picture for: the Arctic's (#191) but
+ * the balance and units, and Nordland's number line. The client words their question and draws their
  * picture from the face's numbers, so their prompt is the face written out
  * (`facePrompt`), never shown as it is. Not one land's list: the Arctic's
  * fare names its kinds one by one.
