@@ -28,6 +28,7 @@ import { hud } from '../state/hud.svelte';
 import { pause } from '../state/pause.svelte';
 import { plane } from '../state/plane.svelte';
 import { title } from '../state/title.svelte';
+import { travel } from '../state/travel.svelte';
 import { presence, type Bar, type Label, type Pop } from '../state/presence.svelte';
 import { PresenceConnection, type PresenceStatus } from './connection';
 import {
@@ -543,10 +544,18 @@ export class PresenceController {
 		return busyNow();
 	}
 
-	/** Exploring with nothing over it: the explore screen is up. */
+	/**
+	 * Exploring with nothing over it: the explore screen is up. Not under a
+	 * land's starters, an account card or the save card, nor while a trip's
+	 * cover is up, as the page's keys go (`keyScreen` in `main.ts`).
+	 */
 	private exploreOnScreen(): boolean {
 		return (
 			game.mode === 'explore' &&
+			!title.open &&
+			account.card === null &&
+			!account.prompt &&
+			!travel.active &&
 			!battle.active &&
 			!doctor.active &&
 			!pause.open &&
@@ -556,7 +565,7 @@ export class PresenceController {
 
 	/** A calm moment to reload: exploring, nothing open, feet on the ground, no plane on screen. */
 	private calm(): boolean {
-		return this.exploreOnScreen() && !game.flying && !plane.active && !title.open;
+		return this.exploreOnScreen() && !game.flying && !plane.active;
 	}
 
 	/** Reload for the newer version, once per version: a page that comes back still old stays as it is. */
