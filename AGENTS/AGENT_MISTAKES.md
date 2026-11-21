@@ -417,3 +417,9 @@ To become `[learned]`: a check in a fit script that every text in `ui/pictures/`
 
 To become `[learned]`: a table check of each kind in `UNSAMPLED` (sums, bar charts, the balance, kroner, clocks, missing numbers), or a generic one over every ladder, so that a step inside the one below is caught wherever it is.
 
+### 2026-11-21 — a game that did not download (fix/boot-download-retry) — a failure sorted by what it is not, and code held as text read as copy `[not codified]`
+
+- **"Not WebGL, not too old" taken to mean "did not download".** `failureOf` first called every other rejection of `import('./main')` a missing file, so an error the game's own code throws as it starts (three.js on a context lost as it was made, in Safari) would have cost a reload and then a card telling the grown-up to check the internet. The import's rejection carries both kinds alike. Found by the cold review. Fixed: only the words browsers and Vite use for a file that did not download count (`NOT_DOWNLOADED`), and `boot-failure.test.ts` holds errors of the game's own to `other`.
+- **A syntax probe held as a string tripped the worded-literals check.** `NEWEST_SYNTAX` (`class A { #a = 1; … }`) read as a sentence to `hardcoded-text.test.ts`, which knew only `/* glsl */` for code held as text. Found by the full suite after a commit made on the new test file alone. Fixed: the check knows `/* js */` too, and the probe carries it.
+
+To become `[learned]`: a line in CLAUDE.md Phase 2 that an error handler sorting failures names each kind by what it is, with a test case from each other kind, never by elimination.
