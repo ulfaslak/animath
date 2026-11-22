@@ -256,10 +256,6 @@ The session cookie names whichever account this browser logged in to last, in an
 
 ## Server
 
-### No migration after the anonymous backup shipped drops, alters or empties its tables
-
-`players`, `saves` and `save_backups` hold the retired anonymous backup's games: in the human's local database, the newest save of each browser that played through the tunnel before the backup was retired, which the export that moves a game to production reads ([[DECISIONS]] § Saves). Every migration after `0002` only adds: no `ALTER`, `DROP`, `TRUNCATE`, `DELETE`, `UPDATE` or `INSERT` on those tables, and no dropping their index. Enforced by `migrations.test.ts`, which reads every later `.sql` file (with a check that the pattern catches each of those statements). Design-time (the accounts brief). The one migration allowed to drop them waits for [[DEFERRED]]'s trigger, and retires this rule with them.
-
 ### Every migration file is in the journal, in order
 
 The migrator applies a `.sql` file only when `drizzle/meta/_journal.json` lists it, and only when its `when` is later than the last one applied; anything else is skipped in silence, and the run still says it applied the migrations. So every file has an entry, the entries are in file order with `idx` counting up, and each `when` is later than the one before. Enforced by `migrations.test.ts`. Incident: lawcel, whose setup this project copies, has five early migrations missing from its journal, so a database migrated from scratch there gets a broken schema; [[DEVELOPMENT]] § Migrations has the recipe.
@@ -283,10 +279,6 @@ A password is stored as a salted scrypt hash with its parameters (`passwords.ts`
 ### A welcome link logs in once, within its 14 days, and only while its account has no password
 
 A link `admin import-save` printed opens an account made with no password. Its POST marks it used in the same transaction that sets the password and makes the session, on the condition that it is unused and unexpired, and sets the password only if the account still has none; so of uses racing each other exactly one logs in, an expired link logs nobody in, and a password the admin sets (`reset-password`) uses the link up. Its lookup names the account of a live link and nothing else: a spent one says only that it is spent. A password the rules refuse leaves the link as it was. Enforced by `welcome.test.ts` (§ the welcome link: once only, eight racing uses, expiry, the admin's password, a refused password). Design-time (the brief for moving the kid's game).
-
-### Exporting a kid's save never writes to the database it reads
-
-`admin export-local-save` runs against the database a kid may be playing on at that moment. It reads through a session of its own (`openReadOnly`) whose first statement is `SET default_transaction_read_only = on`, checked with `SHOW` before anything else, and asks it only `SELECT`s. The file it writes is readable by its owner alone, never over another file, and never inside a repository. It never picks between two different games by when they were saved: an account found by the kid's name may be another kid's who took the name he had as a guest, so copies of two lineages write nothing until `--from` names one. Enforced by `welcome.test.ts` (§ export-local-save: an `INSERT` through the session fails as read-only, `findSaves` asks nothing but `SELECT`s, a folder inside the repository is refused, the file's mode is 0600, different games write nothing without `--from`). Design-time; the lineage rule from PR #110's review, which found the default took the game saved last.
 
 ### A save a client sends is checked before anything walks it, so one no save could be is a 400, never a 500
 

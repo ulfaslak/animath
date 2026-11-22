@@ -1,6 +1,6 @@
 import { newGame, saveDocument } from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
-import { describeSave } from '../src/save-export.js';
+import { describeSave } from '../src/describe-save.js';
 
 describe('describeSave', () => {
 	it('names the land, its money, and the teams left in other lands: a first arrival is not an empty game', () => {

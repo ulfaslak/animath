@@ -79,8 +79,7 @@
  * The game's API is blocked: every request to `/api/` is aborted in the
  * browser, as if the server were down, and the blocked calls are counted at
  * the end. Every Vite of this repo proxies `/api` to port 3000 (the primary
- * clone's API, on the local `mathgame` database, which keeps the games kids
- * played before the game had its own address) unless `API_PORT` says
+ * clone's API, on the human's own `mathgame` database) unless `API_PORT` says
  * otherwise: an unblocked run would walk into whoever plays there as a
  * player, and an account made in it would land in that database (unblocked
  * runs once filled it with throwaway players, when guests were backed up

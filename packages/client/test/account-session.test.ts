@@ -156,7 +156,7 @@ describe('making an account with the guest game', () => {
 		expect(currentAccount(store)).toEqual({ name: 'Ida B' });
 	});
 
-	it("leaves the retired anonymous backup's identity where an old browser keeps it, for the export", () => {
+	it("leaves the retired anonymous backup's identity where an old browser keeps it", () => {
 		const identity = JSON.stringify({ id: '00000000-0000-4000-8000-000000000009', secret: 's' });
 		store.set('animath.player', identity);
 		store.set(KEYS.save, saveText(8));

@@ -8,9 +8,8 @@
  * `animath.player.previous` (`.2`, …): ids set aside there when the kid made
  * an account (the game that moved in), or when the server stopped knowing
  * one, and `animath.player` may then be a later guest game's. The game no
- * longer reads or writes any of them; they stay as they are, since the ids
- * are how `admin export-local-save` finds that browser's old games
- * ([[DEVELOPMENT]] § Moving a kid's game to production).
+ * longer reads or writes any of them, and nothing else does since the
+ * backup's tables went (2026-11-21); they stay as they are.
  */
 
 /**
