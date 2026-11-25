@@ -1,6 +1,7 @@
 import type { AnimalInstance, Realm } from './animals/types.js';
 import { ATTACK_LEVELS, REALMS } from './animals/types.js';
 import { bookOf, recordParty, seeSpecies, type AnimalBook } from './animals/book.js';
+import { EMPTY_TALLY, isTallyDay, type Tally } from './badges/tally.js';
 import { ANIMALS, canFightIn, getAnimal } from './animals/catalog.js';
 import type { BattleState } from './battle/types.js';
 import { gearOf } from './items/catalog.js';
@@ -186,6 +187,13 @@ export interface SavedGame {
 	 * kept as it is.
 	 */
 	unlocked: string[];
+	/**
+	 * The badges earned (`earnBadges`), by id, in the order earned. Only
+	 * grows: a badge is never taken back. An id this build lacks is kept as it is.
+	 */
+	badges: string[];
+	/** What the game counts for the badges alone (`badges/tally.ts`). Only grows. */
+	tally: Tally;
 }
 
 /**
@@ -358,6 +366,35 @@ export interface SaveV6 {
 	 * unlock (`unlockLands`). An id this build does not have is kept as it is.
 	 */
 	unlocked?: string[];
+	/**
+	 * The badges earned, by id (`badges/catalog.ts`), in the order earned.
+	 * Written only once there is one: a save without it has earned none, and
+	 * gets every badge its game already holds when it is next played, quietly
+	 * (`LocalAuthority`). No version for it: an older build earns no badges,
+	 * so carrying on with it unread leaves nothing out. An id this build does
+	 * not have is kept as it is and does nothing.
+	 */
+	badges?: string[];
+	/**
+	 * The tally (`badges/tally.ts`): leash throws that caught, wild battles
+	 * won, friendly matches played, tiles cleared and days played, counted for
+	 * the badges alone. Written only once something is counted; a save
+	 * without it, or without one of its numbers, has counted none. No version
+	 * for it, as `byDifficulty`: an older build carrying on leaves what it
+	 * played uncounted, so the numbers stay true, only short. A number a newer
+	 * build adds goes in a field of its own: this build keeps only its own.
+	 */
+	tally?: SavedTally;
+}
+
+/** The tally as a save holds it: a number left out is 0, and `lastDay` is absent before the first day counted. */
+export interface SavedTally {
+	catches?: number;
+	wins?: number;
+	matches?: number;
+	cleared?: number;
+	days?: number;
+	lastDay?: string;
 }
 
 /** A document ready to be written: every field a write must carry is present. */
@@ -391,7 +428,9 @@ const SAVE_KEYS: ReadonlySet<string> = new Set([
 	'worlds',
 	'land',
 	'lands',
-	'unlocked'
+	'unlocked',
+	'badges',
+	'tally'
 ]);
 
 /**
@@ -920,7 +959,59 @@ function findSaveError(input: Doc): string | null {
 	if (unlocked !== undefined && (!Array.isArray(unlocked) || !unlocked.every(isContentId))) {
 		return 'unlocked must be a list of land ids';
 	}
+	const badges = input.badges;
+	if (badges !== undefined && (!Array.isArray(badges) || !badges.every(isBadgeShaped))) {
+		return 'badges must be a list of badge ids, each a family and a name joined by a dot';
+	}
+	if (input.tally !== undefined) {
+		const tally = input.tally;
+		if (!isRecord(tally)) return 'tally must be an object';
+		for (const key of TALLY_COUNTS) {
+			if (tally[key] !== undefined && !isWhole(tally[key])) {
+				return `tally.${key} must be a whole number of 0 or more`;
+			}
+		}
+		if (tally.lastDay !== undefined && !isTallyDay(tally.lastDay)) {
+			return 'tally.lastDay must be a day written YYYY-MM-DD';
+		}
+	}
 	return null;
+}
+
+/** The tally's numbers, each a whole number in a save. */
+const TALLY_COUNTS = ['catches', 'wins', 'matches', 'cleared', 'days'] as const;
+
+/**
+ * The shape of every badge id (`badges/catalog.ts`): a family and a name,
+ * each a catalog id, joined by a dot. An id of this shape the build does not
+ * have is a newer build's badge, kept and doing nothing, never a newer save.
+ */
+const BADGE_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*\.[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+function isBadgeShaped(v: unknown): v is string {
+	return isId(v) && BADGE_ID.test(v);
+}
+
+/** A save's tally as the game counts it: what is left out is 0. */
+function readTally(saved: SavedTally | undefined): Tally {
+	if (saved === undefined) return EMPTY_TALLY;
+	const tally: { -readonly [K in keyof Tally]: Tally[K] } = {
+		catches: saved.catches ?? 0,
+		wins: saved.wins ?? 0,
+		matches: saved.matches ?? 0,
+		cleared: saved.cleared ?? 0,
+		days: saved.days ?? 0
+	};
+	if (saved.lastDay !== undefined) tally.lastDay = saved.lastDay;
+	return tally;
+}
+
+/** The tally as a save writes it: only the numbers counted, and nothing at all before the first. */
+function savedTally(tally: Tally): SavedTally | undefined {
+	const out: SavedTally = {};
+	for (const key of TALLY_COUNTS) if (tally[key] > 0) out[key] = tally[key];
+	if (tally.lastDay !== undefined) out.lastDay = tally.lastDay;
+	return Object.keys(out).length > 0 ? out : undefined;
 }
 
 /**
@@ -1054,7 +1145,9 @@ export function newGame(
 		edits: [],
 		worlds: [],
 		lands: [],
-		unlocked: [...unlockLands([], book.caught)]
+		unlocked: [...unlockLands([], book.caught)],
+		badges: [],
+		tally: EMPTY_TALLY
 	};
 }
 
@@ -1178,7 +1271,9 @@ export function restoreGame(save: SaveV6, mintId: () => string): SavedGame {
 		edits: [...edits.encode()],
 		worlds: [...worlds!],
 		lands: left.map((stay, i) => ({ ...stay, worlds: [...landWorlds[i]!] })),
-		unlocked: [...unlockLands(save.unlocked ?? [], book.caught)]
+		unlocked: [...unlockLands(save.unlocked ?? [], book.caught)],
+		badges: [...new Set(save.badges ?? [])],
+		tally: readTally(save.tally)
 	};
 }
 
@@ -1408,6 +1503,10 @@ export function saveDocument(
 	// Only once another land was flown to, and once a land past the first is unlocked.
 	if (game.lands.length > 0) doc.lands = game.lands.map(savedLandStay);
 	if (game.unlocked.some((id) => id !== FIRST_LAND)) doc.unlocked = [...game.unlocked];
+	// Only once a badge is earned, and once something is counted for one.
+	if (game.badges.length > 0) doc.badges = [...game.badges];
+	const tally = savedTally(game.tally);
+	if (tally) doc.tally = tally;
 	return doc;
 }
 
@@ -1518,6 +1617,9 @@ function withProgressDefaults(doc: SaveV6): Doc {
 	if (out.worlds === undefined) out.worlds = [];
 	if (out.land === undefined) out.land = FIRST_LAND;
 	if (out.lands === undefined) out.lands = [];
+	// The order badges were earned in is no progress; a tally left out counted nothing.
+	out.badges = [...new Set(doc.badges ?? [])].sort();
+	out.tally = savedTally(readTally(doc.tally)) ?? {};
 	const book = savedBook(doc);
 	out.seen = [...book.seen].sort();
 	out.caught = [...book.caught].sort();

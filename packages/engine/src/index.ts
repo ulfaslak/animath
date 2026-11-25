@@ -30,6 +30,32 @@ export {
 export { healingDifficulty, puzzleDifficulty } from './puzzles/difficulty.js';
 export { countSolved } from './puzzles/solved.js';
 export {
+	BADGE_FAMILIES,
+	BADGE_IDS,
+	BADGE_MOMENTS,
+	isBadgeId,
+	type BadgeCount,
+	type BadgeFamily,
+	type BadgeGroup,
+	type BadgeMoment,
+	type LadderBadge
+} from './badges/catalog.js';
+export {
+	badgeCount,
+	badgesHeld,
+	earnBadges,
+	groupCaught,
+	type BadgeProgress
+} from './badges/earn.js';
+export {
+	EMPTY_TALLY,
+	addToTally,
+	isTallyDay,
+	tallyDay,
+	type Tally,
+	type TallyCount
+} from './badges/tally.js';
+export {
 	LADDER_VERSION,
 	MAX_TOPIC_BONUS,
 	MIN_TOPIC_BONUS,
@@ -503,5 +529,6 @@ export type {
 	SaveWrite,
 	SaveWriteCheck,
 	SavedGame,
+	SavedTally,
 	SavedWorldStay
 } from './save.js';
