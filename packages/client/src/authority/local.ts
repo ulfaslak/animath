@@ -76,6 +76,7 @@ import {
 	step,
 	surroundings,
 	takeOff,
+	isTallyDay,
 	tallyDay,
 	tileAtWorld,
 	tileRealm,
@@ -193,11 +194,11 @@ export interface LocalAuthorityOptions {
 	 */
 	homeWorld?: () => number;
 	/**
-	 * Today on the kid's own calendar, `YYYY-MM-DD`: what the badges count the
-	 * days played by (`tallyDay`). By default the browser's clock, in its time
-	 * zone (`localDay`). Tests pin it.
+	 * The day it is at the start, `YYYY-MM-DD`, as a `day` intent would tell
+	 * it: what the badges count the days played by (`tallyDay`). The host
+	 * tells it with `day` intents (`badges/day.ts`); tests pin it here.
 	 */
-	today?: () => string;
+	today?: string;
 }
 
 /** How a session begins: a saved game to pick up, or a new game when absent. */
@@ -373,8 +374,15 @@ export class LocalAuthority implements Authority {
 	private moments: BadgeMoment[] = [];
 	/** The ladders' numbers as last told (`welcome`, `badges-changed`), so a change is told once. */
 	private counts: BadgeCounts = {};
+	/**
+	 * The day it is on the kid's calendar, as the host last told it (`day`),
+	 * or null before it has: a puzzle solved then counts no day.
+	 */
+	private today: string | null;
 
-	constructor(private readonly options: LocalAuthorityOptions = {}) {}
+	constructor(private readonly options: LocalAuthorityOptions = {}) {
+		this.today = isTallyDay(options.today) ? options.today : null;
+	}
 
 	/**
 	 * Begin a game: a new one, or `options.game` from a save. Emits `welcome`,
@@ -527,7 +535,8 @@ export class LocalAuthority implements Authority {
 	 * Another tab of this game walked further, and the save this page carries
 	 * on from has its counts: raise this page's to them, so its next
 	 * encounters and doctor puzzles follow on instead of repeating, and the
-	 * next save keeps them. Never lowers a count.
+	 * next save keeps them. Never lowers a count. The badges the other tab
+	 * earned join this page's (a walk earns some), so none is lost.
 	 *
 	 * A doctor visit in progress keeps its number and seed, fixed when it
 	 * opened. A battle in progress is keyed on the step count from here on,
@@ -535,7 +544,14 @@ export class LocalAuthority implements Authority {
 	 * here in the save right after it started, before its seed was used: only
 	 * then can another tab's save hold the same progress with more steps.)
 	 */
-	catchUp(counts: { steps: number; visits: number }): void {
+	catchUp(counts: { steps: number; visits: number; badges?: readonly string[] }): void {
+		// Badges only grow: the other page's join this one's, after them, and are told
+		// with the next telling, as a badge another page earned is no news here.
+		const more = (counts.badges ?? []).filter((id) => !this.badges.includes(id));
+		if (more.length > 0) {
+			this.badges = [...this.badges, ...new Set(more)];
+			this.counts = {};
+		}
 		this.visits = Math.max(this.visits, counts.visits);
 		if (counts.steps <= this.steps) return;
 		this.steps = counts.steps;
@@ -587,6 +603,11 @@ export class LocalAuthority implements Authority {
 	private apply(intent: Intent): void {
 		if (intent.type === 'new-game') {
 			this.startNewGame(intent);
+			return;
+		}
+		if (intent.type === 'day') {
+			// Before a game and in any mode: the calendar is the host's to tell, never the clock's here.
+			if (isTallyDay(intent.day)) this.today = intent.day;
 			return;
 		}
 		if (!this.started) return;
@@ -1517,7 +1538,7 @@ export class LocalAuthority implements Authority {
 	private count(solved: number): void {
 		if (solved === this.solved) return;
 		this.solved = solved;
-		this.tally = tallyDay(this.tally, this.options.today?.() ?? localDay());
+		if (this.today !== null) this.tally = tallyDay(this.tally, this.today);
 		this.emit({ type: 'solved-changed', solved });
 	}
 
@@ -1627,19 +1648,13 @@ function isMatchBatch(intent: Intent & { type: 'match-answers' }): boolean {
 	return true;
 }
 
-/** A copy of a land left behind, so the authority's own never leaves it. */
 /** Whether two tellings of the ladders' numbers say the same, but for the steps walked (`award`). */
 function sameCounts(a: BadgeCounts, b: BadgeCounts): boolean {
 	const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
 	return [...keys].every((k) => k === 'steps' || a[k] === b[k]);
 }
 
-/** Today on the browser's own calendar, in its time zone: `YYYY-MM-DD`, as the tally keeps a day. */
-export function localDay(now = new Date()): string {
-	const pad = (n: number, width: number) => String(n).padStart(width, '0');
-	return `${pad(now.getFullYear(), 4)}-${pad(now.getMonth() + 1, 2)}-${pad(now.getDate(), 2)}`;
-}
-
+/** A copy of a land left behind, so the authority's own never leaves it. */
 function copyLand(stay: LandStay): LandStay {
 	return {
 		land: stay.land,

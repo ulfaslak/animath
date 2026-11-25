@@ -14,7 +14,8 @@ import {
 	type SavedGame
 } from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
-import { LocalAuthority, localDay, type LocalAuthorityOptions } from '../src/authority/local';
+import { LocalAuthority, type LocalAuthorityOptions } from '../src/authority/local';
+import { DayTeller, localDay } from '../src/badges/day';
 import { BADGE_PICTURES } from '../src/badges/pictures';
 import { COPY, LANGUAGES } from '../src/copy/languages';
 import { flatten } from '../src/copy/translate';
@@ -35,7 +36,7 @@ type Session = {
 };
 
 function session(game?: SavedGame, options: LocalAuthorityOptions = {}): Session {
-	const authority = new LocalAuthority({ today: () => '2026-11-25', ...options });
+	const authority = new LocalAuthority({ today: '2026-11-25', ...options });
 	const events: GameEvent[] = [];
 	const told: GameEvent[] = [];
 	authority.subscribe(rulesOf(events, told));
@@ -114,7 +115,9 @@ describe('badges: telling', () => {
 		const game = saved({ solved: 120, steps: 600, visits: 6 });
 		const s = session(game);
 		const w = welcome(s);
-		expect(w.badges).toEqual(expect.arrayContaining(['solved.atom', 'visits.skin', 'firsts.imprinting']));
+		expect(w.badges).toEqual(
+			expect.arrayContaining(['solved.atom', 'visits.skin', 'firsts.imprinting'])
+		);
 		expect(w.found).toBe(w.badges.length);
 		expect(w.counts.solved).toBe(120);
 		expect(s.told).toEqual([]);
@@ -171,22 +174,68 @@ describe('badges: what the authority counts', () => {
 		expect(celebrated(s)).toContain('clearing.woodpecker');
 	});
 
-	it('counts a day once however many puzzles are solved on it, and another day as another', () => {
-		let today = '2026-11-25';
-		const s = session(saved({ party: [strong('bear')] }), { today: () => today });
+	it('counts a day once however many puzzles are solved on it, and another day the host tells as another', () => {
+		const s = session(saved({ party: [strong('bear')] }));
 		walkIntoBattle(s);
 		win(s);
 		expect(s.authority.snapshot().tally).toMatchObject({ days: 1, lastDay: '2026-11-25' });
-		today = '2026-11-27';
+		const before = s.events.length + s.told.length;
+		s.authority.dispatch({ type: 'day', day: '2026-11-27' });
+		// A day alone is told nothing: nothing a kid sees changed.
+		expect(s.events.length + s.told.length).toBe(before);
 		walkIntoBattle(s);
 		win(s);
 		expect(s.authority.snapshot().tally).toMatchObject({ days: 2, lastDay: '2026-11-27' });
 		expect(celebrated(s)).toContain('days.mayfly');
 	});
 
+	it('counts no day before the host has told one, and takes no day that is not a date', () => {
+		const s = session(saved({ party: [strong('bear')] }), { today: undefined });
+		s.authority.dispatch({ type: 'day', day: 'tomorrow' });
+		walkIntoBattle(s);
+		win(s);
+		expect(s.authority.snapshot().tally.days).toBe(0);
+		s.authority.dispatch({ type: 'day', day: '2026-11-26' });
+		walkIntoBattle(s);
+		win(s);
+		expect(s.authority.snapshot().tally).toMatchObject({ days: 1, lastDay: '2026-11-26' });
+	});
+
+	it('takes the day before a game starts, as the page tells it at load', () => {
+		const authority = new LocalAuthority();
+		authority.dispatch({ type: 'day', day: '2026-11-26' });
+		const told: GameEvent[] = [];
+		const events: GameEvent[] = [];
+		authority.subscribe(rulesOf(events, told));
+		authority.start({ game: saved({ party: [strong('bear')] }) });
+		const s = { authority, events, told: told as Session['told'] };
+		walkIntoBattle(s);
+		win(s);
+		expect(authority.snapshot().tally).toMatchObject({ days: 1, lastDay: '2026-11-26' });
+	});
+
 	it("names today on the browser's calendar", () => {
 		expect(localDay(new Date(2026, 0, 5, 23, 59))).toBe('2026-01-05');
 		expect(localDay(new Date(2026, 11, 31, 0, 0))).toBe('2026-12-31');
+	});
+
+	it('the page tells the day at once, and again only once the date has turned', () => {
+		let now = '2026-11-25';
+		const told: unknown[] = [];
+		const teller = new DayTeller(
+			(intent) => told.push(intent),
+			() => now
+		);
+		expect(told).toEqual([{ type: 'day', day: '2026-11-25' }]);
+		for (let i = 0; i < 300; i++) teller.tick(1 / 60);
+		expect(told).toHaveLength(1);
+		now = '2026-11-26';
+		teller.tick(0.5);
+		teller.tick(0.6);
+		expect(told).toEqual([
+			{ type: 'day', day: '2026-11-25' },
+			{ type: 'day', day: '2026-11-26' }
+		]);
 	});
 });
 
@@ -232,10 +281,14 @@ describe('badges: the firsts the authority sees', () => {
 	it('a catch two sizes bigger than the animal that threw, counted as a catch', () => {
 		const squirrel = testStarter();
 		const bear: AnimalInstance = { id: 'wild', speciesId: 'bear', hp: 1 };
-		expect(getAnimal(bear.speciesId).tier - getAnimal(squirrel.speciesId).tier).toBeGreaterThanOrEqual(2);
+		expect(
+			getAnimal(bear.speciesId).tier - getAnimal(squirrel.speciesId).tier
+		).toBeGreaterThanOrEqual(2);
 		// Squirrels enough to throw until it holds: each steps in when the one before is tired.
 		const squirrels = Array.from({ length: 12 }, (_, i) => ({ ...squirrel, id: `s${i}` }));
-		const s = session(saved({ party: squirrels, battle: startBattle(squirrels, bear, { realm: 'land' }) }));
+		const s = session(
+			saved({ party: squirrels, battle: startBattle(squirrels, bear, { realm: 'land' }) })
+		);
 		for (let i = 0; i < 80 && latestBattle(s).phase.kind !== 'ended'; i++) {
 			const state = latestBattle(s);
 			if (state.phase.kind === 'choose-animal') {
@@ -246,7 +299,9 @@ describe('badges: the firsts the authority sees', () => {
 		const ended = latestBattle(s).phase;
 		expect(ended.kind === 'ended' && ended.outcome).toBe('caught');
 		expect(s.authority.snapshot().tally.catches).toBe(1);
-		expect(celebrated(s)).toEqual(expect.arrayContaining(['firsts.ant-strength', 'catches.leg-ring']));
+		expect(celebrated(s)).toEqual(
+			expect.arrayContaining(['firsts.ant-strength', 'catches.leg-ring'])
+		);
 	});
 });
 

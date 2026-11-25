@@ -56,6 +56,7 @@ import { match } from './state/match.svelte';
 import { pause } from './state/pause.svelte';
 import { surprise } from './state/surprise.svelte';
 import { badges } from './state/badges.svelte';
+import { DayTeller } from './badges/day';
 import { plane } from './state/plane.svelte';
 import { title } from './state/title.svelte';
 import { travel } from './state/travel.svelte';
@@ -85,6 +86,8 @@ window.addEventListener('contextmenu', (e) => {
 document.addEventListener('touchstart', () => {}, { passive: true });
 
 const authority = new LocalAuthority(authorityOptions(flags));
+// The calendar's day for the badges' days played, told now and whenever it turns.
+const days = new DayTeller((intent) => authority.dispatch(intent));
 const renderer = new GameRenderer(canvas);
 const keyboard = new Keyboard(window);
 // The lead walks behind the trainer: a view of the party and of the trainer's steps.
@@ -750,6 +753,7 @@ function frame(now: number) {
 	// A badge earned: its note once the kid is back in the world, after any surprise party.
 	const calmWorld = doctorWay.showing() && !plane.show && !travel.active && !surprise.party;
 	if (badges.tick(dt, calmWorld && !matchController.onScreen)) sfx.play('badge');
+	days.tick(dt);
 	noteScreen();
 	requestAnimationFrame(frame);
 }

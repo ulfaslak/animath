@@ -167,7 +167,16 @@ export type Intent =
 	 * authority takes the client's word for it, as for a match's answers.
 	 * Answered with `badges-changed` when it earns the badge, else with nothing.
 	 */
-	| { type: 'met-player' };
+	| { type: 'met-player' }
+	/**
+	 * The day it is on the kid's own calendar, `YYYY-MM-DD`: the host tells
+	 * it before the game starts and again whenever the date turns, so the
+	 * authority reads no clock and a session replays from its intents. A
+	 * puzzle solved on a day later than the last one counted is one more day
+	 * played ([[PRODUCT]] §4 "Badges"). In any mode, a game under way or not.
+	 * Answered with nothing: a day alone changes nothing a kid sees.
+	 */
+	| { type: 'day'; day: string };
 
 export type GameEvent =
 	/**

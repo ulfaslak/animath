@@ -1,5 +1,4 @@
 import {
-	BADGE_IDS,
 	SAVE_VERSION,
 	WORLD_ONE_SEED,
 	canReplace,
@@ -1066,13 +1065,8 @@ describe('Autosave: two tabs, each with the real authority', () => {
 		}
 	}
 
-	/**
-	 * A save of `game` in the store. Every badge is earned already: a walk or
-	 * a visit that earns one is progress, and would put one tab's save ahead
-	 * of the other's; these tests are about the counts.
-	 */
 	function savedAt(store: MemoryStore, game: Partial<SavedGame>): void {
-		const base = { ...newGame(WORLD, testStarter()), badges: [...BADGE_IDS] };
+		const base = newGame(WORLD, testStarter());
 		store.set(
 			KEYS.save,
 			JSON.stringify(saveDocument({ ...base, ...game }, { lineage: 'kid-game', seq: 1 }))
@@ -1152,6 +1146,30 @@ describe('Autosave: two tabs, each with the real authority', () => {
 		const after = savedCounts(store);
 		expect(after.steps).toBe(17);
 		expect(after.visits).toBeGreaterThanOrEqual(walked.visits);
+	});
+
+	it('a tab carries on from the other’s walk that earned badges, and keeps them: a badge is no reason to be behind', async () => {
+		const store = new MemoryStore();
+		// A game from before badges, two tabs open on it: each is given its badges at once, unwritten.
+		savedAt(store, { solved: 12, steps: 98, badges: [] });
+		const a = new Page(store);
+		const b = new Page(store);
+		await a.continue();
+		await b.continue();
+		const given = a.authority.snapshot().badges;
+		expect(given).toContain('solved.atom');
+		expect(store.save()!.badges ?? []).toEqual([]);
+		// A walks to 100 steps, which earns a badge, and saves both.
+		for (const dir of ['right', 'left'] as const) await a.act({ type: 'move', dir });
+		expect(store.save()!.badges).toEqual(expect.arrayContaining([...given, 'steps.snail']));
+		b.autosave.onStorage(KEYS.save);
+		expect(b.autosave.behind).toBeNull();
+		// B's next save holds what A earned, and B's own next telling says it.
+		const told = await b.act({ type: 'move', dir: 'right' });
+		expect(b.autosave.behind).toBeNull();
+		expect(store.save()!.badges).toContain('steps.snail');
+		const telling = told.find((e) => e.type === 'badges-changed');
+		expect(telling?.type === 'badges-changed' && telling.badges).toContain('steps.snail');
 	});
 
 	it('a battle that starts before the tab hears of the other’s walk is keyed on the walk, as its save is (#58)', async () => {

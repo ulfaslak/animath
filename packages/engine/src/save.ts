@@ -447,6 +447,16 @@ const WHEREABOUTS: ReadonlySet<string> = new Set([
 	'seq'
 ]);
 
+/**
+ * Fields two pages of one game take together rather than compare
+ * (`sameProgress`): the badges earned, which only grow, so the page carrying
+ * on adds the other page's to its own (`LocalAuthority.catchUp`). A walk earns
+ * badges (steps, a first take-off, a ride), and a game picked up is given its
+ * badges before it writes, so comparing them would put a page behind another
+ * that only walked.
+ */
+const TAKEN_TOGETHER: ReadonlySet<string> = new Set(['badges']);
+
 /** The animal book's lists of species ids. */
 const BOOK_KEYS = ['seen', 'caught', 'freed', 'told'] as const;
 
@@ -1580,7 +1590,9 @@ export function replacesAnotherGame(
 /**
  * Whether two saves hold the same progress: they may differ in where the
  * player is in the world they are in (position, facing, steps, doctor
- * visits) and in which write they are, and in nothing else — not the party,
+ * visits), in which write they are, and in the badges earned, which the page
+ * carrying on takes together with its own (`TAKEN_TOGETHER`), and in nothing
+ * else — not the party,
  * not a battle, not the puzzles solved, not the animal book, not the world
  * they are in or the worlds they left, not the land they are in, the lands
  * they left or the lands unlocked, not the name, not any extra field. A
@@ -1593,7 +1605,7 @@ export function sameProgress(a: SaveV6, b: SaveV6): boolean {
 	const right = withProgressDefaults(b);
 	const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
 	for (const key of keys) {
-		if (WHEREABOUTS.has(key)) continue;
+		if (WHEREABOUTS.has(key) || TAKEN_TOGETHER.has(key)) continue;
 		if (canonical(left[key]) !== canonical(right[key])) return false;
 	}
 	return true;
@@ -1617,8 +1629,7 @@ function withProgressDefaults(doc: SaveV6): Doc {
 	if (out.worlds === undefined) out.worlds = [];
 	if (out.land === undefined) out.land = FIRST_LAND;
 	if (out.lands === undefined) out.lands = [];
-	// The order badges were earned in is no progress; a tally left out counted nothing.
-	out.badges = [...new Set(doc.badges ?? [])].sort();
+	// A tally left out counted nothing.
 	out.tally = savedTally(readTally(doc.tally)) ?? {};
 	const book = savedBook(doc);
 	out.seen = [...book.seen].sort();

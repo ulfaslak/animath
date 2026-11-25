@@ -97,9 +97,10 @@ export interface AutosaveOptions {
 	/**
 	 * Another tab of this game walked further and this page carries on from
 	 * its save: raise the authority's step and visit counts to those, so the
-	 * next encounters and doctor puzzles follow on rather than repeat.
+	 * next encounters and doctor puzzles follow on rather than repeat, and
+	 * add its badges to the authority's, so none it earned is lost.
 	 */
-	catchUp?: (counts: { steps: number; visits: number }) => void;
+	catchUp?: (counts: { steps: number; visits: number; badges: readonly string[] }) => void;
 	/** `?new`: a throwaway game that reads and writes nothing, and says nothing about it. */
 	throwaway?: boolean;
 	timers?: Timers;
@@ -162,7 +163,8 @@ export class Autosave {
 	private readonly loggedOut: (() => void) | null;
 	private readonly snapshot: () => SavedGame;
 	private readonly mintId: () => string;
-	private readonly catchUp: ((counts: { steps: number; visits: number }) => void) | null;
+	private readonly catchUp:
+		((counts: { steps: number; visits: number; badges: readonly string[] }) => void) | null;
 	private readonly throwaway: boolean;
 	private readonly timers: Timers;
 	private readonly bootWaitMs: number;
@@ -710,7 +712,11 @@ export class Autosave {
 		if (!read.ok) return false;
 		this.carryOn(read.save);
 		this.seenText = text;
-		this.catchUp?.({ steps: read.save.steps ?? 0, visits: read.save.visits ?? 0 });
+		this.catchUp?.({
+			steps: read.save.steps ?? 0,
+			visits: read.save.visits ?? 0,
+			badges: read.save.badges ?? []
+		});
 		return true;
 	}
 
