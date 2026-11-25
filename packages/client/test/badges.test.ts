@@ -13,7 +13,7 @@ import {
 	type GameEvent,
 	type SavedGame
 } from '@mathgame/engine';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LocalAuthority, type LocalAuthorityOptions } from '../src/authority/local';
 import { DayTeller, localDay } from '../src/badges/day';
 import { BADGE_PICTURES } from '../src/badges/pictures';
@@ -212,6 +212,31 @@ describe('badges: what the authority counts', () => {
 		walkIntoBattle(s);
 		win(s);
 		expect(authority.snapshot().tally).toMatchObject({ days: 1, lastDay: '2026-11-26' });
+	});
+
+	describe('whatever the clock says', () => {
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+		it('the same intents count the same days: the authority reads no clock', () => {
+			const play = (clock: Date) => {
+				vi.useFakeTimers({ toFake: ['Date'] });
+				vi.setSystemTime(clock);
+				const s = session(saved({ party: [strong('bear')] }), { today: undefined });
+				s.authority.dispatch({ type: 'day', day: '2026-11-25' });
+				walkIntoBattle(s);
+				win(s);
+				vi.setSystemTime(new Date(clock.getTime() + 3 * 86_400_000));
+				walkIntoBattle(s);
+				win(s);
+				vi.useRealTimers();
+				return s.authority.snapshot().tally;
+			};
+			const a = play(new Date(2031, 5, 1, 12));
+			const b = play(new Date(2026, 0, 9, 23, 59));
+			expect(a).toEqual(b);
+			expect(a).toMatchObject({ days: 1, lastDay: '2026-11-25' });
+		});
 	});
 
 	it("names today on the browser's calendar", () => {
