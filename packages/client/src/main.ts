@@ -55,6 +55,7 @@ import { hud } from './state/hud.svelte';
 import { match } from './state/match.svelte';
 import { pause } from './state/pause.svelte';
 import { surprise } from './state/surprise.svelte';
+import { badges } from './state/badges.svelte';
 import { plane } from './state/plane.svelte';
 import { title } from './state/title.svelte';
 import { travel } from './state/travel.svelte';
@@ -362,6 +363,7 @@ function deliver(event: GameEvent): void {
 	// Before `game.apply`: it reads the lands unlocked before the event.
 	surprise.apply(event);
 	game.apply(event);
+	badges.apply(event);
 	hud.apply(event);
 	explore.handle(event);
 	battleController.handle(event);
@@ -745,6 +747,9 @@ function frame(now: number) {
 		sfx.play('caught');
 		hud.surprise();
 	}
+	// A badge earned: its note once the kid is back in the world, after any surprise party.
+	const calmWorld = doctorWay.showing() && !plane.show && !travel.active && !surprise.party;
+	if (badges.tick(dt, calmWorld && !matchController.onScreen)) sfx.play('badge');
 	noteScreen();
 	requestAnimationFrame(frame);
 }
