@@ -1172,6 +1172,23 @@ describe('Autosave: two tabs, each with the real authority', () => {
 		expect(telling?.type === 'badges-changed' && telling.badges).toContain('steps.snail');
 	});
 
+	it('a first the other tab earned on a walk (a take-off) joins this tab’s badges, and its saves keep it', async () => {
+		const store = new MemoryStore();
+		savedAt(store, { pos: { x: -2, y: 6 }, facing: 'up', items: ['glider'] });
+		const a = new Page(store);
+		const b = new Page(store);
+		await a.continue();
+		await b.continue();
+		await a.act({ type: 'take-off' });
+		await a.act({ type: 'land' });
+		expect(store.save()!.badges).toContain('firsts.thermal');
+		b.autosave.onStorage(KEYS.save);
+		expect(b.autosave.behind).toBeNull();
+		await b.act({ type: 'move', dir: 'right' });
+		expect(store.save()!.badges).toContain('firsts.thermal');
+		expect(b.authority.snapshot().badges).toContain('firsts.thermal');
+	});
+
 	it('a battle that starts before the tab hears of the other’s walk is keyed on the walk, as its save is (#58)', async () => {
 		// A game on the spawn tile from which one step left, onto the reed, meets an animal.
 		let steps = 0;
