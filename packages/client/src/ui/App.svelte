@@ -54,8 +54,9 @@
 	<Hud />
 	<!-- The druid's surprise, over the HUD: the catch that opened a land. -->
 	<SurpriseParty />
-	<!-- A new badge, over the HUD under the top middle; the game goes on under it. -->
-	<BadgeNote />
+	<!-- A new badge, over the HUD under the top middle (on a short screen the HUD's own, over
+	     the message line); the game goes on under it. -->
+	<BadgeNote where="top" />
 	<!-- Not under a trip's cover, which takes no key: a thumb that lands there presses nothing. -->
 	{#if touch.on && !travel.active}<TouchControls />{/if}
 	<PresenceNote where="top" />

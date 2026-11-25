@@ -30,6 +30,7 @@
 	import ChallengeButton from './ChallengeButton.svelte';
 	import Coin from './Coin.svelte';
 	import ItemIcon from './ItemIcon.svelte';
+	import BadgeNote from './BadgeNote.svelte';
 	import PresenceNote from './PresenceNote.svelte';
 	import Tick from './Tick.svelte';
 
@@ -474,6 +475,7 @@
      note about who came or went stands at its top, over the button (`PresenceNote`), so
      the button never moves under a finger as a note comes and goes. -->
 <div class="bottom" data-keep-clear>
+	<BadgeNote where="bottom" />
 	<PresenceNote where="bottom" />
 	<ChallengeButton />
 	{#if hud.message || hud.hint}

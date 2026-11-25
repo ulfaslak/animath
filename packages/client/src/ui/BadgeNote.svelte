@@ -12,15 +12,22 @@
 	 * next one waiting; or, once, how many badges a game picked up was given.
 	 * Only over the explore screen, as the presence note; when and which is
 	 * `state/badges.svelte.ts`. It takes no tap, and the game goes on under it.
+	 *
+	 * Where (`where`), as the presence note: under the top middle, between the
+	 * corners; on a short screen (a phone held sideways), where the corners
+	 * leave too little room between them for a long name, at the top of the
+	 * HUD's bottom column instead, over the message line. The page has both,
+	 * and shows the one its screen asks for.
 	 */
+	let { where }: { where: 'top' | 'bottom' } = $props();
 	const note = $derived(badges.note);
 </script>
 
 {#if note}
 	{#key note}
 		<div
-			class="note"
-			class:pop={!motion.reduced}
+			class="note {where}"
+			class:pop={!motion.reduced && where === 'top'}
 			role="status"
 			transition:fade={{ duration: 250 }}
 			data-keep-clear
@@ -40,22 +47,30 @@
 
 <style>
 	.note {
-		position: absolute;
-		/* Under the presence note's row at the top middle, above the kid in the middle. */
-		top: calc(72px + var(--safe-top));
-		left: 50%;
-		transform: translateX(-50%);
 		box-sizing: border-box;
 		display: flex;
 		align-items: center;
 		gap: 12px;
-		max-width: min(440px, calc(100vw - 32px - var(--safe-left) - var(--safe-right)));
 		padding: 10px 20px 10px 12px;
 		border-radius: var(--radius);
 		background: var(--panel-cream);
 		box-shadow: var(--hud-shadow);
 		color: var(--panel-ink);
 		pointer-events: none !important;
+	}
+	/* Under the presence note's row at the top middle, above the kid, between the corners. */
+	.top {
+		position: absolute;
+		top: calc(72px + var(--safe-top));
+		left: 50%;
+		transform: translateX(-50%);
+		max-width: min(440px, calc(100vw - 2 * 300px));
+	}
+	/* In the HUD's bottom column, as wide as the room between the thumbs. */
+	.bottom {
+		display: none;
+		max-width: 100%;
+		align-self: center;
 	}
 	.pop {
 		animation: pop 0.45s cubic-bezier(0.2, 1.6, 0.4, 1);
@@ -90,10 +105,12 @@
 		font-weight: 800;
 		text-align: center;
 	}
-	/* A phone held sideways: the top corners come nearer the middle, so the note sits a little lower. */
 	@media (max-height: 560px) {
-		.note {
-			top: calc(64px + var(--safe-top));
+		.top {
+			display: none;
+		}
+		.bottom {
+			display: flex;
 		}
 	}
 </style>
