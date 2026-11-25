@@ -1,4 +1,6 @@
 import {
+	BADGE_FAMILIES,
+	BADGE_IDS,
 	bookOrder,
 	applyPartyIntent,
 	bundled,
@@ -48,12 +50,13 @@ interface Key extends KeyboardEvent {
 	prevented: boolean;
 }
 
-/** The menu's rows that open a screen of their own: Worlds, Who's here, "My puzzles", the book, Settings. */
+/** The menu's rows that open a screen of their own: Worlds, Who's here, "My puzzles", the book, "My badges", Settings. */
 const opens = (item: MenuItem | undefined) =>
 	item === 'worlds' ||
 	item === 'players' ||
 	item === 'puzzles' ||
 	item === 'book' ||
+	item === 'badges' ||
 	item === 'settings';
 
 function key(
@@ -207,7 +210,7 @@ describe('pause menu', () => {
 		expect(MENU_ITEMS.at(-1)).toBe('settings');
 		press('Escape', 'ArrowUp');
 		expect(pause.cursor).toBe(row);
-		// Right means nothing on it, the end of its line; left steps to the book beside it.
+		// Right means nothing on it, the end of its line; left steps to "My badges" beside it.
 		press('ArrowRight');
 		expect(pause.cursor).toBe(row);
 		press('ArrowLeft');
@@ -379,12 +382,12 @@ describe('pause menu', () => {
 		}
 	});
 
-	it("rows side by side (Worlds and Who's here, Keep playing and Start screen, My puzzles, the book and Settings): left and right step between them", () => {
+	it("rows side by side (Worlds and Who's here, Keep playing and Start screen, My puzzles, the book, My badges and Settings): left and right step between them", () => {
 		const at = (item: MenuItem) => bundles(game.party).length + MENU_ITEMS.indexOf(item);
 		expect(MENU_LINES.map((line) => lineOf(line[0]!))).toEqual([
 			['worlds', 'players'],
 			['resume', 'quit'],
-			['puzzles', 'book', 'settings']
+			['puzzles', 'book', 'badges', 'settings']
 		]);
 		// Every row is on a line: none stands alone under the team.
 		expect([...MENU_LINES.flat()].sort()).toEqual([...MENU_ITEMS].sort());
@@ -802,8 +805,9 @@ describe('pause menu under a pointer', () => {
 						sent
 					};
 					const want = {
-						// An animal opens its own options; Worlds, My puzzles, the animal book and
-						// Settings open their screens, and Who's here the list of players on the right.
+						// An animal opens its own options; Worlds, My puzzles, the animal book, My
+						// badges and Settings open their screens, and Who's here the list of players on
+						// the right.
 						at: closes
 							? 'closed'
 							: row < size
@@ -852,12 +856,12 @@ describe('the animal book', () => {
 		book.hopping = null;
 	});
 
-	it('is a row drawn at the top: up from the first card and left from Settings reach it, Enter opens it on its first card, Escape comes back to it', () => {
+	it('is a row drawn at the top: up from the first card and left from Settings twice reach it, Enter opens it on its first card, Escape comes back to it', () => {
 		const { press } = setup();
 		const row = bundles(game.party).length + MENU_ITEMS.indexOf('book');
-		press('Escape', 'ArrowUp', 'ArrowLeft');
+		press('Escape', 'ArrowUp', 'ArrowLeft', 'ArrowLeft');
 		expect(pause.cursor).toBe(row);
-		// Right steps to Settings beside it; left to "My puzzles" on its other side.
+		// Right steps to "My badges" beside it; left to "My puzzles" on its other side.
 		press('ArrowRight');
 		expect(pause.cursor).toBe(row + 1);
 		press('ArrowLeft', 'ArrowLeft');
@@ -882,7 +886,7 @@ describe('the animal book', () => {
 			pause.reset();
 			const { press } = setup();
 			book.columns = columns;
-			press('Escape', 'ArrowUp', 'ArrowLeft', 'Enter');
+			press('Escape', 'ArrowUp', 'ArrowLeft', 'ArrowLeft', 'Enter');
 			const rows = Math.ceil(count / columns);
 			for (let from = 0; from < count; from++) {
 				for (const [key, want] of [
@@ -918,7 +922,7 @@ describe('the animal book', () => {
 		const stop = sfx.onCue((cue) => cues.push(cue));
 		try {
 			const { press } = setup('squirrel,fox');
-			press('Escape', 'ArrowUp', 'ArrowLeft', 'Enter');
+			press('Escape', 'ArrowUp', 'ArrowLeft', 'ArrowLeft', 'Enter');
 			const fox = bookOrder('nordland').findIndex((a) => a.id === 'fox');
 			const bear = bookOrder('nordland').findIndex((a) => a.id === 'bear');
 			cues.length = 0;
@@ -953,7 +957,7 @@ describe('the animal book', () => {
 		try {
 			const { press } = setup();
 			// In Nordland, with The Arctic not built, there is one page and no tab: up stays put.
-			press('Escape', 'ArrowUp', 'ArrowLeft', 'Enter');
+			press('Escape', 'ArrowUp', 'ArrowLeft', 'ArrowLeft', 'Enter');
 			expect([book.land, book.tabs]).toEqual(['nordland', false]);
 			cues.length = 0;
 			press('ArrowUp');
@@ -992,10 +996,163 @@ describe('the animal book', () => {
 
 	it('goes with the menu when something else takes the screen, and opens again on the list', () => {
 		const { authority, press } = setup();
-		press('Escape', 'ArrowUp', 'ArrowLeft', 'Enter', 'ArrowRight');
+		press('Escape', 'ArrowUp', 'ArrowLeft', 'ArrowLeft', 'Enter', 'ArrowRight');
 		expect([pause.screen, pause.option]).toEqual(['book', 1]);
 		authority.dispatch({ type: 'leave-game' });
 		expect([pause.open, pause.screen, pause.option]).toEqual([false, 'list', 0]);
+	});
+});
+
+describe('My badges', () => {
+	afterEach(() => {
+		pause.badgeColumns = 1;
+	});
+
+	/** Presses that open the menu and "My badges": up from the first card to Settings, then left. */
+	const toBadges = ['Escape', 'ArrowUp', 'ArrowLeft', 'Enter'];
+
+	it('is a row drawn at the top, between the book and Settings: Enter or a tap opens it on its first medal, Escape comes back to it', () => {
+		const cues: CueName[] = [];
+		const stop = sfx.onCue((cue) => cues.push(cue));
+		try {
+			const { press, sent } = setup();
+			const row = bundles(game.party).length + MENU_ITEMS.indexOf('badges');
+			press('Escape', 'ArrowUp', 'ArrowLeft');
+			expect(pause.cursor).toBe(row);
+			// Right is Settings beside it; left the animal book on its other side.
+			press('ArrowRight');
+			expect(MENU_ITEMS[pause.cursor - bundles(game.party).length]).toBe('settings');
+			press('ArrowLeft', 'ArrowLeft');
+			expect(MENU_ITEMS[pause.cursor - bundles(game.party).length]).toBe('book');
+			press('ArrowRight');
+			cues.length = 0;
+			press('Enter');
+			expect([pause.screen, pause.option, cues]).toEqual(['badges', 0, ['confirm']]);
+			press('ArrowRight', 'ArrowRight');
+			expect(pause.option).toBe(2);
+			press('Escape');
+			expect([pause.open, pause.screen, pause.cursor]).toEqual([true, 'list', row]);
+			// Opened again, it starts on its first medal; a tap on its row opens it too.
+			press(rowKey(0), 'Escape', rowKey(row));
+			expect([pause.screen, pause.option]).toEqual(['badges', 0]);
+			// Enter and Space do nothing on a medal, and nothing on the page is sent anywhere.
+			expect([press('Enter').prevented, press(' ').prevented]).toEqual([false, false]);
+			expect([pause.screen, pause.option, sent]).toEqual(['badges', 0, []]);
+			press('Escape', 'Escape');
+			expect(pause.open).toBe(false);
+		} finally {
+			stop();
+		}
+	});
+
+	it('walks the medals as the grid lays them out, each family starting a row: one by one, a row up or down to the same column, never past an edge', () => {
+		const count = BADGE_IDS.length;
+		const bad: string[] = [];
+		for (const columns of [1, 5, 8, 9, 20, count + 3]) {
+			pause.reset();
+			const { press } = setup();
+			pause.badgeColumns = columns;
+			press(...toBadges);
+			// Where each medal stands: its family's rows come after every row of the families
+			// before it, and in them its place in its family goes `columns` to a row.
+			const spots: { row: number; column: number }[] = [];
+			let rowsBefore = 0;
+			for (const family of BADGE_FAMILIES) {
+				family.badges.forEach((_, k) =>
+					spots.push({ row: rowsBefore + Math.floor(k / columns), column: k % columns })
+				);
+				rowsBefore += Math.ceil(family.badges.length / columns);
+			}
+			/** The medal in the same column of the row `by` away, or that row's last; none past the ends. */
+			const across = (from: number, by: number): number => {
+				const row = spots[from]!.row + by;
+				const there = spots.flatMap((s, i) => (s.row === row ? [i] : []));
+				if (there.length === 0) return from;
+				return there[Math.min(spots[from]!.column, there.length - 1)]!;
+			};
+			for (let from = 0; from < count; from++) {
+				for (const [key, want] of [
+					['ArrowLeft', Math.max(0, from - 1)],
+					['a', Math.max(0, from - 1)],
+					['ArrowRight', Math.min(count - 1, from + 1)],
+					['d', Math.min(count - 1, from + 1)],
+					['ArrowUp', across(from, -1)],
+					['w', across(from, -1)],
+					['ArrowDown', across(from, 1)],
+					['s', across(from, 1)]
+				] as const) {
+					pause.option = from;
+					const pressed = press(key);
+					if (pause.option !== want || !pressed.prevented) {
+						bad.push(`${columns} a row, ${key} from ${from}: ${pause.option}, not ${want}`);
+					}
+				}
+			}
+		}
+		expect(bad.slice(0, 20)).toEqual([]);
+	});
+
+	it('goes family to family: the first and the last medal stay put silently, and a row never mixes two families', () => {
+		const cues: CueName[] = [];
+		const stop = sfx.onCue((cue) => cues.push(cue));
+		try {
+			const { press } = setup();
+			pause.badgeColumns = 8;
+			press(...toBadges);
+			const [first, second] = BADGE_FAMILIES;
+			const lastOfFirst = first!.badges.length - 1;
+			cues.length = 0;
+			// The first medal: left and up go nowhere, and say nothing.
+			press('ArrowLeft', 'ArrowUp', 'a', 'w');
+			expect([pause.option, cues]).toEqual([0, []]);
+			// Right from a family's last medal is the next family's first.
+			pause.option = lastOfFirst;
+			press('ArrowRight');
+			expect([BADGE_IDS[pause.option], cues]).toEqual([second!.badges[0]!.id, ['move']]);
+			// Down from the first family's last row (four medals of its twenty, eight to a row):
+			// the next family's first row, in the same column; up comes back.
+			pause.option = 16 + 2;
+			press('ArrowDown');
+			expect(BADGE_IDS[pause.option]).toBe(second!.badges[2]!.id);
+			press('ArrowUp');
+			expect(pause.option).toBe(18);
+			// Up into a shorter row lands on its last medal: from the next family's sixth medal
+			// (column 5) up to the first family's last row of four.
+			pause.option = first!.badges.length + 5;
+			press('ArrowUp');
+			expect(pause.option).toBe(lastOfFirst);
+			// The last medal: right and down go nowhere, and say nothing.
+			pause.option = BADGE_IDS.length - 1;
+			cues.length = 0;
+			press('ArrowRight', 'ArrowDown', 'd', 's');
+			expect([pause.option, cues]).toEqual([BADGE_IDS.length - 1, []]);
+			// Left from it goes back one.
+			press('ArrowLeft');
+			expect([pause.option, cues]).toEqual([BADGE_IDS.length - 2, ['move']]);
+		} finally {
+			stop();
+		}
+	});
+
+	it('a tap lights a medal, a tap on the lit one or past the last does nothing; it goes with the menu when something else takes the screen', () => {
+		const cues: CueName[] = [];
+		const stop = sfx.onCue((cue) => cues.push(cue));
+		try {
+			const { authority, press } = setup();
+			press(...toBadges);
+			cues.length = 0;
+			expect(press(optionKey(40)).prevented).toBe(true);
+			expect([pause.option, cues]).toEqual([40, ['move']]);
+			press(optionKey(40), optionKey(BADGE_IDS.length));
+			expect([pause.option, cues]).toEqual([40, ['move']]);
+			// A tap on the last medal reaches it, as the keys do.
+			press(optionKey(BADGE_IDS.length - 1));
+			expect(pause.option).toBe(BADGE_IDS.length - 1);
+			authority.dispatch({ type: 'leave-game' });
+			expect([pause.open, pause.screen, pause.option]).toEqual([false, 'list', 0]);
+		} finally {
+			stop();
+		}
 	});
 });
 
