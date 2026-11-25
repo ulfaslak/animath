@@ -3,12 +3,19 @@ import {
 	BADGE_IDS,
 	answerText,
 	getAnimal,
+	getLand,
+	isWalkable,
+	landSeed,
 	newGame,
 	readSave,
 	restoreGame,
 	saveDocument,
 	startBattle,
+	step,
+	tileAtWorld,
 	type AnimalInstance,
+	type Direction,
+	type GridPos,
 	type BattleState,
 	type GameEvent,
 	type SavedGame
@@ -327,6 +334,74 @@ describe('badges: the firsts the authority sees', () => {
 		expect(celebrated(s)).toEqual(
 			expect.arrayContaining(['firsts.ant-strength', 'catches.leg-ring'])
 		);
+	});
+});
+
+describe('badges: a fish from a hole, after a reload', () => {
+	const SEED = landSeed('arctic', 1);
+	const BACK: Record<Direction, Direction> = {
+		up: 'down',
+		down: 'up',
+		left: 'right',
+		right: 'left'
+	};
+
+	/** Ground near the Arctic's spawn a kid stands on, facing a fishing hole. */
+	function besideHole(): { pos: GridPos; facing: Direction } {
+		for (let r = 0; r < 200; r++) {
+			for (let y = 9 - r; y <= 9 + r; y++) {
+				for (let x = 5 - r; x <= 5 + r; x++) {
+					if (Math.max(Math.abs(x - 5), Math.abs(y - 9)) !== r) continue;
+					if (tileAtWorld(SEED, x, y).kind !== 'hole') continue;
+					for (const facing of ['up', 'down', 'left', 'right'] as const) {
+						const pos = step({ x, y }, BACK[facing]);
+						const ground = tileAtWorld(SEED, pos.x, pos.y).kind;
+						if (isWalkable(ground) && ground !== 'ice') return { pos, facing };
+					}
+				}
+			}
+		}
+		throw new Error('no hole near spawn');
+	}
+
+	/** A fight in the water, saved beside the hole, picked up and thrown at until it holds. */
+	function caughtAfterReload(): string[] {
+		const fish = getLand('arctic').species.find((id) => {
+			const a = getAnimal(id);
+			return a.realms.length === 1 && a.realms[0] === 'water';
+		});
+		if (!fish) throw new Error('no fish in the Arctic');
+		const puffins = Array.from({ length: 12 }, (_, i) => ({
+			id: `p${i}`,
+			speciesId: 'puffin',
+			hp: getAnimal('puffin').maxHp
+		}));
+		const wild: AnimalInstance = { id: 'wild', speciesId: fish, hp: 1 };
+		const { pos, facing } = besideHole();
+		const game = saved({
+			land: 'arctic',
+			unlocked: ['nordland', 'arctic'],
+			pos,
+			facing,
+			party: puffins,
+			battle: startBattle(puffins, wild, { realm: 'water' })
+		});
+		const s = session(game);
+		expect(s.events.some((e) => e.type === 'battle-started')).toBe(true);
+		for (let i = 0; i < 80 && latestBattle(s).phase.kind !== 'ended'; i++) {
+			const state = latestBattle(s);
+			if (state.phase.kind === 'choose-animal') {
+				const partyIndex = state.party.findIndex((a) => a.hp > 0);
+				s.authority.dispatch({ type: 'battle', intent: { type: 'switch', partyIndex } });
+			} else s.authority.dispatch({ type: 'battle', intent: { type: 'throw-leash' } });
+		}
+		const ended = latestBattle(s).phase;
+		expect(ended.kind === 'ended' && ended.outcome).toBe('caught');
+		return celebrated(s);
+	}
+
+	it('a fish hooked through the ice and caught after a reload mid-battle earns Kingfisher', () => {
+		expect(caughtAfterReload()).toContain('firsts.kingfisher');
 	});
 });
 

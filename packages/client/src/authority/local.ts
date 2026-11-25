@@ -313,7 +313,8 @@ export class LocalAuthority implements Authority {
 	 * The battle in progress, with the seed every intent of it is applied
 	 * with; `fished` when it began with a bite at a fishing hole (catching
 	 * that animal is a badge). Not saved: a battle picked up from a save was
-	 * not fished, as far as the badges know.
+	 * fished when it is fought in the water while the kid stands on a tile
+	 * that is not, which only a bite through the ice allows (`readBattle`).
 	 */
 	private battle: { state: BattleState; seed: number; fished?: boolean } | null = null;
 	/**
@@ -465,7 +466,9 @@ export class LocalAuthority implements Authority {
 		if (game.battle) {
 			// The battle's seed is the one it started with: the steps have not moved since
 			// (or `catchUp` moved it with them).
-			this.battle = { state: game.battle, seed: this.battleSeed() };
+			const here = editedTileAt(this.seed, this.edits, this.pos.x, this.pos.y);
+			const fished = game.battle.realm === 'water' && tileRealm(here.kind) !== 'water';
+			this.battle = { state: game.battle, seed: this.battleSeed(), fished };
 			this.emit({ type: 'battle-started', state: game.battle });
 		}
 		this.askStarter();
