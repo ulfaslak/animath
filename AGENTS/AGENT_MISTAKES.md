@@ -485,3 +485,11 @@ To become `[learned]`: a line under Phase 2 "Prose is a claim" that moving a row
 - **A guide rewritten for the guest case only** (adversarial review). The new "copy the save" step named `animath.save`, which an account's game is not under, and the check that it is the right game moved after the write to production.
 
 To become `[learned]`: a line under Phase 2 "Prose is a claim" that a removal greps each removed table's bare name in SQL (`from <table>`) and the purpose words of a removed tool, and a line in DEVELOPMENT § Migrations that a migration dropping rows names where their copy lives.
+
+### 2026-11-25 — the sea ice's fishing holes hold every size (fix/sea-ice-hole-variety, PR #268) — a catalog change whose far-off prose and derived numbers were left stale `[not codified]`
+
+- **A DNA hit hidden by my own grep's `cut -c1-260`** (adversarial review). The grep for the hole's old roster matched [[INVARIANTS]] § Encounters, but the line is long and the cut showed only its start, so the old list ("the polar cod, the ringed seal and the Greenland shark") stayed there. Fixed. When a grep hunts for prose, print the matching words (`grep -o '.\{60\}<word>.\{60\}'`), not each line's first characters.
+- **A number derived from the catalog, quoted far from it** (adversarial review). [[PRODUCT]] §4's druid-favour line gives the Arctic's worst kind in ten (6.4 → 2.8 battles), and five of those worst kinds were animals this change moved under the ice. Recomputed with the method of PR #231 (it reproduces main's 2.1 / 6.4 → 1.8 / 2.8 exactly): now 2.1 / 6.0 → 1.8 / 2.6.
+- **An unchecked premise written into a test's comment** (adversarial review). It said a kid reaches The Arctic with every Nordland animal, so a big swimmer leads; a first visit to a land starts with no party and a tier-1 Arctic starter (`packages/engine/src/lands/fly.ts`). Replaced by the human's report.
+
+To become `[learned]`: a line under Phase 2 "Prose is a claim" that a change to a species' `habitats`, tier or numbers re-derives every DNA figure taken over a land's kinds (the encounter shares, the druid's favour and tip numbers), and that a grep for prose prints the matching words, never a truncated line.
