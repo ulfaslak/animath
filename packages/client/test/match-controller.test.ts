@@ -167,7 +167,8 @@ function setup(
 	party: AnimalInstance[] = PARTY,
 	{ store = null, first = hi(null) }: { store?: KeyValueStore | null; first?: HiMessage } = {}
 ) {
-	const authority = new LocalAuthority();
+	// A day told, as the page tells it at load, so a match's right answers count a day played.
+	const authority = new LocalAuthority({ today: '2026-11-25' });
 	const sent: ClientMessage[] = [];
 	let online = true;
 	const shown: unknown[] = [];
