@@ -103,7 +103,7 @@
 		{/each}
 	</div>
 	<div class="card" class:got>
-		<BadgeMedal id={lit.id} size={short.current ? 56 : 96} lit={got} />
+		<BadgeMedal id={lit.id} size={short.current ? 48 : 96} lit={got} />
 		<div class="name">{badgeName(lit.id)}</div>
 		<div class="line">{badgeLine(lit.id)}</div>
 		<div class="goal">{badgeGoal(lit.id)}</div>
@@ -272,7 +272,7 @@
 		}
 		.card {
 			gap: 4px;
-			padding: 10px 12px 12px;
+			padding: 8px 12px 10px;
 		}
 		.name {
 			font-size: 20px;
