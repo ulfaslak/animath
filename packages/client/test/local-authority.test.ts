@@ -61,6 +61,7 @@ import { game } from '../src/state/game.svelte';
 import { besideA, gameBeside } from './clearing';
 import { mint, testStarter } from './minted';
 import { runAway } from './run-away';
+import { rulesOf } from './rules-of.js';
 
 /**
  * The single-player authority's own rules — the ones around the engine, not
@@ -84,7 +85,7 @@ type Session = { authority: LocalAuthority; events: GameEvent[] };
 function session(options?: LocalAuthorityOptions): Session {
 	const authority = new LocalAuthority(options);
 	const events: GameEvent[] = [];
-	authority.subscribe((e) => events.push(e));
+	authority.subscribe(rulesOf(events));
 	authority.start();
 	return { authority, events };
 }
@@ -629,7 +630,7 @@ describe('LocalAuthority: a tired team walks to the doctor', () => {
 		if (!read.ok) throw new Error(read.error);
 		const authority = new LocalAuthority();
 		const events: GameEvent[] = [];
-		authority.subscribe((e) => events.push(e));
+		authority.subscribe(rulesOf(events));
 		authority.start({ game: restoreGame(read.save, mint) });
 		return { authority, events };
 	}
@@ -679,7 +680,7 @@ describe('LocalAuthority: a tired team walks to the doctor', () => {
 	): Session {
 		const authority = new LocalAuthority();
 		const events: GameEvent[] = [];
-		authority.subscribe((e) => events.push(e));
+		authority.subscribe(rulesOf(events));
 		authority.start({ game: { ...newGame(1, testStarter()), pos, facing, party: team, ...extra } });
 		return { authority, events };
 	}
@@ -799,7 +800,7 @@ describe('LocalAuthority: a tired team walks to the doctor', () => {
 		if (!read.ok) throw new Error(read.error);
 		const authority = new LocalAuthority();
 		const events: GameEvent[] = [];
-		authority.subscribe((e) => events.push(e));
+		authority.subscribe(rulesOf(events));
 		authority.start({ game: restoreGame(read.save, mint) });
 		const s = { authority, events };
 		expect(latestBattle(s).realm).toBe('land');
@@ -889,7 +890,7 @@ describe('LocalAuthority: saved games', () => {
 			else cuts.choose++;
 
 			const b: Session = { authority: new LocalAuthority(), events: [] };
-			b.authority.subscribe((e) => b.events.push(e));
+			b.authority.subscribe(rulesOf(b.events));
 			b.authority.start({ game: saved });
 			expect(inBattle(b)).toBe(inBattle(a));
 			const fromA = a.events.length;
@@ -916,7 +917,7 @@ describe('LocalAuthority: saved games', () => {
 		expect(saved.battle?.phase.kind).toBe('solving');
 
 		const b: Session = { authority: new LocalAuthority(), events: [] };
-		b.authority.subscribe((e) => b.events.push(e));
+		b.authority.subscribe(rulesOf(b.events));
 		b.authority.start({ game: saved });
 		expect(b.events.map((e) => e.type)).toEqual(['welcome', 'battle-started']);
 		expect(welcome(b)).toMatchObject({ pos: saved.pos, facing: saved.facing, party: saved.party });
@@ -974,7 +975,7 @@ describe('LocalAuthority: saved games', () => {
 		expect(saved.visits).toBe(1);
 
 		const b: Session = { authority: new LocalAuthority(), events: [] };
-		b.authority.subscribe((e) => b.events.push(e));
+		b.authority.subscribe(rulesOf(b.events));
 		b.authority.start({ game: saved });
 		expect(facing(b)).toBe('down');
 		// The next visit, in both: the same puzzle for the same animal.
@@ -1004,7 +1005,7 @@ describe('LocalAuthority: saved games', () => {
 		expect(saved.party).toEqual(arranged);
 
 		const b: Session = { authority: new LocalAuthority(), events: [] };
-		b.authority.subscribe((e) => b.events.push(e));
+		b.authority.subscribe(rulesOf(b.events));
 		b.authority.start({ game: saved });
 		expect(welcome(b).party).toEqual(arranged);
 		expect(welcome(b).party.find((x) => x.id === squirrel!.id)?.nickname).toBe('Nøddi');
@@ -1136,7 +1137,7 @@ describe('LocalAuthority: the party', () => {
 			]
 		});
 		const events: GameEvent[] = [];
-		authority.subscribe((e) => events.push(e));
+		authority.subscribe(rulesOf(events));
 		authority.start();
 		const start = events.find((e) => e.type === 'welcome');
 		expect(start?.type === 'welcome' && start.party).toStrictEqual([
@@ -1321,7 +1322,7 @@ describe('LocalAuthority: the doctor', () => {
 		expect(game).toMatchObject({ tokens: 14, items: ['axe'], solved: 2 });
 		expect(game.party.map((a) => a.id)).toEqual(['b', 'c']);
 		const t: Session = { authority: new LocalAuthority({ shop: ITEM_IDS }), events: [] };
-		t.authority.subscribe((e) => t.events.push(e));
+		t.authority.subscribe(rulesOf(t.events));
 		const doc = saveDocument(game, { lineage: 'test', seq: 1 });
 		const read = readSave(JSON.parse(JSON.stringify(doc)));
 		if (!read.ok) throw new Error(read.error);
@@ -1429,7 +1430,7 @@ describe('LocalAuthority: the boat', () => {
 	function withItems(items: string[], team: AnimalInstance[] = [animal('squirrel')]): Session {
 		const authority = new LocalAuthority();
 		const events: GameEvent[] = [];
-		authority.subscribe((e) => events.push(e));
+		authority.subscribe(rulesOf(events));
 		authority.start({ game: { ...newGame(1, testStarter()), party: team, items } });
 		return { authority, events };
 	}
@@ -1507,7 +1508,7 @@ describe('LocalAuthority: the boat', () => {
 		// with it. A game saved on the deep water with no steps walked yet: the steps are what the roll reads.
 		const authority = new LocalAuthority();
 		const events: GameEvent[] = [];
-		authority.subscribe((e) => events.push(e));
+		authority.subscribe(rulesOf(events));
 		authority.start({
 			game: {
 				...newGame(1, testStarter()),
@@ -1563,7 +1564,7 @@ describe('LocalAuthority: the boat', () => {
 		);
 		const authority = new LocalAuthority();
 		const events: GameEvent[] = [];
-		authority.subscribe((e) => events.push(e));
+		authority.subscribe(rulesOf(events));
 		authority.start({
 			game: {
 				...newGame(1, testStarter()),
@@ -1617,7 +1618,7 @@ describe('LocalAuthority: the title', () => {
 	function atTitle(options?: LocalAuthorityOptions): Session {
 		const authority = new LocalAuthority(options);
 		const events: GameEvent[] = [];
-		authority.subscribe((e) => events.push(e));
+		authority.subscribe(rulesOf(events));
 		return { authority, events };
 	}
 
@@ -1816,7 +1817,7 @@ describe('LocalAuthority: trees and rocks', () => {
 	function from(game: SavedGame): Session {
 		const authority = new LocalAuthority();
 		const events: GameEvent[] = [];
-		authority.subscribe((e) => events.push(e));
+		authority.subscribe(rulesOf(events));
 		authority.start({ game });
 		return { authority, events };
 	}
@@ -2019,14 +2020,14 @@ describe('LocalAuthority: names and worlds', () => {
 	function atTitle(options?: LocalAuthorityOptions): Session {
 		const authority = new LocalAuthority(options);
 		const events: GameEvent[] = [];
-		authority.subscribe((e) => events.push(e));
+		authority.subscribe(rulesOf(events));
 		return { authority, events };
 	}
 
 	function from(game: SavedGame): Session {
 		const authority = new LocalAuthority();
 		const events: GameEvent[] = [];
-		authority.subscribe((e) => events.push(e));
+		authority.subscribe(rulesOf(events));
 		authority.start({ game });
 		return { authority, events };
 	}
@@ -2133,7 +2134,9 @@ describe('LocalAuthority: names and worlds', () => {
 			pos: spawnPoint(worldSeed(42)),
 			facing: 'down',
 			edits: [],
-			worlds: [{ world: 1, ...left, edits: [] }]
+			worlds: [{ world: 1, ...left, edits: [] }],
+			// A second world been to is a badge.
+			badges: [...before.badges, 'worlds.leaving-the-nest']
 		});
 		// Walking goes on in the new world, the step count going on from where it was.
 		move(s, 'up');
@@ -2370,7 +2373,7 @@ describe('LocalAuthority: puzzles solved', () => {
 		const read = readSave(JSON.parse(JSON.stringify(doc)));
 		if (!read.ok) throw new Error(read.error);
 		const t: Session = { authority: new LocalAuthority(), events: [] };
-		t.authority.subscribe((e) => t.events.push(e));
+		t.authority.subscribe(rulesOf(t.events));
 		t.authority.start({ game: restoreGame(read.save, mint) });
 		expect(welcome(t).solved).toBe(1);
 		// The battle picked up goes on counting from there.
@@ -2436,11 +2439,19 @@ describe('LocalAuthority: puzzles solved', () => {
 		const tried = Object.values(record).reduce((n, r) => n + r!.tried, 0);
 		const triedBefore = Object.values(before.puzzles).reduce((n, r) => n + r!.tried, 0);
 		expect(tried - triedBefore).toBe(judging.length);
-		// Nothing else about the game changed: a match changes nothing but the count and the record.
-		expect(s.authority.snapshot()).toEqual({
+		// Nothing else about the game changed: a match changes nothing but the count, the record
+		// and what the badges count: one match more, played to its end, and the badges it earned.
+		const after = s.authority.snapshot();
+		expect(steps.some((st) => st.events.some((e) => e.type === 'ended'))).toBe(true);
+		expect(after.tally).toEqual({ ...before.tally, matches: before.tally.matches + 1 });
+		expect(after.badges.slice(0, before.badges.length)).toEqual(before.badges);
+		expect(after.badges).toContain('matches.play-bow');
+		expect(after).toEqual({
 			...before,
 			solved: before.solved + right.a,
-			puzzles: record
+			puzzles: record,
+			tally: after.tally,
+			badges: after.badges
 		});
 		// The other player's answers are nobody's here (in a match of its own).
 		const theirs = steps.map((st) => ({
@@ -2457,7 +2468,7 @@ describe('LocalAuthority: puzzles solved', () => {
 		// Before a game is under way there is nothing to count into.
 		const title = new LocalAuthority();
 		const said: GameEvent[] = [];
-		title.subscribe((e) => said.push(e));
+		title.subscribe(rulesOf(said));
 		for (const step of steps) title.dispatch(answers(step, 'a'));
 		expect(said).toEqual([]);
 	});
@@ -2610,7 +2621,7 @@ describe('LocalAuthority: the animal book', () => {
 
 	function resumed(game: SavedGame): Session {
 		const s: Session = { authority: new LocalAuthority(), events: [] };
-		s.authority.subscribe((e) => s.events.push(e));
+		s.authority.subscribe(rulesOf(s.events));
 		s.authority.start({ game });
 		return s;
 	}
@@ -2635,7 +2646,7 @@ describe('LocalAuthority: the animal book', () => {
 		// A starter picked on the title, too: a starter counts as caught.
 		const title = new LocalAuthority({ homeWorld: () => 7 });
 		const said: GameEvent[] = [];
-		title.subscribe((e) => said.push(e));
+		title.subscribe(rulesOf(said));
 		title.dispatch({ type: 'new-game', speciesId: 'frog' });
 		expect(said[0]).toMatchObject({ type: 'welcome', seen: ['frog'], caught: ['frog'] });
 	});
@@ -2836,7 +2847,7 @@ describe('LocalAuthority: going to another player', () => {
 		const placed = position(s);
 		const again = new LocalAuthority();
 		const events: GameEvent[] = [];
-		again.subscribe((e) => events.push(e));
+		again.subscribe(rulesOf(events));
 		again.start({ game: s.authority.snapshot() });
 		expect(events[0]).toMatchObject({ type: 'welcome', pos: placed, facing: facing(s) });
 	});
@@ -2871,7 +2882,7 @@ describe('LocalAuthority: the glider', () => {
 	): Session {
 		const authority = new LocalAuthority();
 		const events: GameEvent[] = [];
-		authority.subscribe((e) => events.push(e));
+		authority.subscribe(rulesOf(events));
 		const game = newGame(1, testStarter());
 		authority.start({
 			game: { ...game, pos, facing, items: ['glider', ...items], party: team ?? game.party }
@@ -3177,7 +3188,7 @@ describe('LocalAuthority: the glider', () => {
 			// The reload lets go: the original lets go too, and the two are the same game.
 			a.authority.dispatch({ type: 'land' });
 			const b: Session = { authority: new LocalAuthority(), events: [] };
-			b.authority.subscribe((e) => b.events.push(e));
+			b.authority.subscribe(rulesOf(b.events));
 			b.authority.start({ game: saved });
 			expect(b.authority.snapshot()).toEqual(a.authority.snapshot());
 			// Both go on from the intent after that flight's own landing.
@@ -3207,7 +3218,7 @@ describe('LocalAuthority: birds in the air (#91)', () => {
 	function flyer(team: AnimalInstance[], steps = 0, items: string[] = []): Session {
 		const authority = new LocalAuthority();
 		const events: GameEvent[] = [];
-		authority.subscribe((e) => events.push(e));
+		authority.subscribe(rulesOf(events));
 		authority.start({
 			game: {
 				...newGame(1, testStarter()),
@@ -3358,7 +3369,7 @@ describe('LocalAuthority: birds in the air (#91)', () => {
 			party: team()
 		};
 		const s: Session = { authority: new LocalAuthority(), events: [] };
-		s.authority.subscribe((e) => s.events.push(e));
+		s.authority.subscribe(rulesOf(s.events));
 		const ids: string[] = [];
 		for (let run = 0; run < 2; run++) {
 			s.authority.start({ game });
@@ -3403,7 +3414,7 @@ describe('LocalAuthority: birds in the air (#91)', () => {
 				const landedWithBird = a.events.some((e) => e.type === 'battle-started');
 				expect(saved.battle !== null, `step ${steps}, cut at ${flown}`).toBe(landedWithBird);
 				const b: Session = { authority: new LocalAuthority(), events: [] };
-				b.authority.subscribe((e) => b.events.push(e));
+				b.authority.subscribe(rulesOf(b.events));
 				b.authority.start({ game: saved });
 				expect(b.authority.snapshot()).toEqual(a.authority.snapshot());
 				if (landedWithBird) {
@@ -3444,7 +3455,7 @@ describe('LocalAuthority: birds in the air (#91)', () => {
 			for (let steps = 0; steps < 160 * REACH; steps += REACH) {
 				const authority = new LocalAuthority();
 				const events: GameEvent[] = [];
-				authority.subscribe((e) => events.push(e));
+				authority.subscribe(rulesOf(events));
 				const game = newGame(1, testStarter());
 				const team = [animal('squirrel'), animal('tawny-owl')];
 				authority.start({
@@ -3529,7 +3540,7 @@ describe('LocalAuthority: birds in the air (#91)', () => {
 			expect(latestBattle(a).realm).toBe('air');
 			// Saved during the battle in the air, and picked up again in another page.
 			const b: Session = { authority: new LocalAuthority(), events: [] };
-			b.authority.subscribe((e) => b.events.push(e));
+			b.authority.subscribe(rulesOf(b.events));
 			b.authority.start({ game: throughSave(a.authority.snapshot()) });
 			expect(latestBattle(b).realm).toBe('air');
 			// Both answer wrong until the robin is tired: the same loss, the same end.
@@ -3584,7 +3595,7 @@ describe('LocalAuthority: lands (#191)', () => {
 		if (!read.ok) throw new Error(read.error);
 		const authority = new LocalAuthority(options);
 		const events: GameEvent[] = [];
-		authority.subscribe((e) => events.push(e));
+		authority.subscribe(rulesOf(events));
 		authority.start({ game: restoreGame(read.save, mint) });
 		return { authority, events };
 	}
@@ -3777,7 +3788,7 @@ describe('LocalAuthority: lands (#191)', () => {
 		// A saved battle against a shrew with 1 HP left, every other kind of Nordland caught.
 		const bear = { ...animal('bear'), id: 'bear-1' };
 		const s: Session = { authority: new LocalAuthority(), events: [] };
-		s.authority.subscribe((e) => s.events.push(e));
+		s.authority.subscribe(rulesOf(s.events));
 		s.authority.start({
 			game: {
 				...newGame(1, bear),
@@ -3862,7 +3873,7 @@ describe('LocalAuthority: lands, from the adversarial review of #196', () => {
 		};
 		const authority = new LocalAuthority();
 		const events: GameEvent[] = [];
-		authority.subscribe((e) => events.push(e));
+		authority.subscribe(rulesOf(events));
 		authority.start({ game });
 		authority.dispatch({ type: 'interact' });
 		expect(events.at(-1)?.type).toBe('tile-cleared');
@@ -3947,7 +3958,7 @@ describe('LocalAuthority: sliding on the ice (#191)', () => {
 		};
 		const authority = new LocalAuthority();
 		const events: GameEvent[] = [];
-		authority.subscribe((e) => events.push(e));
+		authority.subscribe(rulesOf(events));
 		authority.start({ game });
 		return { authority, events };
 	}

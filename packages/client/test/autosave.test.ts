@@ -1,4 +1,5 @@
 import {
+	BADGE_IDS,
 	SAVE_VERSION,
 	WORLD_ONE_SEED,
 	canReplace,
@@ -1065,8 +1066,13 @@ describe('Autosave: two tabs, each with the real authority', () => {
 		}
 	}
 
+	/**
+	 * A save of `game` in the store. Every badge is earned already: a walk or
+	 * a visit that earns one is progress, and would put one tab's save ahead
+	 * of the other's; these tests are about the counts.
+	 */
 	function savedAt(store: MemoryStore, game: Partial<SavedGame>): void {
-		const base = newGame(WORLD, testStarter());
+		const base = { ...newGame(WORLD, testStarter()), badges: [...BADGE_IDS] };
 		store.set(
 			KEYS.save,
 			JSON.stringify(saveDocument({ ...base, ...game }, { lineage: 'kid-game', seq: 1 }))

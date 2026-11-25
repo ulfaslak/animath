@@ -352,9 +352,9 @@ export type GameEvent =
 	 * ones this intent earned, in the catalogue's order, for the client to
 	 * celebrate; `counts` each ladder's number now (`badgeCounts`), for the
 	 * badges page's progress. Sent at the end of an intent that earned a
-	 * badge, or that changed a count, but for a step (`move`, `coast`,
-	 * `glide`) that earned none: the steps walked ride along with the next
-	 * one, so a walk is not told twice. A badge is never taken back.
+	 * badge or changed a count but the steps walked: those change on every
+	 * step, so they ride along with the next one, and a walk is not told
+	 * twice. A badge is never taken back.
 	 */
 	| { type: 'badges-changed'; badges: string[]; fresh: string[]; counts: BadgeCounts }
 	/**

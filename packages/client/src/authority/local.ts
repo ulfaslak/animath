@@ -461,7 +461,7 @@ export class LocalAuthority implements Authority {
 			this.emit({ type: 'battle-started', state: game.battle });
 		}
 		this.askStarter();
-		if (isNew) this.award(false);
+		if (isNew) this.award();
 	}
 
 	/**
@@ -580,7 +580,7 @@ export class LocalAuthority implements Authority {
 		this.moments = [];
 		this.apply(intent);
 		if (!this.started) return;
-		this.award(intent.type === 'move' || intent.type === 'coast' || intent.type === 'glide');
+		this.award();
 	}
 
 	/** `intent`, applied by the rules. */
@@ -1573,15 +1573,15 @@ export class LocalAuthority implements Authority {
 	/**
 	 * The end of an intent: the badges it earned, with the moments it had
 	 * (`earnBadges`), told with every ladder's number, when it earned one or
-	 * changed a number. A step (`step`) that earned none tells nothing: its
-	 * steps ride along with the next intent that tells, so a walk is not told twice.
+	 * changed a number. Steps alone tell nothing: they change on every step,
+	 * so they ride along with the next telling, and a walk is not told twice.
 	 */
-	private award(step: boolean): void {
+	private award(): void {
 		const progress = this.progress();
 		const { earned, fresh } = earnBadges(this.badges, progress, this.moments);
 		this.moments = [];
 		const counts = badgeCounts(progress);
-		if (fresh.length === 0 && (step || sameCounts(counts, this.counts))) return;
+		if (fresh.length === 0 && sameCounts(counts, this.counts)) return;
 		this.badges = earned;
 		this.counts = counts;
 		this.emit({ type: 'badges-changed', badges: [...earned], fresh: [...fresh], counts });
@@ -1628,10 +1628,10 @@ function isMatchBatch(intent: Intent & { type: 'match-answers' }): boolean {
 }
 
 /** A copy of a land left behind, so the authority's own never leaves it. */
-/** Whether two tellings of the ladders' numbers say the same. */
+/** Whether two tellings of the ladders' numbers say the same, but for the steps walked (`award`). */
 function sameCounts(a: BadgeCounts, b: BadgeCounts): boolean {
-	const keys = Object.keys(a);
-	return keys.length === Object.keys(b).length && keys.every((k) => a[k] === b[k]);
+	const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+	return [...keys].every((k) => k === 'steps' || a[k] === b[k]);
 }
 
 /** Today on the browser's own calendar, in its time zone: `YYYY-MM-DD`, as the tally keeps a day. */

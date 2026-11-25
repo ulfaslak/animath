@@ -43,6 +43,7 @@ import { presence } from '../src/state/presence.svelte';
 import { travel } from '../src/state/travel.svelte';
 import { testStarter } from './minted';
 import { runAway } from './run-away';
+import { rulesOf } from './rules-of.js';
 
 // The glue between the game, the socket and the screen: when the page is
 // present and when not, what it says about itself, and "Go to", end to end
@@ -140,8 +141,9 @@ function setup(
 		match: options.match
 	});
 	const events: GameEvent[] = [];
+	const keep = rulesOf(events);
 	authority.subscribe((e) => {
-		events.push(e);
+		keep(e);
 		game.apply(e);
 		hud.apply(e);
 		controller.handle(e);

@@ -485,7 +485,12 @@ describe('a match', () => {
 		// The record grew by the kid's own answers, right or wrong.
 		const tried = (g: typeof after) => Object.values(g.puzzles).reduce((n, r) => n + r!.tried, 0);
 		expect(tried(after)).toBeGreaterThanOrEqual(tried(before) + t.counted());
-		expect({ ...after, solved: before.solved, puzzles: before.puzzles }).toStrictEqual(before);
+		// And for the badges: one match more played, played to its end, on a day a puzzle was solved.
+		expect(after.tally.matches).toBe(before.tally.matches + 1);
+		expect(after.tally.days).toBe(1);
+		expect(after.badges).toContain('matches.play-bow');
+		const unbadged = { solved: before.solved, puzzles: before.puzzles, badges: before.badges, tally: before.tally };
+		expect({ ...after, ...unbadged }).toStrictEqual(before);
 		// Back to exploring: the screen goes, and the others see the player exploring again.
 		t.pick('ArrowRight', 'Enter');
 		expect(match.stage).toBe('none');

@@ -71,7 +71,8 @@ function setup(start?: SavedGame) {
 	const explore = new ExploreController(authority, renderer, keyboard);
 	const events: string[] = [];
 	authority.subscribe((e) => {
-		events.push(e.type);
+		// The badges' own events follow whatever counts for one: the tests read the rest.
+		if (e.type !== 'badges-changed') events.push(e.type);
 		game.apply(e);
 		hud.apply(e);
 		explore.handle(e);
