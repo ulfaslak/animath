@@ -529,7 +529,7 @@ export type {
 	SaveProblem,
 	SaveRead,
 	SaveV1,
-	SaveV6,
+	SaveV7,
 	SavedLandStay,
 	SaveWrite,
 	SaveWriteCheck,

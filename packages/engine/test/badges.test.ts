@@ -2,12 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { bookOf } from '../src/animals/book.js';
 import { ANIMALS } from '../src/animals/catalog.js';
 import type { AnimalInstance } from '../src/animals/types.js';
-import {
-	BADGE_FAMILIES,
-	BADGE_IDS,
-	BADGE_MOMENTS,
-	isBadgeId
-} from '../src/badges/catalog.js';
+import { BADGE_FAMILIES, BADGE_IDS, BADGE_MOMENTS, isBadgeId } from '../src/badges/catalog.js';
 import {
 	badgeCount,
 	badgeCounts,
@@ -32,7 +27,7 @@ import {
 	sameProgress,
 	saveDocument,
 	validateSave,
-	type SaveV6,
+	type SaveV7,
 	type SavedGame
 } from '../src/save.js';
 
@@ -88,7 +83,8 @@ describe('the catalogue', () => {
 			const targets = f.badges.map(badgeTarget);
 			if (targets[0]! < 1) bad.push(`${f.id} starts below 1`);
 			for (let i = 1; i < targets.length; i++) {
-				if (targets[i]! <= targets[i - 1]!) bad.push(`${f.badges[i]!.id} asks no more than the one before`);
+				if (targets[i]! <= targets[i - 1]!)
+					bad.push(`${f.badges[i]!.id} asks no more than the one before`);
 			}
 			f.badges.forEach((b, i) => {
 				if (b.at === 'all' && i !== f.badges.length - 1) bad.push(`${b.id} is 'all' but not last`);
@@ -126,7 +122,16 @@ describe('earning', () => {
 	it('gives a new game its first animal and nothing it has not done', () => {
 		const held = badgesHeld(progressOf(fresh()));
 		expect(held).toContain('firsts.imprinting');
-		const counted = ['solved', 'catches', 'battles', 'steps', 'visits', 'clearing', 'matches', 'days'];
+		const counted = [
+			'solved',
+			'catches',
+			'battles',
+			'steps',
+			'visits',
+			'clearing',
+			'matches',
+			'days'
+		];
 		expect(held.filter((id) => counted.includes(id.split('.')[0]!))).toEqual([]);
 		expect(held.filter((id) => (BADGE_MOMENTS as readonly string[]).includes(id))).toEqual([]);
 	});
@@ -139,7 +144,8 @@ describe('earning', () => {
 				const below = withCount(f.count, at - 1);
 				const on = withCount(f.count, at);
 				if (!below || !on) continue;
-				if (badgeCount(on, f.count) !== at) bad.push(`${f.count} reads ${badgeCount(on, f.count)}, not ${at}`);
+				if (badgeCount(on, f.count) !== at)
+					bad.push(`${f.count} reads ${badgeCount(on, f.count)}, not ${at}`);
 				if (badgesHeld(below).includes(b.id)) bad.push(`${b.id} at ${at - 1}`);
 				if (!badgesHeld(on).includes(b.id)) bad.push(`${b.id} not at ${at}`);
 			}
@@ -157,13 +163,16 @@ describe('earning', () => {
 			const progress = { ...progressOf(fresh()), solved: n, steps: n * 7 };
 			const moments = BADGE_MOMENTS.filter(() => rng.next() < 0.3);
 			const once = earnBadges(earned, progress, moments);
-			if (once.earned.slice(0, earned.length).join() !== earned.join()) bad.push(`run ${run}: reordered or dropped`);
+			if (once.earned.slice(0, earned.length).join() !== earned.join())
+				bad.push(`run ${run}: reordered or dropped`);
 			if (once.fresh.some((id) => earned.includes(id))) bad.push(`run ${run}: celebrated again`);
-			if (once.earned.length !== earned.length + once.fresh.length) bad.push(`run ${run}: lost a fresh one`);
+			if (once.earned.length !== earned.length + once.fresh.length)
+				bad.push(`run ${run}: lost a fresh one`);
 			if (!moments.every((m) => once.earned.includes(m))) bad.push(`run ${run}: a moment unearned`);
 			// The same game again earns nothing more; and a game gone down (a smaller team) takes nothing back.
 			const again = earnBadges(once.earned, { ...progress, solved: 0, steps: 0, party: [] });
-			if (again.fresh.length > 0 || again.earned !== once.earned) bad.push(`run ${run}: changed again`);
+			if (again.fresh.length > 0 || again.earned !== once.earned)
+				bad.push(`run ${run}: changed again`);
 		}
 		expect(bad).toEqual([]);
 	});
@@ -232,7 +241,10 @@ describe('earning', () => {
 /** A game whose number `count` reads is `n`, or null for a count this helper cannot set alone. */
 function withCount(count: string, n: number): BadgeProgress | null {
 	const p = progressOf(fresh());
-	const tally = (key: keyof Tally): BadgeProgress => ({ ...p, tally: { ...EMPTY_TALLY, [key]: n } });
+	const tally = (key: keyof Tally): BadgeProgress => ({
+		...p,
+		tally: { ...EMPTY_TALLY, [key]: n }
+	});
 	if (count.startsWith('topic:')) {
 		return { ...p, puzzles: { [count.slice(6)]: { tried: n, right: n, recent: '' } } };
 	}
@@ -257,21 +269,35 @@ function withCount(count: string, n: number): BadgeProgress | null {
 		case 'told': {
 			if (n > ANIMALS.length) return null;
 			const ids = ANIMALS.slice(0, n).map((a) => a.id);
-			const lists = { seen: ids, caught: [] as string[], freed: [] as string[], told: [] as string[] };
+			const lists = {
+				seen: ids,
+				caught: [] as string[],
+				freed: [] as string[],
+				told: [] as string[]
+			};
 			if (count !== 'seen') lists[count] = ids;
 			return { ...p, party: [], book: bookOf(lists.seen, lists.caught, lists.freed, lists.told) };
 		}
 		case 'worlds':
-			return { ...p, world: 1, worlds: Array.from({ length: n - 1 }, (_, i) => ({ world: i + 2 })) };
+			return {
+				...p,
+				world: 1,
+				worlds: Array.from({ length: n - 1 }, (_, i) => ({ world: i + 2 }))
+			};
 		case 'kinds': {
 			const topics = ALL_PUZZLE_TOPICS.slice(0, n);
 			if (topics.length < n) return null;
-			return { ...p, puzzles: Object.fromEntries(topics.map((t) => [t, { tried: 1, right: 1, recent: '1' }])) };
+			return {
+				...p,
+				puzzles: Object.fromEntries(topics.map((t) => [t, { tried: 1, right: 1, recent: '1' }]))
+			};
 		}
 		case 'every-kind':
 			return {
 				...p,
-				puzzles: Object.fromEntries(ALL_PUZZLE_TOPICS.map((t) => [t, { tried: n, right: n, recent: '' }]))
+				puzzles: Object.fromEntries(
+					ALL_PUZZLE_TOPICS.map((t) => [t, { tried: n, right: n, recent: '' }])
+				)
 			};
 		case 'tools': {
 			const every = LAND_IDS.filter((l) => getLand(l).available).flatMap((land) =>
@@ -361,13 +387,17 @@ describe('the save', () => {
 		expect('badges' in d).toBe(false);
 		expect('tally' in d).toBe(false);
 		const read = readSave(JSON.parse(JSON.stringify(d)));
-		expect(read.ok && restoreGame(read.save, () => 'x')).toMatchObject({ badges: [], tally: EMPTY_TALLY });
+		expect(read.ok && restoreGame(read.save, () => 'x')).toMatchObject({
+			badges: [],
+			tally: EMPTY_TALLY
+		});
 	});
 
-	it("keeps a badge this build lacks, and reads a badge listed twice once", () => {
+	it('keeps a badge this build lacks, and reads a badge listed twice once', () => {
 		const read = readSave(doc({ badges: ['solved.atom', 'shells.conch', 'solved.atom'] }));
 		expect(read.ok).toBe(true);
-		if (read.ok) expect(restoreGame(read.save, () => 'x').badges).toEqual(['solved.atom', 'shells.conch']);
+		if (read.ok)
+			expect(restoreGame(read.save, () => 'x').badges).toEqual(['solved.atom', 'shells.conch']);
 	});
 
 	it('refuses badges and a tally of the wrong shape', () => {
@@ -393,12 +423,14 @@ describe('the save', () => {
 		expect(read.ok && restoreGame(read.save, () => 'x').tally).toEqual(game.tally);
 	});
 
-	it('compares badges as a set: the order earned is no progress, a badge more is', () => {
-		const a = doc({ badges: ['solved.atom', 'firsts.imprinting'] }) as SaveV6;
-		const b = doc({ badges: ['firsts.imprinting', 'solved.atom'] }) as SaveV6;
-		const c = doc({ badges: ['firsts.imprinting'] }) as SaveV6;
+	it('takes badges together rather than comparing them: a badge more is no reason to be behind, a count more is', () => {
+		const a = doc({ badges: ['solved.atom', 'firsts.imprinting'] }) as SaveV7;
+		const b = doc({ badges: ['firsts.imprinting', 'solved.atom'] }) as SaveV7;
+		const c = doc({ badges: ['firsts.imprinting'] }) as SaveV7;
 		expect(sameProgress(a, b)).toBe(true);
-		expect(sameProgress(a, c)).toBe(false);
-		expect(sameProgress(doc({}) as SaveV6, doc({ tally: {} }) as SaveV6)).toBe(true);
+		expect(sameProgress(a, c)).toBe(true);
+		expect(sameProgress(c, doc({}) as SaveV7)).toBe(true);
+		expect(sameProgress(doc({}) as SaveV7, doc({ tally: {} }) as SaveV7)).toBe(true);
+		expect(sameProgress(doc({}) as SaveV7, doc({ tally: { catches: 1 } }) as SaveV7)).toBe(false);
 	});
 });
