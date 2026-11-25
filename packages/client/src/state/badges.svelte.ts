@@ -68,7 +68,6 @@ class BadgesView {
 		this.left = BADGE_NOTE_SECONDS;
 		return next.kind === 'new';
 	}
-
 }
 
 export const badges = new BadgesView();

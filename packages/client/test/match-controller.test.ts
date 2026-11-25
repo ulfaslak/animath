@@ -490,7 +490,12 @@ describe('a match', () => {
 		expect(after.tally.matches).toBe(before.tally.matches + 1);
 		expect(after.tally.days).toBe(1);
 		expect(after.badges).toContain('matches.play-bow');
-		const unbadged = { solved: before.solved, puzzles: before.puzzles, badges: before.badges, tally: before.tally };
+		const unbadged = {
+			solved: before.solved,
+			puzzles: before.puzzles,
+			badges: before.badges,
+			tally: before.tally
+		};
 		expect({ ...after, ...unbadged }).toStrictEqual(before);
 		// Back to exploring: the screen goes, and the others see the player exploring again.
 		t.pick('ArrowRight', 'Enter');

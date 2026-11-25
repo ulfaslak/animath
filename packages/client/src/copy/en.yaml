@@ -3041,7 +3041,7 @@ badges:
       badges:
         chirp:
           name: 'Chirp'
-          line: 'A chick''s first little sound.'
+          line: "A chick's first little sound."
         call:
           name: 'Call'
           line: 'A short call: "Here I am!"'
@@ -3084,7 +3084,7 @@ badges:
           line: 'Can grow for a thousand years.'
     double:
       title: 'Red deer antlers'
-      about: 'A stag''s antlers grow points in pairs: two, four, six.'
+      about: "A stag's antlers grow points in pairs: two, four, six."
       goal:
         one: 'Double your first number'
         other: 'Double {count} numbers'
@@ -3109,7 +3109,7 @@ badges:
           line: 'Twelve points: a royal stag!'
     half:
       title: 'Butterfly'
-      about: 'A butterfly''s two halves are mirror twins.'
+      about: "A butterfly's two halves are mirror twins."
       goal:
         one: 'Halve your first number'
         other: 'Halve {count} numbers'
@@ -3175,7 +3175,7 @@ badges:
           line: 'Soft, fluffy, and very warm.'
         thick-fur:
           name: 'Thick fur'
-          line: 'A musk ox''s coat reaches the ground.'
+          line: "A musk ox's coat reaches the ground."
         blubber:
           name: 'Blubber'
           line: 'A thick layer of fat keeps seals warm.'
@@ -3440,10 +3440,10 @@ badges:
           line: 'Bats and porpoises see with sound.'
         electric-sense:
           name: 'Electric sense'
-          line: 'Sharks feel the tiny sparks of a fish''s heartbeat.'
+          line: "Sharks feel the tiny sparks of a fish's heartbeat."
         magnetic-sense:
           name: 'Magnetic sense'
-          line: 'Birds find their way with the Earth''s magnet.'
+          line: "Birds find their way with the Earth's magnet."
     omnivore:
       title: 'Eats everything'
       about: 'An omnivore eats a bit of everything. These ask for some of every kind of puzzle.'
@@ -3481,7 +3481,7 @@ badges:
           line: 'A lens makes the picture sharp.'
         compound-eye:
           name: 'Compound eye'
-          line: 'A fly''s eye is thousands of little eyes.'
+          line: "A fly's eye is thousands of little eyes."
         night-vision:
           name: 'Night vision'
           line: 'An owl sees in the dark.'
@@ -3534,7 +3534,7 @@ badges:
           line: 'A home for beetles and bees.'
         nest-box:
           name: 'Nest box'
-          line: 'A safe place for a bird''s eggs.'
+          line: "A safe place for a bird's eggs."
         hedgehog-house:
           name: 'Hedgehog house'
           line: 'A cosy spot to sleep all winter.'
@@ -3609,7 +3609,7 @@ badges:
       badges:
         leg-ring:
           name: 'Leg ring'
-          line: 'A tiny ring on a bird''s leg.'
+          line: "A tiny ring on a bird's leg."
         ear-tag:
           name: 'Ear tag'
           line: 'A tag that tells one deer from another.'
@@ -3810,16 +3810,16 @@ badges:
           line: 'A tiny guard that eats germs.'
         antibody:
           name: 'Antibody'
-          line: 'Sticks to a germ so it can''t do harm.'
+          line: "Sticks to a germ so it can't do harm."
         memory-cell:
           name: 'Memory cell'
-          line: 'Remembers a germ, so it''s faster next time.'
+          line: "Remembers a germ, so it's faster next time."
         bone-marrow:
           name: 'Bone marrow'
           line: 'Where new blood cells are made.'
         immune-system:
           name: 'Immune system'
-          line: 'Your whole body''s guard team.'
+          line: "Your whole body's guard team."
     worlds:
       title: 'Spreading out'
       about: 'How animals and plants get to new places.'
@@ -3904,7 +3904,7 @@ badges:
           line: 'Lambs and kids chase each other.'
         grooming:
           name: 'Grooming'
-          line: 'Monkeys clean each other''s fur.'
+          line: "Monkeys clean each other's fur."
         friendship:
           name: 'Friendship'
           line: 'Some animals have best friends for life.'
@@ -3912,7 +3912,7 @@ badges:
           name: 'Dolphin pod'
           line: 'Dolphins play together all their lives.'
     days:
-      title: 'Nature''s calendar'
+      title: "Nature's calendar"
       about: 'Nature keeps time too.'
       goal:
         one: 'Play on a day'
@@ -3926,7 +3926,7 @@ badges:
           line: 'Seven spots for seven days.'
         hatching:
           name: 'Hatching'
-          line: 'A robin''s egg hatches after two weeks.'
+          line: "A robin's egg hatches after two weeks."
         moon-cycle:
           name: 'Moon cycle'
           line: 'Corals lay their eggs by the full moon.'

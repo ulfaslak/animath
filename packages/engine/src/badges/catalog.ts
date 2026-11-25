@@ -81,7 +81,11 @@ export type BadgeFamily =
 			readonly kind: 'collection';
 			readonly badges: readonly { readonly id: string; readonly group: BadgeGroup }[];
 	  }
-	| { readonly id: string; readonly kind: 'first'; readonly badges: readonly { readonly id: string }[] };
+	| {
+			readonly id: string;
+			readonly kind: 'first';
+			readonly badges: readonly { readonly id: string }[];
+	  };
 
 /**
  * The firsts the authority catches as they happen: nothing in a save proves
@@ -529,24 +533,199 @@ export const BADGE_FAMILIES: readonly BadgeFamily[] = [
 		badges: [
 			{ id: 'collections.amphibian', group: { every: ['frog', 'common-toad'] } },
 			{ id: 'collections.sole-walker', group: { every: ['bear', 'polar-bear'] } },
-			{ id: 'collections.pole-to-pole', group: { oneOfEach: [['polar-bear'], ['adelie-penguin', 'gentoo-penguin', 'chinstrap', 'king-penguin', 'emperor-penguin']] } },
+			{
+				id: 'collections.pole-to-pole',
+				group: {
+					oneOfEach: [
+						['polar-bear'],
+						['adelie-penguin', 'gentoo-penguin', 'chinstrap', 'king-penguin', 'emperor-penguin']
+					]
+				}
+			},
 			{ id: 'collections.antlers', group: { every: ['deer', 'roe-deer', 'moose', 'reindeer'] } },
-			{ id: 'collections.dog-family', group: { every: ['fox', 'wolf', 'arctic-fox', 'arctic-wolf'] } },
-			{ id: 'collections.parliament-of-owls', group: { every: ['tawny-owl', 'eagle-owl', 'snowy-owl', 'great-grey-owl'] } },
-			{ id: 'collections.raptor', group: { every: ['buzzard', 'golden-eagle', 'white-tailed-eagle', 'gyrfalcon'] } },
-			{ id: 'collections.weasel-family', group: { every: ['otter', 'badger', 'pine-marten', 'stoat', 'wolverine'] } },
-			{ id: 'collections.rodent', group: { every: ['squirrel', 'wood-mouse', 'brown-rat', 'beaver', 'arctic-lemming'] } },
-			{ id: 'collections.herpetologist', group: { every: ['frog', 'common-toad', 'common-lizard', 'adder', 'turtle'] } },
-			{ id: 'collections.waddle', group: { every: ['adelie-penguin', 'gentoo-penguin', 'chinstrap', 'king-penguin', 'emperor-penguin'] } },
-			{ id: 'collections.nocturnal', group: { every: ['hedgehog', 'badger', 'tawny-owl', 'eagle-owl', 'raccoon', 'common-toad', 'pine-marten'] } },
-			{ id: 'collections.salt-gland', group: { every: ['puffin', 'snow-petrel', 'glaucous-gull', 'giant-petrel', 'albatross', 'arctic-tern', 'king-eider'] } },
-			{ id: 'collections.gills', group: { every: ['plaice', 'polar-cod', 'arctic-char', 'lumpsucker', 'icefish', 'wolffish', 'toothfish', 'greenland-shark'] } },
-			{ id: 'collections.blowhole', group: { every: ['dolphin', 'harbour-porpoise', 'whale', 'orca', 'beluga', 'minke-whale', 'bowhead-whale', 'narwhal', 'blue-whale'] } },
-			{ id: 'collections.fin-feet', group: { every: ['harbour-seal', 'grey-seal', 'ringed-seal', 'harp-seal', 'weddell-seal', 'hooded-seal', 'crabeater-seal', 'elephant-seal', 'leopard-seal', 'walrus'] } },
-			{ id: 'collections.no-backbone', group: { every: ['stag-beetle', 'crab', 'starfish', 'octopus', 'moon-jellyfish', 'lions-mane-jellyfish', 'lobster', 'sea-angel', 'antarctic-krill', 'snow-crab'] } },
-			{ id: 'collections.apex-predator', group: { every: ['wolf', 'lynx', 'bear', 'golden-eagle', 'white-tailed-eagle', 'orca', 'polar-bear', 'arctic-wolf', 'gyrfalcon', 'leopard-seal', 'greenland-shark'] } },
+			{
+				id: 'collections.dog-family',
+				group: { every: ['fox', 'wolf', 'arctic-fox', 'arctic-wolf'] }
+			},
+			{
+				id: 'collections.parliament-of-owls',
+				group: { every: ['tawny-owl', 'eagle-owl', 'snowy-owl', 'great-grey-owl'] }
+			},
+			{
+				id: 'collections.raptor',
+				group: { every: ['buzzard', 'golden-eagle', 'white-tailed-eagle', 'gyrfalcon'] }
+			},
+			{
+				id: 'collections.weasel-family',
+				group: { every: ['otter', 'badger', 'pine-marten', 'stoat', 'wolverine'] }
+			},
+			{
+				id: 'collections.rodent',
+				group: { every: ['squirrel', 'wood-mouse', 'brown-rat', 'beaver', 'arctic-lemming'] }
+			},
+			{
+				id: 'collections.herpetologist',
+				group: { every: ['frog', 'common-toad', 'common-lizard', 'adder', 'turtle'] }
+			},
+			{
+				id: 'collections.waddle',
+				group: {
+					every: [
+						'adelie-penguin',
+						'gentoo-penguin',
+						'chinstrap',
+						'king-penguin',
+						'emperor-penguin'
+					]
+				}
+			},
+			{
+				id: 'collections.nocturnal',
+				group: {
+					every: [
+						'hedgehog',
+						'badger',
+						'tawny-owl',
+						'eagle-owl',
+						'raccoon',
+						'common-toad',
+						'pine-marten'
+					]
+				}
+			},
+			{
+				id: 'collections.salt-gland',
+				group: {
+					every: [
+						'puffin',
+						'snow-petrel',
+						'glaucous-gull',
+						'giant-petrel',
+						'albatross',
+						'arctic-tern',
+						'king-eider'
+					]
+				}
+			},
+			{
+				id: 'collections.gills',
+				group: {
+					every: [
+						'plaice',
+						'polar-cod',
+						'arctic-char',
+						'lumpsucker',
+						'icefish',
+						'wolffish',
+						'toothfish',
+						'greenland-shark'
+					]
+				}
+			},
+			{
+				id: 'collections.blowhole',
+				group: {
+					every: [
+						'dolphin',
+						'harbour-porpoise',
+						'whale',
+						'orca',
+						'beluga',
+						'minke-whale',
+						'bowhead-whale',
+						'narwhal',
+						'blue-whale'
+					]
+				}
+			},
+			{
+				id: 'collections.fin-feet',
+				group: {
+					every: [
+						'harbour-seal',
+						'grey-seal',
+						'ringed-seal',
+						'harp-seal',
+						'weddell-seal',
+						'hooded-seal',
+						'crabeater-seal',
+						'elephant-seal',
+						'leopard-seal',
+						'walrus'
+					]
+				}
+			},
+			{
+				id: 'collections.no-backbone',
+				group: {
+					every: [
+						'stag-beetle',
+						'crab',
+						'starfish',
+						'octopus',
+						'moon-jellyfish',
+						'lions-mane-jellyfish',
+						'lobster',
+						'sea-angel',
+						'antarctic-krill',
+						'snow-crab'
+					]
+				}
+			},
+			{
+				id: 'collections.apex-predator',
+				group: {
+					every: [
+						'wolf',
+						'lynx',
+						'bear',
+						'golden-eagle',
+						'white-tailed-eagle',
+						'orca',
+						'polar-bear',
+						'arctic-wolf',
+						'gyrfalcon',
+						'leopard-seal',
+						'greenland-shark'
+					]
+				}
+			},
 			{ id: 'collections.megafauna', group: { tier: 5 } },
-			{ id: 'collections.ornithologist', group: { every: ['robin', 'grey-heron', 'tawny-owl', 'buzzard', 'mute-swan', 'eagle-owl', 'golden-eagle', 'white-tailed-eagle', 'puffin', 'snow-bunting', 'rock-ptarmigan', 'waxwing', 'adelie-penguin', 'snow-petrel', 'arctic-tern', 'king-eider', 'raven', 'barnacle-goose', 'gentoo-penguin', 'chinstrap', 'snowy-owl', 'great-grey-owl', 'glaucous-gull', 'giant-petrel', 'king-penguin', 'gyrfalcon', 'emperor-penguin', 'albatross'] } },
+			{
+				id: 'collections.ornithologist',
+				group: {
+					every: [
+						'robin',
+						'grey-heron',
+						'tawny-owl',
+						'buzzard',
+						'mute-swan',
+						'eagle-owl',
+						'golden-eagle',
+						'white-tailed-eagle',
+						'puffin',
+						'snow-bunting',
+						'rock-ptarmigan',
+						'waxwing',
+						'adelie-penguin',
+						'snow-petrel',
+						'arctic-tern',
+						'king-eider',
+						'raven',
+						'barnacle-goose',
+						'gentoo-penguin',
+						'chinstrap',
+						'snowy-owl',
+						'great-grey-owl',
+						'glaucous-gull',
+						'giant-petrel',
+						'king-penguin',
+						'gyrfalcon',
+						'emperor-penguin',
+						'albatross'
+					]
+				}
+			},
 			{ id: 'collections.marine-biologist', group: { realm: 'sea' } },
 			{ id: 'collections.fauna-of-nordland', group: { land: 'nordland' } },
 			{ id: 'collections.fauna-of-the-arctic', group: { land: 'arctic' } }
@@ -667,7 +846,9 @@ export const BADGE_FAMILIES: readonly BadgeFamily[] = [
 ];
 
 /** Every badge's id, in the families' order. */
-export const BADGE_IDS: readonly string[] = BADGE_FAMILIES.flatMap((f) => f.badges.map((b) => b.id));
+export const BADGE_IDS: readonly string[] = BADGE_FAMILIES.flatMap((f) =>
+	f.badges.map((b) => b.id)
+);
 
 const IDS = new Set(BADGE_IDS);
 
