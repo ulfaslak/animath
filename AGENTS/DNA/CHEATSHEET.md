@@ -377,6 +377,17 @@ To meet smaller animals more often, put a smaller animal in front. A lost battle
 - **Filling it fast, to look at it**: `?party=` with many kinds (`?party=squirrel,rabbit,frog,fox,otter,deer,wolf,bear,crab,whale`, a throwaway game saved nowhere) starts with every one of them caught. For a kind seen and not caught, walk the reed (§ Finding a battle fast) and run from what comes out.
 - **Hidden**: Enter, Space or a tap on the lit card makes its animal hop. The figures are drawn the first time the book opens in a page, one a frame, so they pop in.
 
+## Badges
+
+- **Earning one**: a badge is earned the moment its number is reached or its first happens, wherever you are; its card ("New badge!" and its name) waits until you are back in the world with nothing over it, then shows for 3.5 s while you walk on. Several earned at once come one after the other. Nothing is won with a badge.
+- **The first one is free**: a new game earns Imprinting (your first animal) at once, after its welcome.
+- **A game from before badges** gets every badge it already holds the first time it is played, without a card each: one card says how many ("You have earned 23 badges! Look in the menu.").
+- **The firsts, quickly**: Latin name: give any animal a nickname (pause menu). Homing instinct: Worlds, any number, then Worlds and your home number. Thermal: take off with the paraglider. Symbiosis: with the harness and a big lead (red deer, boar, wolf, bear, moose, bison), take one step on land (the sled does not count). Webbed feet: a battle out on the water (the boat, or a bite at a fishing hole). Hollow bones: a bird follows the glider down. Kingfisher: catch an animal that bit at a fishing hole. Tundra: fly to the Arctic. Ant strength: with a size-1 animal in front (a squirrel), catch a size-3 one or bigger. Food chain: an animal of each size, 1 to 5, on the team at once. Social animal: another player in your world (a second window: [[DEVELOPMENT]] § Several players at once).
+- **Filling it fast, to look at it**: a throwaway game with a big party (`?party=` with one kind of every size, and many of them) earns the team, size and collection badges at once, celebrated one after the other.
+- **Exploit: days by the clock.** A day counts by the device's own calendar, so setting the clock forward and solving a puzzle counts another day played. Nothing is won.
+- **Exploit: a match left at once still counts.** A friendly match counts once it ends, however it ends, so asking a friend and leaving straight away counts one for the Playing together badges.
+- **Exploit: Social animal is the page's word.** Who is in your world is the server's to say, and the game takes the page's word that it saw someone, as it does for a match's answers; a changed page can claim it.
+
 ## Other players
 
 - **Who you see**: everyone in your world who is playing, not at the title. Within 24 tiles you see them walk, with their name over them and their animal behind; everyone further is on the pause menu's Who's here list (the 50 nearest). Everyone you can't see is pointed to by an arrow at the edge of the screen, for the four nearest ways: friends the same way share one arrow, with their names beside it, nearest first (four, or three and "+2 more"; on a phone held sideways two, or one and "+2 more"). No arrow is ever under a corner's panel or the touch controls ([[UI_SPEC]] § Explore mode, "Arrows"). Nobody in another world, ever.
