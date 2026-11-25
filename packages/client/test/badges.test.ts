@@ -1,4 +1,5 @@
 import {
+	BADGE_FAMILIES,
 	BADGE_IDS,
 	answerText,
 	getAnimal,
@@ -14,6 +15,9 @@ import {
 } from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
 import { LocalAuthority, localDay, type LocalAuthorityOptions } from '../src/authority/local';
+import { BADGE_PICTURES } from '../src/badges/pictures';
+import { COPY, LANGUAGES } from '../src/copy/languages';
+import { flatten } from '../src/copy/translate';
 import { besideA, gameBeside } from './clearing';
 import { mint, testStarter } from './minted';
 import { rulesOf } from './rules-of.js';
@@ -243,5 +247,60 @@ describe('badges: the firsts the authority sees', () => {
 		expect(ended.kind === 'ended' && ended.outcome).toBe('caught');
 		expect(s.authority.snapshot().tally.catches).toBe(1);
 		expect(celebrated(s)).toEqual(expect.arrayContaining(['firsts.ant-strength', 'catches.leg-ring']));
+	});
+});
+
+describe('badges: words and pictures', () => {
+	it('names every family and every badge, with its line and goal, in every language', () => {
+		const missing: string[] = [];
+		for (const lang of LANGUAGES) {
+			const copy = flatten(COPY[lang]);
+			const need = (key: string) => {
+				if (!copy.has(key)) missing.push(`${lang}: ${key}`);
+			};
+			for (const f of BADGE_FAMILIES) {
+				const family = `badges.families.${f.id}`;
+				need(`${family}.title`);
+				need(`${family}.about`);
+				if (f.kind === 'ladder') need(`${family}.goal`);
+				for (const b of f.badges) {
+					const badge = `${family}.badges.${b.id.slice(f.id.length + 1)}`;
+					need(`${badge}.name`);
+					need(`${badge}.line`);
+					if (f.kind !== 'ladder') need(`${badge}.goal`);
+				}
+			}
+		}
+		expect(missing).toEqual([]);
+	});
+
+	it('gives every badge a picture, and none to a badge there is not', () => {
+		expect(Object.keys(BADGE_PICTURES).sort()).toEqual([...BADGE_IDS].sort());
+	});
+
+	it('draws every picture with an emoji Safari 15 has: nothing newer than Emoji 13.1', () => {
+		// In the block of new pictographs, the code points of Emoji 13.1 and before; past the
+		// block, the few that Emoji 14 and 15 added elsewhere. A joined emoji (ZWJ) is newer too.
+		const old = [
+			[0x1fa70, 0x1fa74],
+			[0x1fa78, 0x1fa7a],
+			[0x1fa80, 0x1fa86],
+			[0x1fa90, 0x1faa8],
+			[0x1fab0, 0x1fab6],
+			[0x1fac0, 0x1fac2],
+			[0x1fad0, 0x1fad6]
+		];
+		const newer = new Set([0x1f6dc, 0x1f6dd, 0x1f6de, 0x1f6df, 0x1f7f0, 0x1f979, 0x200d]);
+		const tooNew = Object.entries(BADGE_PICTURES).filter(([, emoji]) =>
+			[...emoji].some((ch) => {
+				const cp = ch.codePointAt(0)!;
+				if (newer.has(cp)) return true;
+				if (cp < 0x1fa70 || cp > 0x1faff) return false;
+				return !old.some(([lo, hi]) => cp >= lo! && cp <= hi!);
+			})
+		);
+		expect(tooNew).toEqual([]);
+		// The check sees one it must: a bubble (🫧, Emoji 14).
+		expect([...'🫧'].some((ch) => ch.codePointAt(0)! >= 0x1fae0)).toBe(true);
 	});
 });

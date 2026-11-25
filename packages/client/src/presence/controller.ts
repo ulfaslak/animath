@@ -168,6 +168,11 @@ export class PresenceController {
 	private finding: { pid: string; name: string; since: number } | null = null;
 	/** A go-to the authority is placing: whom it is to, for the line after it. */
 	private placing: string | null = null;
+	/**
+	 * The authority has been told another player is in this game's world
+	 * (`met-player`, a badge's first): once a game, from its `welcome` on.
+	 */
+	private met = false;
 	/** Since when the socket has not been on (seconds), or null while it is. */
 	private offSince: number | null = null;
 	/** The players on screen the server has yet to confirm, after the socket came back, and until when. */
@@ -192,6 +197,7 @@ export class PresenceController {
 			case 'welcome':
 				// A game under way: nobody from before is on screen.
 				this.underWay = true;
+				this.met = false;
 				this.who = { name: event.name, world: event.world, land: event.land };
 				this.arrive();
 				this.connect();
@@ -422,6 +428,13 @@ export class PresenceController {
 		this.connection.start(guestId(this.options.store), name);
 	}
 
+	/** Another player is in the world with this one: the authority hears it once a game (`met`). */
+	private meet(): void {
+		if (this.met || !this.underWay) return;
+		this.met = true;
+		this.options.authority.dispatch({ type: 'met-player' });
+	}
+
 	private receive(m: ServerMessage): void {
 		const others = this.options.renderer.others;
 		const now = this.clock();
@@ -448,6 +461,7 @@ export class PresenceController {
 				this.unconfirmed.delete(m.pid);
 				others.seen(m);
 				this.notes.seen(m.name, m.busy === 'plane');
+				this.meet();
 				this.options.match?.peer(m);
 				break;
 			case 'gone':
@@ -458,6 +472,7 @@ export class PresenceController {
 				if (m.world !== this.who.world || m.land !== this.who.land) break;
 				const players = m.players.filter((p) => p.pid !== this.connection.pid);
 				presence.roster = players;
+				if (players.length > 0) this.meet();
 				this.notes.roster(
 					players.map((p) => p.name),
 					now,

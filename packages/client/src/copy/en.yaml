@@ -2809,3 +2809,1182 @@ puzzles:
   caption: The longer the bar, the more of that kind you have solved.
   # The key reminder under the page.
   keys: ↑ ↓ choose · Esc back
+badges:
+  # "My badges" ([[PRODUCT]] §4 "Badges"): the pause menu's tile on its title
+  # line, beside the animal book, and the page's own title.
+  title: My badges
+  # Beside the page's title, and in the panel while the tile is lit: the
+  # badges earned, of every badge there is.
+  earned:
+    one: '{count} of {total} badges'
+    other: '{count} of {total} badges'
+  # The panel beside the tile while it is lit.
+  help: Every badge you earn by playing is kept here. A badge is yours for good.
+  # A badge's card, while it is not earned yet: how far the kid has come, as
+  # numbers. {count}: how many so far; {goal}: how many it asks for.
+  progress: '{count} / {goal}'
+  # A badge's card: earned, or not yet.
+  got: You have this badge!
+  notYet: Not earned yet
+  # The note over the world when a badge is earned. Its name follows, big.
+  new: New badge!
+  # Once, when a game from before badges is picked up: how many badges it
+  # was given at once, and where to find them.
+  found:
+    one: 'You have earned a badge! Look in the menu.'
+    other: 'You have earned {count} badges! Look in the menu.'
+  # The key reminder under the page.
+  keys: ← ↑ → ↓ choose · Esc back
+  # Every badge, family by family, in the order the page shows them. A
+  # family's goal is a ladder's, said with the number a badge asks for; a
+  # collection's and a first's goal is each badge's own. Names are pieces of
+  # biology: a word a kid can look up.
+  families:
+    solved:
+      title: 'From atom to Tree of Life'
+      about: 'Life from the smallest bit to the biggest: each badge is one size up.'
+      goal:
+        one: 'Solve your first puzzle'
+        other: 'Solve {count} puzzles'
+      badges:
+        atom:
+          name: 'Atom'
+          line: 'The tiniest bit of everything.'
+        molecule:
+          name: 'Molecule'
+          line: 'Atoms holding hands.'
+        protein:
+          name: 'Protein'
+          line: 'The tiny machines inside your body.'
+        gene:
+          name: 'Gene'
+          line: 'One recipe: the colour of a fur, the shape of an ear.'
+        dna:
+          name: 'DNA'
+          line: 'The whole recipe book for a living thing.'
+        chromosome:
+          name: 'Chromosome'
+          line: 'DNA wound up tight, like thread on a spool.'
+        mitochondria:
+          name: 'Mitochondria'
+          line: 'The power plant inside every cell.'
+        nucleus:
+          name: 'Nucleus'
+          line: 'The control room of a cell.'
+        cell:
+          name: 'Cell'
+          line: 'The building block of every living thing.'
+        tissue:
+          name: 'Tissue'
+          line: 'Lots of cells doing the same job together.'
+        organ:
+          name: 'Organ'
+          line: 'A heart, a lung, a stomach: a part with a job.'
+        organ-system:
+          name: 'Organ system'
+          line: 'Organs working as a team, like heart and blood.'
+        organism:
+          name: 'Organism'
+          line: 'A whole living thing: you, a fox, an oak.'
+        population:
+          name: 'Population'
+          line: 'All the foxes in one forest.'
+        community:
+          name: 'Community'
+          line: 'All the animals and plants living side by side.'
+        ecosystem:
+          name: 'Ecosystem'
+          line: 'Living things and their home, working as one.'
+        biome:
+          name: 'Biome'
+          line: 'A big kind of place: forest, tundra, ocean.'
+        biosphere:
+          name: 'Biosphere'
+          line: 'Every living thing on Earth, all at once.'
+        evolution:
+          name: 'Evolution'
+          line: 'How life changes, slowly, over millions of years.'
+        tree-of-life:
+          name: 'Tree of Life'
+          line: 'Every animal that ever lived, on one big family tree.'
+    add:
+      title: 'Honeybee'
+      about: 'A bee adds drop after drop until there is honey. A worker bee gets a new job as she grows up.'
+      goal:
+        one: 'Solve your first adding puzzle'
+        other: 'Solve {count} adding puzzles'
+      badges:
+        cleaner-bee:
+          name: 'Cleaner bee'
+          line: 'The youngest bees clean the cells.'
+        nurse-bee:
+          name: 'Nurse bee'
+          line: 'Feeds the baby bees.'
+        builder-bee:
+          name: 'Builder bee'
+          line: 'Builds the comb out of wax.'
+        guard-bee:
+          name: 'Guard bee'
+          line: 'Watches the door of the hive.'
+        forager:
+          name: 'Forager'
+          line: 'Flies out to find flowers.'
+        beehive:
+          name: 'Beehive'
+          line: '50,000 bees adding up to one big family.'
+    sub:
+      title: 'Frog'
+      about: 'On its way to being a frog, a tadpole takes away its own tail.'
+      goal:
+        one: 'Solve your first taking-away puzzle'
+        other: 'Solve {count} taking-away puzzles'
+      badges:
+        frogspawn:
+          name: 'Frogspawn'
+          line: 'Hundreds of eggs in a jelly blob.'
+        tadpole:
+          name: 'Tadpole'
+          line: 'Swims with a tail and breathes with gills.'
+        back-legs:
+          name: 'Back legs'
+          line: 'The back legs come first.'
+        front-legs:
+          name: 'Front legs'
+          line: 'Then the front legs pop out.'
+        tail-gone:
+          name: 'Tail gone'
+          line: 'The tail shrinks away. Minus one tail!'
+        frog:
+          name: 'Frog'
+          line: 'Ready to hop on land.'
+    mul:
+      title: 'Salmon'
+      about: 'One salmon lays thousands of eggs: that is a lot of times!'
+      goal:
+        one: 'Solve your first times table'
+        other: 'Solve {count} times tables'
+      badges:
+        roe:
+          name: 'Roe'
+          line: 'Orange salmon eggs in the gravel.'
+        alevin:
+          name: 'Alevin'
+          line: 'A baby fish with its lunch box: a yolk sac.'
+        fry:
+          name: 'Fry'
+          line: 'Out of the gravel to find food.'
+        parr:
+          name: 'Parr'
+          line: 'A young salmon with stripes on its sides.'
+        smolt:
+          name: 'Smolt'
+          line: 'Turns silver and swims out to sea.'
+        salmon:
+          name: 'Salmon'
+          line: 'Big and strong, it swims home to the river.'
+    div:
+      title: 'Cell division'
+      about: 'A frog egg grows by dividing: one cell splits into two, two into four.'
+      goal:
+        one: 'Solve your first sharing puzzle'
+        other: 'Solve {count} sharing puzzles'
+      badges:
+        first-cell:
+          name: 'First cell'
+          line: 'Every animal starts as one cell.'
+        two-cells:
+          name: 'Two cells'
+          line: 'Split! One cell becomes two.'
+        four-cells:
+          name: 'Four cells'
+          line: 'Split again! Two become four.'
+        morula:
+          name: 'Morula'
+          line: 'A ball of cells, like a mulberry.'
+        blastula:
+          name: 'Blastula'
+          line: 'A hollow ball of cells.'
+        embryo:
+          name: 'Embryo'
+          line: 'The cells start to make a body.'
+    missing:
+      title: 'Camouflage'
+      about: 'A missing number is hiding. So are these animals!'
+      goal:
+        one: 'Find your first missing number'
+        other: 'Find {count} missing numbers'
+      badges:
+        stick-insect:
+          name: 'Stick insect'
+          line: 'Looks just like a twig.'
+        flatfish:
+          name: 'Flatfish'
+          line: 'A plaice turns the colour of the sand.'
+        winter-white:
+          name: 'Winter white'
+          line: 'A stoat turns white when the snow comes.'
+        mimicry:
+          name: 'Mimicry'
+          line: 'A hoverfly dresses up as a wasp.'
+        colour-change:
+          name: 'Colour change'
+          line: 'An octopus changes colour in a blink.'
+        see-through:
+          name: 'See-through'
+          line: 'The sea angel is so clear you can see right through it.'
+    sequence:
+      title: 'Birdsong'
+      about: 'A song is notes in the right order. Young birds learn it bit by bit.'
+      goal:
+        one: 'Solve your first number pattern'
+        other: 'Solve {count} number patterns'
+      badges:
+        chirp:
+          name: 'Chirp'
+          line: 'A chick''s first little sound.'
+        call:
+          name: 'Call'
+          line: 'A short call: "Here I am!"'
+        babble:
+          name: 'Babble'
+          line: 'A young bird tries out sounds.'
+        practice-song:
+          name: 'Practice song'
+          line: 'Almost there: practising every day.'
+        full-song:
+          name: 'Full song'
+          line: 'The whole song, note for note.'
+        dawn-chorus:
+          name: 'Dawn chorus'
+          line: 'Every bird in the wood singing at sunrise.'
+    sqrt:
+      title: 'Oak tree'
+      about: 'Square roots: like a tree, everything starts with a root.'
+      goal:
+        one: 'Find your first square root'
+        other: 'Find {count} square roots'
+      badges:
+        acorn:
+          name: 'Acorn'
+          line: 'A whole oak is packed inside.'
+        root:
+          name: 'Root'
+          line: 'The first thing out of the acorn goes down.'
+        sprout:
+          name: 'Sprout'
+          line: 'Then a shoot goes up to the light.'
+        seedling:
+          name: 'Seedling'
+          line: 'The first real leaves.'
+        sapling:
+          name: 'Sapling'
+          line: 'A young tree, taller than you.'
+        oak:
+          name: 'Oak'
+          line: 'Can grow for a thousand years.'
+    double:
+      title: 'Red deer antlers'
+      about: 'A stag''s antlers grow points in pairs: two, four, six.'
+      goal:
+        one: 'Double your first number'
+        other: 'Double {count} numbers'
+      badges:
+        calf:
+          name: 'Calf'
+          line: 'No antlers yet. Just spots.'
+        spiker:
+          name: 'Spiker'
+          line: 'First antlers: one spike each side.'
+        forker:
+          name: 'Forker'
+          line: 'Each antler splits in two.'
+        six-pointer:
+          name: 'Six-pointer'
+          line: 'Six points in all.'
+        eight-pointer:
+          name: 'Eight-pointer'
+          line: 'Eight points in all.'
+        royal:
+          name: 'Royal'
+          line: 'Twelve points: a royal stag!'
+    half:
+      title: 'Butterfly'
+      about: 'A butterfly''s two halves are mirror twins.'
+      goal:
+        one: 'Halve your first number'
+        other: 'Halve {count} numbers'
+      badges:
+        caterpillar:
+          name: 'Caterpillar'
+          line: 'Eats and eats and eats.'
+        moult:
+          name: 'Moult'
+          line: 'Too big for its skin, so it gets a new one.'
+        chrysalis:
+          name: 'Chrysalis'
+          line: 'A quiet case where it changes.'
+        wings:
+          name: 'Wings'
+          line: 'Out it comes, wings folded up.'
+        butterfly:
+          name: 'Butterfly'
+          line: 'Two matching halves, ready to fly.'
+        painted-lady:
+          name: 'Painted lady'
+          line: 'Flies all the way from Africa to Denmark.'
+    numberline:
+      title: 'Jumpers'
+      about: 'Jump along the number line like these champion jumpers.'
+      goal:
+        one: 'Solve your first number line'
+        other: 'Solve {count} number lines'
+      badges:
+        flea:
+          name: 'Flea'
+          line: 'Jumps 100 times its own length.'
+        grasshopper:
+          name: 'Grasshopper'
+          line: 'Its back legs work like springs.'
+        jumping-spider:
+          name: 'Jumping spider'
+          line: 'Looks first, then leaps.'
+        hare:
+          name: 'Hare'
+          line: 'Zigzags in big bounds.'
+        roe-deer:
+          name: 'Roe deer'
+          line: 'Clears a fence in one jump.'
+        kangaroo:
+          name: 'Kangaroo'
+          line: 'Nine metres in a single hop!'
+    thermometer:
+      title: 'Keeping warm'
+      about: 'Every animal has its own trick for staying the right temperature.'
+      goal:
+        one: 'Read your first temperature'
+        other: 'Read {count} temperatures'
+      badges:
+        sunbathing:
+          name: 'Sunbathing'
+          line: 'A lizard warms up in the sun.'
+        shivering:
+          name: 'Shivering'
+          line: 'Shaking muscles make heat.'
+        down-feathers:
+          name: 'Down feathers'
+          line: 'Soft, fluffy, and very warm.'
+        thick-fur:
+          name: 'Thick fur'
+          line: 'A musk ox''s coat reaches the ground.'
+        blubber:
+          name: 'Blubber'
+          line: 'A thick layer of fat keeps seals warm.'
+        hibernation:
+          name: 'Hibernation'
+          line: 'A hedgehog sleeps the whole cold winter.'
+    kroner:
+      title: 'Saving for winter'
+      about: 'Squirrels and jays save food for later, like money in a piggy bank.'
+      goal:
+        one: 'Solve your first money puzzle'
+        other: 'Solve {count} money puzzles'
+      badges:
+        hazelnut:
+          name: 'Hazelnut'
+          line: 'One nut to start.'
+        hiding-place:
+          name: 'Hiding place'
+          line: 'Bury it where nobody looks.'
+        stash:
+          name: 'Stash'
+          line: 'A little pile of nuts.'
+        larder:
+          name: 'Larder'
+          line: 'A whole cupboard of food.'
+        winter-store:
+          name: 'Winter store'
+          line: 'Enough food for the whole winter.'
+        nutcracker:
+          name: 'Nutcracker'
+          line: 'Hides 30,000 seeds and finds them again!'
+    fraction:
+      title: 'Wolf pack'
+      about: 'A wolf pack shares its food: everyone gets a fraction.'
+      goal:
+        one: 'Solve your first fraction'
+        other: 'Solve {count} fractions'
+      badges:
+        pup:
+          name: 'Pup'
+          line: 'Born in a den, eyes shut.'
+        den:
+          name: 'Den'
+          line: 'A safe home under the ground.'
+        howl:
+          name: 'Howl'
+          line: 'Calls the pack together.'
+        tracking:
+          name: 'Tracking'
+          line: 'Follows tracks in the snow.'
+        sharing:
+          name: 'Sharing'
+          line: 'Each wolf gets its part.'
+        wolf-pack:
+          name: 'Wolf pack'
+          line: 'A family that does everything together.'
+    area:
+      title: 'Beaver'
+      about: 'A beaver turns a whole valley into a pond: that is a lot of area.'
+      goal:
+        one: 'Solve your first floor tile puzzle'
+        other: 'Solve {count} floor tile puzzles'
+      badges:
+        kit:
+          name: 'Kit'
+          line: 'A baby beaver in the lodge.'
+        lodge:
+          name: 'Lodge'
+          line: 'A home of sticks and mud.'
+        dam:
+          name: 'Dam'
+          line: 'A wall of logs that holds back the river.'
+        pond:
+          name: 'Pond'
+          line: 'The water spreads out behind the dam.'
+        wetland:
+          name: 'Wetland'
+          line: 'A new home for frogs, fish and birds.'
+        ecosystem-engineer:
+          name: 'Ecosystem engineer'
+          line: 'An animal that builds a whole new place.'
+    perimeter:
+      title: 'Spider web'
+      about: 'A spider builds the frame round the edge first: the perimeter!'
+      goal:
+        one: 'Solve your first fence puzzle'
+        other: 'Solve {count} fence puzzles'
+      badges:
+        bridge-thread:
+          name: 'Bridge thread'
+          line: 'The first thread, blown across by the wind.'
+        frame:
+          name: 'Frame'
+          line: 'A thread all the way round the edge.'
+        spokes:
+          name: 'Spokes'
+          line: 'Threads from the middle out to the frame.'
+        hub:
+          name: 'Hub'
+          line: 'The middle, where the spider waits.'
+        sticky-spiral:
+          name: 'Sticky spiral'
+          line: 'Round and round, from the edge inwards.'
+        orb-web:
+          name: 'Orb web'
+          line: 'A perfect wheel of silk.'
+    barchart:
+      title: 'Field scientist'
+      about: 'Biologists count animals and draw charts to see how they are doing.'
+      goal:
+        one: 'Read your first bar chart'
+        other: 'Read {count} bar charts'
+      badges:
+        tally-mark:
+          name: 'Tally mark'
+          line: 'One line for every bird you see.'
+        notebook:
+          name: 'Notebook'
+          line: 'Write down what you saw and where.'
+        binoculars:
+          name: 'Binoculars'
+          line: 'See animals far away without scaring them.'
+        field-guide:
+          name: 'Field guide'
+          line: 'A book that tells one animal from another.'
+        census:
+          name: 'Census'
+          line: 'Count every animal of one kind.'
+        professor:
+          name: 'Professor'
+          line: 'Teaches the next biologists.'
+    balance:
+      title: 'Balance'
+      about: 'Animals are balance champions.'
+      goal:
+        one: 'Solve your first balancing puzzle'
+        other: 'Solve {count} balancing puzzles'
+      badges:
+        wobbly-legs:
+          name: 'Wobbly legs'
+          line: 'A newborn calf stands up in its first hour.'
+        first-steps:
+          name: 'First steps'
+          line: 'Step, step, wobble, step.'
+        inner-ear:
+          name: 'Inner ear'
+          line: 'A tiny organ in your ear that tells up from down.'
+        one-leg:
+          name: 'One leg'
+          line: 'A heron can stand on one leg for hours.'
+        balancing-tail:
+          name: 'Balancing tail'
+          line: 'A squirrel steers with its tail.'
+        ibex:
+          name: 'Ibex'
+          line: 'Walks up a cliff that is almost straight.'
+    clock:
+      title: 'Body clock'
+      about: 'Animals have a clock inside them that tells them when to do things.'
+      goal:
+        one: 'Tell the time for the first time'
+        other: 'Tell the time {count} times'
+      badges:
+        rooster:
+          name: 'Rooster'
+          line: 'Crows when the sun comes up.'
+        day-and-night:
+          name: 'Day and night'
+          line: 'Some animals sleep at night, some by day.'
+        dusk:
+          name: 'Dusk'
+          line: 'Deer come out when the light gets low.'
+        tide-clock:
+          name: 'Tide clock'
+          line: 'Crabs know when the sea will come back.'
+        seasons:
+          name: 'Seasons'
+          line: 'Birds know when it is time to fly south.'
+        body-clock:
+          name: 'Body clock'
+          line: 'Every cell in you keeps time.'
+    blocks:
+      title: 'Ant builders'
+      about: 'Ants build a whole hill one grain at a time, like blocks.'
+      goal:
+        one: 'Solve your first ice block puzzle'
+        other: 'Solve {count} ice block puzzles'
+      badges:
+        sand-grain:
+          name: 'Sand grain'
+          line: 'One grain, carried by one ant.'
+        tunnel:
+          name: 'Tunnel'
+          line: 'A path under the ground.'
+        chamber:
+          name: 'Chamber'
+          line: 'A room for eggs, or for food.'
+        anthill:
+          name: 'Anthill'
+          line: 'A hill taller than you.'
+        ant-colony:
+          name: 'Ant colony'
+          line: 'Half a million ants, one big family.'
+        supercolony:
+          name: 'Supercolony'
+          line: 'Many colonies joined into one giant.'
+    units:
+      title: 'Animal sizes'
+      about: 'From millimetres to 30 metres: animals come in every size.'
+      goal:
+        one: 'Solve your first units puzzle'
+        other: 'Solve {count} units puzzles'
+      badges:
+        ant:
+          name: 'Ant'
+          line: 'A few millimetres long.'
+        mouse:
+          name: 'Mouse'
+          line: 'About 8 centimetres, without the tail.'
+        fox:
+          name: 'Fox'
+          line: 'About as long as your arm.'
+        moose:
+          name: 'Moose'
+          line: 'Taller than a grown-up.'
+        orca:
+          name: 'Orca'
+          line: 'As long as a bus.'
+        blue-whale:
+          name: 'Blue whale'
+          line: 'The biggest animal that ever lived.'
+    senses:
+      title: 'Super senses'
+      about: 'Every new kind of puzzle is a new sense. Ten kinds are in Nordland; the rest wait in the Arctic.'
+      goal:
+        one: 'Solve one kind of puzzle'
+        other: 'Solve {count} kinds of puzzle'
+      badges:
+        touch:
+          name: 'Touch'
+          line: 'Feeling with your skin.'
+        taste:
+          name: 'Taste'
+          line: 'Sweet, sour, salty, bitter.'
+        smell:
+          name: 'Smell'
+          line: 'A dog smells 10,000 times better than you.'
+        hearing:
+          name: 'Hearing'
+          line: 'An owl hears a mouse under the snow.'
+        sight:
+          name: 'Sight'
+          line: 'An eagle sees a rabbit from a mile up.'
+        whiskers:
+          name: 'Whiskers'
+          line: 'Feeling your way in the dark.'
+        heat-sense:
+          name: 'Heat sense'
+          line: 'A mosquito finds you by your warmth.'
+        echolocation:
+          name: 'Echolocation'
+          line: 'Bats and porpoises see with sound.'
+        electric-sense:
+          name: 'Electric sense'
+          line: 'Sharks feel the tiny sparks of a fish''s heartbeat.'
+        magnetic-sense:
+          name: 'Magnetic sense'
+          line: 'Birds find their way with the Earth''s magnet.'
+    omnivore:
+      title: 'Eats everything'
+      about: 'An omnivore eats a bit of everything. These ask for some of every kind of puzzle.'
+      goal:
+        one: 'Solve one of every kind of puzzle'
+        other: 'Solve {count} of every kind of puzzle'
+      badges:
+        omnivore:
+          name: 'Omnivore'
+          line: '10 of every kind. Like a bear: berries, fish, honey.'
+        generalist:
+          name: 'Generalist'
+          line: '50 of every kind. Like a raccoon: at home anywhere.'
+        adaptation:
+          name: 'Adaptation'
+          line: '100 of every kind. Ready for anything.'
+    seen:
+      title: 'How eyes grew'
+      about: 'Eyes started as a spot that tells light from dark. Each badge is a better eye.'
+      goal:
+        one: 'See your first kind of animal'
+        other: 'See {count} kinds of animal'
+      badges:
+        eyespot:
+          name: 'Eyespot'
+          line: 'The very first eye: light or dark?'
+        cup-eye:
+          name: 'Cup eye'
+          line: 'Now it can tell where the light comes from.'
+        pinhole-eye:
+          name: 'Pinhole eye'
+          line: 'The nautilus sees through a tiny hole.'
+        lens:
+          name: 'Lens'
+          line: 'A lens makes the picture sharp.'
+        compound-eye:
+          name: 'Compound eye'
+          line: 'A fly''s eye is thousands of little eyes.'
+        night-vision:
+          name: 'Night vision'
+          line: 'An owl sees in the dark.'
+        eagle-eye:
+          name: 'Eagle eye'
+          line: 'Sees four times sharper than you.'
+        mantis-shrimp:
+          name: 'Mantis shrimp'
+          line: 'Sees colours no other animal can.'
+    caught:
+      title: 'Sorting life'
+      about: 'Biologists sort living things into groups inside groups. More kinds caught, bigger group.'
+      goal:
+        one: 'Catch your first kind of animal'
+        other: 'Catch {count} kinds of animal'
+      badges:
+        species:
+          name: 'Species'
+          line: 'One kind of animal, like the red fox.'
+        genus:
+          name: 'Genus'
+          line: 'Close cousins, like the fox and the arctic fox.'
+        family:
+          name: 'Family'
+          line: 'The dog family: foxes, wolves and dogs.'
+        order:
+          name: 'Order'
+          line: 'All the meat-eaters with sharp teeth.'
+        class:
+          name: 'Class'
+          line: 'All the mammals: animals that drink milk.'
+        phylum:
+          name: 'Phylum'
+          line: 'Every animal with a backbone.'
+        kingdom:
+          name: 'Kingdom'
+          line: 'Every animal there is.'
+        domain:
+          name: 'Domain'
+          line: 'Every living thing with cells like yours.'
+    freed:
+      title: 'Help the wild'
+      about: 'Things people build to help wild animals, from small to very big.'
+      goal:
+        one: 'Set your first kind of animal free'
+        other: 'Set {count} kinds of animal free'
+      badges:
+        bug-hotel:
+          name: 'Bug hotel'
+          line: 'A home for beetles and bees.'
+        nest-box:
+          name: 'Nest box'
+          line: 'A safe place for a bird''s eggs.'
+        hedgehog-house:
+          name: 'Hedgehog house'
+          line: 'A cosy spot to sleep all winter.'
+        wildflower-meadow:
+          name: 'Wildflower meadow'
+          line: 'Food for bees and butterflies.'
+        wildlife-pond:
+          name: 'Wildlife pond'
+          line: 'Frogs and dragonflies move right in.'
+        green-corridor:
+          name: 'Green corridor'
+          line: 'A path so animals can walk between woods.'
+        nature-reserve:
+          name: 'Nature reserve'
+          line: 'A place kept wild for good.'
+        rewilding:
+          name: 'Rewilding'
+          line: 'Bringing back animals that were gone.'
+        biodiversity:
+          name: 'Biodiversity'
+          line: 'Lots and lots of different life.'
+    told:
+      title: 'Animal messages'
+      about: 'Animals tell each other things too.'
+      goal:
+        one: 'The druid tells you about an animal'
+        other: 'The druid tells you about {count} kinds of animal'
+      badges:
+        scent-trail:
+          name: 'Scent trail'
+          line: 'Ants leave a smell that shows the way.'
+        alarm-call:
+          name: 'Alarm call'
+          line: 'Squirrels understand when birds shout "Danger!"'
+        waggle-dance:
+          name: 'Waggle dance'
+          line: 'A bee dances to show where the flowers are.'
+        whale-song:
+          name: 'Whale song'
+          line: 'A song that travels across the ocean.'
+    team:
+      title: 'Living together'
+      about: 'Animals live in groups of every size, each with its own name.'
+      goal:
+        one: 'Have an animal on your team'
+        other: 'Have {count} animals on your team'
+      badges:
+        pair:
+          name: 'Pair'
+          line: 'Swans stay together for life.'
+        litter:
+          name: 'Litter'
+          line: 'Puppies born together.'
+        pack:
+          name: 'Pack'
+          line: 'Wolves hunt as a team.'
+        herd:
+          name: 'Herd'
+          line: 'Bison keep each other safe.'
+        school:
+          name: 'School'
+          line: 'Fish swim as one big shape.'
+        superorganism:
+          name: 'Superorganism'
+          line: 'So many, they act like one animal.'
+    catches:
+      title: 'Wildlife tags'
+      about: 'Scientists catch wild animals, tag them and set them free again: just like you and the druid.'
+      goal:
+        one: 'Catch your first animal'
+        other: 'Catch {count} animals'
+      badges:
+        leg-ring:
+          name: 'Leg ring'
+          line: 'A tiny ring on a bird''s leg.'
+        ear-tag:
+          name: 'Ear tag'
+          line: 'A tag that tells one deer from another.'
+        radio-collar:
+          name: 'Radio collar'
+          line: 'Beeps so scientists can find a wolf.'
+        microchip:
+          name: 'Microchip'
+          line: 'As small as a grain of rice.'
+        gps-tracker:
+          name: 'GPS tracker'
+          line: 'Shows on a map where the animal goes.'
+        satellite-tag:
+          name: 'Satellite tag'
+          line: 'Follows a whale from space.'
+        field-station:
+          name: 'Field station'
+          line: 'A whole camp of scientists.'
+    battles:
+      title: 'Body power'
+      about: 'What a body uses to be fast and strong.'
+      goal:
+        one: 'Win your first wild battle'
+        other: 'Win {count} wild battles'
+      badges:
+        reflex:
+          name: 'Reflex'
+          line: 'Faster than thinking.'
+        heartbeat:
+          name: 'Heartbeat'
+          line: 'Pumps blood all round your body.'
+        adrenaline:
+          name: 'Adrenaline'
+          line: 'Makes you ready to run or jump.'
+        muscle:
+          name: 'Muscle'
+          line: 'Pulls on bones to make you move.'
+        lungs:
+          name: 'Lungs'
+          line: 'Fill your blood with air.'
+        stamina:
+          name: 'Stamina'
+          line: 'Keeps going and going.'
+        blue-whale-heart:
+          name: 'Blue whale heart'
+          line: 'The biggest heart there is: as big as a small car.'
+    collections:
+      title: 'Collections'
+      about: 'Catch every kind in a group, from two kinds to all 100.'
+      badges:
+        amphibian:
+          name: 'Amphibian'
+          line: 'Lives two lives: first in water, then on land.'
+          goal: 'Catch the frog and the common toad'
+        sole-walker:
+          name: 'Sole walker'
+          line: 'Bears walk on flat feet, just like you.'
+          goal: 'Catch both bears'
+        pole-to-pole:
+          name: 'Pole to pole'
+          line: 'Polar bears and penguins never meet in the wild!'
+          goal: 'Catch a polar bear and a penguin'
+        antlers:
+          name: 'Antlers'
+          line: 'Antlers fall off every year and grow back bigger.'
+          goal: 'Catch every deer: red deer, roe deer, moose and reindeer'
+        dog-family:
+          name: 'Dog family'
+          line: 'Foxes and wolves are cousins of your dog.'
+          goal: 'Catch every fox and wolf'
+        parliament-of-owls:
+          name: 'Parliament of owls'
+          line: 'A group of owls is called a parliament.'
+          goal: 'Catch every owl'
+        raptor:
+          name: 'Raptor'
+          line: 'Hooked beak, sharp talons, super eyes.'
+          goal: 'Catch every eagle, the buzzard and the gyrfalcon'
+        weasel-family:
+          name: 'Weasel family'
+          line: 'Long bodies, short legs, lots of courage.'
+          goal: 'Catch the otter, badger, pine marten, stoat and wolverine'
+        rodent:
+          name: 'Rodent'
+          line: 'Their front teeth never stop growing. (Rabbits are not rodents!)'
+          goal: 'Catch every rodent'
+        herpetologist:
+          name: 'Herpetologist'
+          line: 'A scientist of frogs, lizards, snakes and turtles.'
+          goal: 'Catch every amphibian and reptile'
+        waddle:
+          name: 'Waddle'
+          line: 'A group of penguins on land is a waddle.'
+          goal: 'Catch all five penguins'
+        nocturnal:
+          name: 'Nocturnal'
+          line: 'Awake all night, asleep all day.'
+          goal: 'Catch seven night animals'
+        salt-gland:
+          name: 'Salt gland'
+          line: 'Seabirds drink sea water and sneeze out the salt.'
+          goal: 'Catch seven seabirds'
+        gills:
+          name: 'Gills'
+          line: 'Fish breathe the air that hides in water.'
+          goal: 'Catch every fish'
+        blowhole:
+          name: 'Blowhole'
+          line: 'Whales breathe through a hole on top of their head.'
+          goal: 'Catch every whale, dolphin and porpoise'
+        fin-feet:
+          name: 'Fin feet'
+          line: 'Seals and walruses swim with feet shaped like fins.'
+          goal: 'Catch every seal and the walrus'
+        no-backbone:
+          name: 'No backbone'
+          line: 'Crabs, jellyfish and octopuses have no bones at all.'
+          goal: 'Catch every animal without a backbone'
+        apex-predator:
+          name: 'Apex predator'
+          line: 'At the very top of the food chain.'
+          goal: 'Catch every top predator'
+        megafauna:
+          name: 'Megafauna'
+          line: 'The biggest animals of all.'
+          goal: 'Catch every one of the biggest animals'
+        ornithologist:
+          name: 'Ornithologist'
+          line: 'A bird scientist. 28 kinds of bird!'
+          goal: 'Catch every bird'
+        marine-biologist:
+          name: 'Marine biologist'
+          line: 'A scientist of the sea.'
+          goal: 'Catch every sea animal'
+        fauna-of-nordland:
+          name: 'Fauna of Nordland'
+          line: 'Fauna means all the animals of a place.'
+          goal: 'Catch every kind of animal in Nordland'
+        fauna-of-the-arctic:
+          name: 'Fauna of the Arctic'
+          line: 'Every animal of the ice and the cold sea.'
+          goal: 'Catch every kind of animal in the Arctic'
+    steps:
+      title: 'Great journeys'
+      about: 'The animals that travel furthest, from a snail to the Arctic tern.'
+      goal:
+        one: 'Walk your first step'
+        other: 'Walk {count} steps'
+      badges:
+        snail:
+          name: 'Snail'
+          line: 'Slow and steady, with its house on its back.'
+        hedgehog:
+          name: 'Hedgehog'
+          line: 'Walks two kilometres every night.'
+        toad-migration:
+          name: 'Toad migration'
+          line: 'Every spring, toads walk back to their pond.'
+        reindeer:
+          name: 'Reindeer'
+          line: 'Walks further than any other land animal.'
+        crane:
+          name: 'Crane'
+          line: 'Flies from Sweden to Spain every autumn.'
+        swallow:
+          name: 'Swallow'
+          line: 'Flies from Denmark to Africa and back.'
+        eel:
+          name: 'Eel'
+          line: 'Swims across the whole Atlantic Ocean.'
+        humpback-whale:
+          name: 'Humpback whale'
+          line: 'Swims 8,000 kilometres to warm water.'
+        godwit:
+          name: 'Godwit'
+          line: 'Flies 11 days without stopping once.'
+        arctic-tern:
+          name: 'Arctic tern'
+          line: 'Flies from pole to pole every year: the longest trip of any animal.'
+    visits:
+      title: 'Healing body'
+      about: 'How a body keeps itself well, from your skin to your whole immune system.'
+      goal:
+        one: 'Visit the druid'
+        other: 'Visit the druid {count} times'
+      badges:
+        skin:
+          name: 'Skin'
+          line: 'Your first shield.'
+        scab:
+          name: 'Scab'
+          line: 'A plaster your body makes itself.'
+        fever:
+          name: 'Fever'
+          line: 'Your body warms up to fight germs.'
+        white-blood-cell:
+          name: 'White blood cell'
+          line: 'A tiny guard that eats germs.'
+        antibody:
+          name: 'Antibody'
+          line: 'Sticks to a germ so it can''t do harm.'
+        memory-cell:
+          name: 'Memory cell'
+          line: 'Remembers a germ, so it''s faster next time.'
+        bone-marrow:
+          name: 'Bone marrow'
+          line: 'Where new blood cells are made.'
+        immune-system:
+          name: 'Immune system'
+          line: 'Your whole body''s guard team.'
+    worlds:
+      title: 'Spreading out'
+      about: 'How animals and plants get to new places.'
+      goal:
+        one: 'Visit a world'
+        other: 'Visit {count} worlds'
+      badges:
+        leaving-the-nest:
+          name: 'Leaving the nest'
+          line: 'Every young animal leaves home one day.'
+        dandelion-seed:
+          name: 'Dandelion seed'
+          line: 'Flies off on the wind.'
+        scout-bee:
+          name: 'Scout bee'
+          line: 'Looks for a new home for the hive.'
+        pioneer:
+          name: 'Pioneer'
+          line: 'The first to live in a new place.'
+        coconut:
+          name: 'Coconut'
+          line: 'Floats across the sea to new islands.'
+        spider-balloon:
+          name: 'Spider balloon'
+          line: 'Baby spiders fly away on silk threads.'
+        cosmopolitan:
+          name: 'Cosmopolitan'
+          line: 'At home all over the world.'
+    tools:
+      title: 'Tool users'
+      about: 'Some animals use tools too.'
+      goal:
+        one: 'Own your first tool'
+        other: 'Own {count} tools'
+      badges:
+        twig:
+          name: 'Twig'
+          line: 'A chimp fishes for termites with a twig.'
+        stone:
+          name: 'Stone'
+          line: 'A sea otter cracks shells on a stone.'
+        hook:
+          name: 'Hook'
+          line: 'A crow bends a stick into a hook.'
+        toolmaker:
+          name: 'Toolmaker'
+          line: 'Every tool in every land.'
+    clearing:
+      title: 'Forest workers'
+      about: 'Animals that change a forest.'
+      goal:
+        one: 'Chop a tree or break a rock'
+        other: 'Chop or break {count} trees and rocks'
+      badges:
+        woodpecker:
+          name: 'Woodpecker'
+          line: 'Knocks holes in trees with its beak.'
+        bark-beetle:
+          name: 'Bark beetle'
+          line: 'Tiny, but can fell a whole forest.'
+        beaver-teeth:
+          name: 'Beaver teeth'
+          line: 'Chews through a tree in one night.'
+        forest-gap:
+          name: 'Forest gap'
+          line: 'Where a tree falls, new plants grow in the light.'
+    matches:
+      title: 'Playing together'
+      about: 'Young animals play to learn and to make friends.'
+      goal:
+        one: 'Play your first friendly match'
+        other: 'Play {count} friendly matches'
+      badges:
+        play-bow:
+          name: 'Play bow'
+          line: 'A wolf bows down: "Let''s play!"'
+        play-fight:
+          name: 'Play fight'
+          line: 'Bear cubs wrestle for fun.'
+        tag:
+          name: 'Tag'
+          line: 'Lambs and kids chase each other.'
+        grooming:
+          name: 'Grooming'
+          line: 'Monkeys clean each other''s fur.'
+        friendship:
+          name: 'Friendship'
+          line: 'Some animals have best friends for life.'
+        dolphin-pod:
+          name: 'Dolphin pod'
+          line: 'Dolphins play together all their lives.'
+    days:
+      title: 'Nature''s calendar'
+      about: 'Nature keeps time too.'
+      goal:
+        one: 'Play on a day'
+        other: 'Play on {count} different days'
+      badges:
+        mayfly:
+          name: 'Mayfly'
+          line: 'Lives for just one day.'
+        seven-spot:
+          name: 'Seven-spot'
+          line: 'Seven spots for seven days.'
+        hatching:
+          name: 'Hatching'
+          line: 'A robin''s egg hatches after two weeks.'
+        moon-cycle:
+          name: 'Moon cycle'
+          line: 'Corals lay their eggs by the full moon.'
+        season:
+          name: 'Season'
+          line: 'Leaves turn and birds fly south.'
+        tree-ring:
+          name: 'Tree ring'
+          line: 'A tree grows one ring every year.'
+    firsts:
+      title: 'Firsts'
+      about: 'Each one marks a first time.'
+      badges:
+        imprinting:
+          name: 'Imprinting'
+          line: 'Your first animal follows you everywhere, like a duckling.'
+          goal: 'Pick your first animal'
+        latin-name:
+          name: 'Latin name'
+          line: 'Every animal has a scientific name.'
+          goal: 'Give an animal a name of its own'
+        social-animal:
+          name: 'Social animal'
+          line: 'Lots of animals like company.'
+          goal: 'Meet another player in your world'
+        homing-instinct:
+          name: 'Homing instinct'
+          line: 'A pigeon always finds its way home.'
+          goal: 'Go back to your home world after visiting another'
+        webbed-feet:
+          name: 'Webbed feet'
+          line: 'Feet made for paddling.'
+          goal: 'Your first battle out on the water'
+        hollow-bones:
+          name: 'Hollow bones'
+          line: 'Bird bones are light, so birds can fly.'
+          goal: 'Your first battle up in the air'
+        thermal:
+          name: 'Thermal'
+          line: 'Eagles ride warm air up into the sky.'
+          goal: 'Your first flight with the paraglider'
+        symbiosis:
+          name: 'Symbiosis'
+          line: 'Two animals helping each other.'
+          goal: 'Your first ride on a big animal'
+        kingfisher:
+          name: 'Kingfisher'
+          line: 'The best fisher of all the birds.'
+          goal: 'Your first animal from a fishing hole'
+        tundra:
+          name: 'Tundra'
+          line: 'The cold, treeless land near the pole.'
+          goal: 'Fly to the Arctic for the first time'
+        ant-strength:
+          name: 'Ant strength'
+          line: 'An ant lifts 50 times its own weight.'
+          goal: 'Catch an animal two sizes bigger than your front animal'
+        food-chain:
+          name: 'Food chain'
+          line: 'Small, medium, big: everyone has a place.'
+          goal: 'Have an animal of every size on your team, from the smallest to the biggest'

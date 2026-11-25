@@ -2353,3 +2353,1166 @@ puzzles:
   never: Ikke løst endnu
   caption: Jo længere bjælken er, jo flere af den slags har du løst.
   keys: ↑ ↓ flyt · Esc tilbage
+badges:
+  title: Mine mærker
+  earned:
+    one: '{count} af {total} mærker'
+    other: '{count} af {total} mærker'
+  help: Alle mærker du får ved at spille, bliver gemt her. Et mærke er dit for altid.
+  progress: '{count} / {goal}'
+  got: Du har det her mærke!
+  notYet: Ikke fået endnu
+  new: Nyt mærke!
+  found:
+    one: 'Du har fået et mærke! Kig i menuen.'
+    other: 'Du har fået {count} mærker! Kig i menuen.'
+  keys: ← ↑ → ↓ flyt · Esc tilbage
+  families:
+    solved:
+      title: 'Fra atom til livets træ'
+      about: 'Livet fra den mindste smule til det største: hvert mærke er én størrelse større.'
+      goal:
+        one: 'Løs din første opgave'
+        other: 'Løs {count} opgaver'
+      badges:
+        atom:
+          name: 'Atom'
+          line: 'Den mindste smule af alting.'
+        molecule:
+          name: 'Molekyle'
+          line: 'Atomer, der holder hinanden i hånden.'
+        protein:
+          name: 'Protein'
+          line: 'De små maskiner inde i din krop.'
+        gene:
+          name: 'Gen'
+          line: 'Én opskrift: farven på en pels, formen på et øre.'
+        dna:
+          name: 'DNA'
+          line: 'Hele opskriftsbogen til et levende væsen.'
+        chromosome:
+          name: 'Kromosom'
+          line: 'DNA viklet stramt op, som tråd på en spole.'
+        mitochondria:
+          name: 'Mitokondrie'
+          line: 'Kraftværket inde i hver eneste celle.'
+        nucleus:
+          name: 'Cellekerne'
+          line: 'Cellens kontrolrum.'
+        cell:
+          name: 'Celle'
+          line: 'Byggestenen i alt, der lever.'
+        tissue:
+          name: 'Væv'
+          line: 'Masser af celler, der gør det samme arbejde sammen.'
+        organ:
+          name: 'Organ'
+          line: 'Et hjerte, en lunge, en mave: en del med et job.'
+        organ-system:
+          name: 'Organsystem'
+          line: 'Organer, der arbejder sammen, som hjertet og blodet.'
+        organism:
+          name: 'Organisme'
+          line: 'Et helt levende væsen: dig, en ræv, en eg.'
+        population:
+          name: 'Bestand'
+          line: 'Alle rævene i én skov.'
+        community:
+          name: 'Samfund'
+          line: 'Alle dyr og planter, der bor side om side.'
+        ecosystem:
+          name: 'Økosystem'
+          line: 'Levende væsener og deres hjem, der arbejder som ét.'
+        biome:
+          name: 'Biom'
+          line: 'En stor slags sted: skov, tundra, hav.'
+        biosphere:
+          name: 'Biosfære'
+          line: 'Alt levende på Jorden på én gang.'
+        evolution:
+          name: 'Evolution'
+          line: 'Sådan ændrer livet sig, langsomt, over millioner af år.'
+        tree-of-life:
+          name: 'Livets træ'
+          line: 'Alle dyr, der nogensinde har levet, i ét stort stamtræ.'
+    add:
+      title: 'Honningbi'
+      about: 'En bi lægger dråbe til dråbe, til der er honning. En arbejderbi får et nyt job, når hun bliver ældre.'
+      goal:
+        one: 'Løs din første plusopgave'
+        other: 'Løs {count} plusopgaver'
+      badges:
+        cleaner-bee:
+          name: 'Rengøringsbi'
+          line: 'De yngste bier gør cellerne rene.'
+        nurse-bee:
+          name: 'Ammebi'
+          line: 'Giver larverne mad.'
+        builder-bee:
+          name: 'Byggebi'
+          line: 'Bygger tavlerne af voks.'
+        guard-bee:
+          name: 'Vagtbi'
+          line: 'Holder vagt ved indgangen til bistadet.'
+        forager:
+          name: 'Trækbi'
+          line: 'Flyver ud og finder blomster.'
+        beehive:
+          name: 'Bistade'
+          line: '50.000 bier, der tilsammen er én stor familie.'
+    sub:
+      title: 'Frø'
+      about: 'På vej til at blive en frø trækker haletudsen sin egen hale fra.'
+      goal:
+        one: 'Løs din første minusopgave'
+        other: 'Løs {count} minusopgaver'
+      badges:
+        frogspawn:
+          name: 'Frøæg'
+          line: 'Hundredvis af æg i en klump gelé.'
+        tadpole:
+          name: 'Haletudse'
+          line: 'Svømmer med hale og ånder med gæller.'
+        back-legs:
+          name: 'Bagben'
+          line: 'Bagbenene kommer først.'
+        front-legs:
+          name: 'Forben'
+          line: 'Så kommer forbenene frem.'
+        tail-gone:
+          name: 'Halen væk'
+          line: 'Halen skrumper væk. Minus én hale!'
+        frog:
+          name: 'Frø'
+          line: 'Klar til at hoppe på land.'
+    mul:
+      title: 'Laks'
+      about: 'Én laks lægger tusindvis af æg: det er mange gange!'
+      goal:
+        one: 'Løs dit første gangestykke'
+        other: 'Løs {count} gangestykker'
+      badges:
+        roe:
+          name: 'Rogn'
+          line: 'Orange lakseæg i gruset.'
+        alevin:
+          name: 'Blommeyngel'
+          line: 'En fiskeunge med madpakke: en blommesæk.'
+        fry:
+          name: 'Yngel'
+          line: 'Op af gruset for at finde mad.'
+        parr:
+          name: 'Parr'
+          line: 'En ung laks med striber på siden.'
+        smolt:
+          name: 'Smolt'
+          line: 'Bliver sølvblank og svømmer ud i havet.'
+        salmon:
+          name: 'Laks'
+          line: 'Stor og stærk svømmer den hjem til åen.'
+    div:
+      title: 'Celledeling'
+      about: 'Et frøæg vokser ved at dele sig: én celle bliver til to, to bliver til fire.'
+      goal:
+        one: 'Løs din første deleopgave'
+        other: 'Løs {count} deleopgaver'
+      badges:
+        first-cell:
+          name: 'Første celle'
+          line: 'Alle dyr starter som én celle.'
+        two-cells:
+          name: 'To celler'
+          line: 'Del! Én celle bliver til to.'
+        four-cells:
+          name: 'Fire celler'
+          line: 'Del igen! To bliver til fire.'
+        morula:
+          name: 'Morula'
+          line: 'En kugle af celler, som et morbær.'
+        blastula:
+          name: 'Blastula'
+          line: 'En hul kugle af celler.'
+        embryo:
+          name: 'Foster'
+          line: 'Cellerne begynder at bygge en krop.'
+    missing:
+      title: 'Camouflage'
+      about: 'Et manglende tal gemmer sig. Det gør de her dyr også!'
+      goal:
+        one: 'Find dit første manglende tal'
+        other: 'Find {count} manglende tal'
+      badges:
+        stick-insect:
+          name: 'Vandrende pind'
+          line: 'Ligner præcis en kvist.'
+        flatfish:
+          name: 'Fladfisk'
+          line: 'En rødspætte får samme farve som sandet.'
+        winter-white:
+          name: 'Vinterhvid'
+          line: 'En lækat bliver hvid, når sneen kommer.'
+        mimicry:
+          name: 'Mimikry'
+          line: 'En svirreflue klæder sig ud som en hveps.'
+        colour-change:
+          name: 'Farveskift'
+          line: 'En blæksprutte skifter farve på et øjeblik.'
+        see-through:
+          name: 'Gennemsigtig'
+          line: 'Vingesneglen er så klar, at man kan se lige igennem den.'
+    sequence:
+      title: 'Fuglesang'
+      about: 'En sang er toner i den rigtige rækkefølge. Unge fugle lærer den lidt ad gangen.'
+      goal:
+        one: 'Løs dit første talmønster'
+        other: 'Løs {count} talmønstre'
+      badges:
+        chirp:
+          name: 'Pip'
+          line: 'En fugleunges første lille lyd.'
+        call:
+          name: 'Kald'
+          line: 'Et kort kald: "Her er jeg!"'
+        babble:
+          name: 'Pludren'
+          line: 'En ung fugl prøver lyde af.'
+        practice-song:
+          name: 'Øvesang'
+          line: 'Næsten der: øver hver dag.'
+        full-song:
+          name: 'Fuld sang'
+          line: 'Hele sangen, tone for tone.'
+        dawn-chorus:
+          name: 'Morgenkor'
+          line: 'Alle skovens fugle synger ved solopgang.'
+    sqrt:
+      title: 'Egetræ'
+      about: 'Kvadratrødder: ligesom et træ starter det hele med en rod.'
+      goal:
+        one: 'Find din første kvadratrod'
+        other: 'Find {count} kvadratrødder'
+      badges:
+        acorn:
+          name: 'Agern'
+          line: 'Der er et helt egetræ pakket inde i det.'
+        root:
+          name: 'Rod'
+          line: 'Det første, der kommer ud af agernet, vokser nedad.'
+        sprout:
+          name: 'Spire'
+          line: 'Så vokser et skud op mod lyset.'
+        seedling:
+          name: 'Kimplante'
+          line: 'De første rigtige blade.'
+        sapling:
+          name: 'Ungt træ'
+          line: 'Et ungt træ, højere end dig.'
+        oak:
+          name: 'Eg'
+          line: 'Kan blive tusind år gammel.'
+    double:
+      title: 'Kronhjortens gevir'
+      about: 'En hjorts gevir får takker i par: to, fire, seks.'
+      goal:
+        one: 'Fordobl dit første tal'
+        other: 'Fordobl {count} tal'
+      badges:
+        calf:
+          name: 'Kalv'
+          line: 'Intet gevir endnu. Bare pletter.'
+        spiker:
+          name: 'Spidshjort'
+          line: 'Det første gevir: én spids på hver side.'
+        forker:
+          name: 'Gaffelhjort'
+          line: 'Hver gevirstang deler sig i to.'
+        six-pointer:
+          name: 'Seksender'
+          line: 'Seks takker i alt.'
+        eight-pointer:
+          name: 'Ottender'
+          line: 'Otte takker i alt.'
+        royal:
+          name: 'Tolvender'
+          line: 'Tolv takker: sikke en hjort!'
+    half:
+      title: 'Sommerfugl'
+      about: 'En sommerfugls to halvdele er hinandens spejlbillede.'
+      goal:
+        one: 'Halvér dit første tal'
+        other: 'Halvér {count} tal'
+      badges:
+        caterpillar:
+          name: 'Larve'
+          line: 'Spiser og spiser og spiser.'
+        moult:
+          name: 'Hudskifte'
+          line: 'For stor til sin hud, så den får en ny.'
+        chrysalis:
+          name: 'Puppe'
+          line: 'Et stille hylster, hvor den forvandler sig.'
+        wings:
+          name: 'Vinger'
+          line: 'Ud kommer den med sammenfoldede vinger.'
+        butterfly:
+          name: 'Sommerfugl'
+          line: 'To ens halvdele, klar til at flyve.'
+        painted-lady:
+          name: 'Tidselsommerfugl'
+          line: 'Flyver hele vejen fra Afrika til Danmark.'
+    numberline:
+      title: 'Springere'
+      about: 'Hop hen ad tallinjen som de her mestre i at springe.'
+      goal:
+        one: 'Løs din første tallinje'
+        other: 'Løs {count} tallinjer'
+      badges:
+        flea:
+          name: 'Loppe'
+          line: 'Hopper 100 gange sin egen længde.'
+        grasshopper:
+          name: 'Græshoppe'
+          line: 'Dens bagben virker som fjedre.'
+        jumping-spider:
+          name: 'Springedderkop'
+          line: 'Kigger først, så springer den.'
+        hare:
+          name: 'Hare'
+          line: 'Hopper i store zigzag-spring.'
+        roe-deer:
+          name: 'Rådyr'
+          line: 'Springer over et hegn i ét hop.'
+        kangaroo:
+          name: 'Kænguru'
+          line: 'Ni meter i et enkelt hop!'
+    thermometer:
+      title: 'Hold varmen'
+      about: 'Hvert dyr har sit eget trick til at holde den rigtige temperatur.'
+      goal:
+        one: 'Aflæs din første temperatur'
+        other: 'Aflæs {count} temperaturer'
+      badges:
+        sunbathing:
+          name: 'Solbad'
+          line: 'Et firben varmer sig i solen.'
+        shivering:
+          name: 'Kulderystelser'
+          line: 'Musklerne ryster og laver varme.'
+        down-feathers:
+          name: 'Dun'
+          line: 'Bløde, luftige og meget varme.'
+        thick-fur:
+          name: 'Tyk pels'
+          line: 'Moskusoksens pels når helt ned til jorden.'
+        blubber:
+          name: 'Spæk'
+          line: 'Et tykt lag fedt holder sælen varm.'
+        hibernation:
+          name: 'Vinterdvale'
+          line: 'Et pindsvin sover hele den kolde vinter.'
+    kroner:
+      title: 'Spar op til vinteren'
+      about: 'Egern og skovskader gemmer mad til senere, ligesom penge i en sparegris.'
+      goal:
+        one: 'Løs din første pengeopgave'
+        other: 'Løs {count} pengeopgaver'
+      badges:
+        hazelnut:
+          name: 'Hasselnød'
+          line: 'Én nød til at starte med.'
+        hiding-place:
+          name: 'Gemmested'
+          line: 'Grav den ned, hvor ingen kigger.'
+        stash:
+          name: 'Forråd'
+          line: 'En lille bunke nødder.'
+        larder:
+          name: 'Spisekammer'
+          line: 'Et helt skab fuldt af mad.'
+        winter-store:
+          name: 'Vinterforråd'
+          line: 'Mad nok til hele vinteren.'
+        nutcracker:
+          name: 'Nøddekrige'
+          line: 'Gemmer 30.000 frø og finder dem igen!'
+    fraction:
+      title: 'Ulveflok'
+      about: 'En ulveflok deler maden: alle får en brøkdel.'
+      goal:
+        one: 'Løs din første brøk'
+        other: 'Løs {count} brøker'
+      badges:
+        pup:
+          name: 'Hvalp'
+          line: 'Født i en hule med lukkede øjne.'
+        den:
+          name: 'Hule'
+          line: 'Et trygt hjem under jorden.'
+        howl:
+          name: 'Hyl'
+          line: 'Kalder flokken sammen.'
+        tracking:
+          name: 'Sporing'
+          line: 'Følger spor i sneen.'
+        sharing:
+          name: 'Deling'
+          line: 'Hver ulv får sin del.'
+        wolf-pack:
+          name: 'Ulveflok'
+          line: 'En familie, der gør alt sammen.'
+    area:
+      title: 'Bæver'
+      about: 'En bæver gør en hel dal til en sø: det er et stort areal.'
+      goal:
+        one: 'Løs din første opgave med gulvfliser'
+        other: 'Løs {count} opgaver med gulvfliser'
+      badges:
+        kit:
+          name: 'Bæverunge'
+          line: 'En bæverunge i hytten.'
+        lodge:
+          name: 'Bæverhytte'
+          line: 'Et hjem af grene og mudder.'
+        dam:
+          name: 'Dæmning'
+          line: 'En mur af stammer, der holder åen tilbage.'
+        pond:
+          name: 'Bæversø'
+          line: 'Vandet breder sig bag dæmningen.'
+        wetland:
+          name: 'Vådområde'
+          line: 'Et nyt hjem for frøer, fisk og fugle.'
+        ecosystem-engineer:
+          name: 'Økosystemingeniør'
+          line: 'Et dyr, der bygger et helt nyt sted.'
+    perimeter:
+      title: 'Edderkoppespind'
+      about: 'En edderkop bygger rammen hele vejen rundt først: omkredsen!'
+      goal:
+        one: 'Løs din første opgave med hegn'
+        other: 'Løs {count} opgaver med hegn'
+      badges:
+        bridge-thread:
+          name: 'Brotråd'
+          line: 'Den første tråd, blæst over af vinden.'
+        frame:
+          name: 'Ramme'
+          line: 'En tråd hele vejen rundt langs kanten.'
+        spokes:
+          name: 'Eger'
+          line: 'Tråde fra midten ud til rammen.'
+        hub:
+          name: 'Nav'
+          line: 'Midten, hvor edderkoppen venter.'
+        sticky-spiral:
+          name: 'Klæbespiral'
+          line: 'Rundt og rundt, fra kanten og indad.'
+        orb-web:
+          name: 'Hjulspind'
+          line: 'Et perfekt hjul af silke.'
+    barchart:
+      title: 'Feltbiolog'
+      about: 'Biologer tæller dyr og tegner diagrammer for at se, hvordan de har det.'
+      goal:
+        one: 'Aflæs dit første søjlediagram'
+        other: 'Aflæs {count} søjlediagrammer'
+      badges:
+        tally-mark:
+          name: 'Tællestreg'
+          line: 'Én streg for hver fugl, du ser.'
+        notebook:
+          name: 'Notesbog'
+          line: 'Skriv ned, hvad du så og hvor.'
+        binoculars:
+          name: 'Kikkert'
+          line: 'Se dyr langt væk uden at skræmme dem.'
+        field-guide:
+          name: 'Felthåndbog'
+          line: 'En bog, der viser forskel på dyrene.'
+        census:
+          name: 'Optælling'
+          line: 'Tæl hvert eneste dyr af én slags.'
+        professor:
+          name: 'Professor'
+          line: 'Lærer de næste biologer op.'
+    balance:
+      title: 'Balance'
+      about: 'Dyr er mestre i balance.'
+      goal:
+        one: 'Løs din første ligevægtsopgave'
+        other: 'Løs {count} ligevægtsopgaver'
+      badges:
+        wobbly-legs:
+          name: 'Vaklende ben'
+          line: 'En nyfødt kalv står op inden for den første time.'
+        first-steps:
+          name: 'Første skridt'
+          line: 'Skridt, skridt, vakle, skridt.'
+        inner-ear:
+          name: 'Det indre øre'
+          line: 'Et lille organ i dit øre, der ved, hvad der er op og ned.'
+        one-leg:
+          name: 'På ét ben'
+          line: 'En hejre kan stå på ét ben i timevis.'
+        balancing-tail:
+          name: 'Balancehale'
+          line: 'Et egern styrer med halen.'
+        ibex:
+          name: 'Stenbuk'
+          line: 'Går op ad en klippe, der næsten er lodret.'
+    clock:
+      title: 'Det indre ur'
+      about: 'Dyr har et ur indeni, der fortæller dem, hvornår de skal gøre ting.'
+      goal:
+        one: 'Læs klokken for første gang'
+        other: 'Læs klokken {count} gange'
+      badges:
+        rooster:
+          name: 'Hane'
+          line: 'Galer, når solen står op.'
+        day-and-night:
+          name: 'Dag og nat'
+          line: 'Nogle dyr sover om natten, andre om dagen.'
+        dusk:
+          name: 'Skumring'
+          line: 'Hjorte kommer frem, når lyset bliver svagt.'
+        tide-clock:
+          name: 'Tidevandsur'
+          line: 'Krabber ved, hvornår havet kommer tilbage.'
+        seasons:
+          name: 'Årstider'
+          line: 'Fugle ved, hvornår det er tid til at flyve sydpå.'
+        body-clock:
+          name: 'Indre ur'
+          line: 'Hver eneste celle i dig holder øje med tiden.'
+    blocks:
+      title: 'Myrernes byggeri'
+      about: 'Myrer bygger en hel tue ét korn ad gangen, ligesom klodser.'
+      goal:
+        one: 'Løs din første opgave med isblokke'
+        other: 'Løs {count} opgaver med isblokke'
+      badges:
+        sand-grain:
+          name: 'Sandkorn'
+          line: 'Ét korn, båret af én myre.'
+        tunnel:
+          name: 'Gang'
+          line: 'En vej under jorden.'
+        chamber:
+          name: 'Kammer'
+          line: 'Et rum til æg eller til mad.'
+        anthill:
+          name: 'Myretue'
+          line: 'En tue, der er højere end dig.'
+        ant-colony:
+          name: 'Myrekoloni'
+          line: 'En halv million myrer, én stor familie.'
+        supercolony:
+          name: 'Superkoloni'
+          line: 'Mange kolonier slået sammen til én kæmpe.'
+    units:
+      title: 'Dyrs størrelse'
+      about: 'Fra millimeter til 30 meter: dyr findes i alle størrelser.'
+      goal:
+        one: 'Løs din første opgave med enheder'
+        other: 'Løs {count} opgaver med enheder'
+      badges:
+        ant:
+          name: 'Myre'
+          line: 'Nogle få millimeter lang.'
+        mouse:
+          name: 'Mus'
+          line: 'Omkring 8 centimeter, uden halen.'
+        fox:
+          name: 'Ræv'
+          line: 'Omtrent lige så lang som din arm.'
+        moose:
+          name: 'Elg'
+          line: 'Højere end en voksen.'
+        orca:
+          name: 'Spækhugger'
+          line: 'Lige så lang som en bus.'
+        blue-whale:
+          name: 'Blåhval'
+          line: 'Det største dyr, der nogensinde har levet.'
+    senses:
+      title: 'Supersanser'
+      about: 'Hver ny slags opgave er en ny sans. Ti slags findes i Nordland. Resten venter i Arktis.'
+      goal:
+        one: 'Løs én slags opgave'
+        other: 'Løs {count} slags opgaver'
+      badges:
+        touch:
+          name: 'Følesans'
+          line: 'At mærke med huden.'
+        taste:
+          name: 'Smagssans'
+          line: 'Sødt, surt, salt og bittert.'
+        smell:
+          name: 'Lugtesans'
+          line: 'En hund lugter 10.000 gange bedre end dig.'
+        hearing:
+          name: 'Hørelse'
+          line: 'En ugle kan høre en mus under sneen.'
+        sight:
+          name: 'Syn'
+          line: 'En ørn kan se en kanin fra højt oppe i luften.'
+        whiskers:
+          name: 'Knurhår'
+          line: 'At mærke sig frem i mørket.'
+        heat-sense:
+          name: 'Varmesans'
+          line: 'En myg finder dig, fordi du er varm.'
+        echolocation:
+          name: 'Ekkolokalisering'
+          line: 'Flagermus og marsvin ser med lyd.'
+        electric-sense:
+          name: 'Elsans'
+          line: 'Hajer kan mærke de små gnister fra en fisks hjerteslag.'
+        magnetic-sense:
+          name: 'Magnetsans'
+          line: 'Fugle finder vej med Jordens magnet.'
+    omnivore:
+      title: 'Æder alt'
+      about: 'En altæder spiser lidt af det hele. De her kræver nogle af hver slags opgave.'
+      goal:
+        one: 'Løs én af hver slags opgave'
+        other: 'Løs {count} af hver slags opgave'
+      badges:
+        omnivore:
+          name: 'Altæder'
+          line: '10 af hver slags. Ligesom en bjørn: bær, fisk og honning.'
+        generalist:
+          name: 'Generalist'
+          line: '50 af hver slags. Ligesom en vaskebjørn: hjemme alle steder.'
+        adaptation:
+          name: 'Tilpasning'
+          line: '100 af hver slags. Klar til hvad som helst.'
+    seen:
+      title: 'Sådan blev øjet til'
+      about: 'Øjne startede som en plet, der kan se forskel på lys og mørke. Hvert mærke er et bedre øje.'
+      goal:
+        one: 'Se din første slags dyr'
+        other: 'Se {count} slags dyr'
+      badges:
+        eyespot:
+          name: 'Øjeplet'
+          line: 'Det allerførste øje: lyst eller mørkt?'
+        cup-eye:
+          name: 'Bægerøje'
+          line: 'Nu kan det se, hvor lyset kommer fra.'
+        pinhole-eye:
+          name: 'Hulkameraøje'
+          line: 'Nautilussen ser gennem et lillebitte hul.'
+        lens:
+          name: 'Linse'
+          line: 'En linse gør billedet skarpt.'
+        compound-eye:
+          name: 'Facetøje'
+          line: 'En flues øje er tusindvis af små øjne.'
+        night-vision:
+          name: 'Nattesyn'
+          line: 'En ugle kan se i mørke.'
+        eagle-eye:
+          name: 'Ørneøje'
+          line: 'Ser fire gange skarpere end dig.'
+        mantis-shrimp:
+          name: 'Knælerreje'
+          line: 'Ser farver, som intet andet dyr kan se.'
+    caught:
+      title: 'Livets orden'
+      about: 'Biologer sorterer levende væsener i grupper inden i grupper. Jo flere slags du fanger, jo større gruppe.'
+      goal:
+        one: 'Fang din første slags dyr'
+        other: 'Fang {count} slags dyr'
+      badges:
+        species:
+          name: 'Art'
+          line: 'Én slags dyr, som rødræven.'
+        genus:
+          name: 'Slægt'
+          line: 'Nære fætre, som ræven og polarræven.'
+        family:
+          name: 'Familie'
+          line: 'Hundefamilien: ræve, ulve og hunde.'
+        order:
+          name: 'Orden'
+          line: 'Alle kødæderne med skarpe tænder.'
+        class:
+          name: 'Klasse'
+          line: 'Alle pattedyrene: dyr, der drikker mælk.'
+        phylum:
+          name: 'Række'
+          line: 'Alle dyr med en rygrad.'
+        kingdom:
+          name: 'Rige'
+          line: 'Alle dyr, der findes.'
+        domain:
+          name: 'Domæne'
+          line: 'Alt levende med celler som dine.'
+    freed:
+      title: 'Hjælp naturen'
+      about: 'Ting, som folk bygger for at hjælpe vilde dyr, fra små til meget store.'
+      goal:
+        one: 'Slip din første slags dyr fri'
+        other: 'Slip {count} slags dyr fri'
+      badges:
+        bug-hotel:
+          name: 'Insekthotel'
+          line: 'Et hjem til biller og bier.'
+        nest-box:
+          name: 'Fuglekasse'
+          line: 'Et trygt sted til en fugls æg.'
+        hedgehog-house:
+          name: 'Pindsvinehus'
+          line: 'Et hyggeligt sted at sove hele vinteren.'
+        wildflower-meadow:
+          name: 'Blomstereng'
+          line: 'Mad til bier og sommerfugle.'
+        wildlife-pond:
+          name: 'Vandhul'
+          line: 'Frøer og guldsmede flytter lige ind.'
+        green-corridor:
+          name: 'Grøn korridor'
+          line: 'En sti, så dyr kan gå fra skov til skov.'
+        nature-reserve:
+          name: 'Naturreservat'
+          line: 'Et sted, der får lov at være vildt for altid.'
+        rewilding:
+          name: 'Genvildning'
+          line: 'At bringe dyr tilbage, der var forsvundet.'
+        biodiversity:
+          name: 'Biodiversitet'
+          line: 'Masser og masser af forskelligt liv.'
+    told:
+      title: 'Dyrenes beskeder'
+      about: 'Dyr fortæller også hinanden ting.'
+      goal:
+        one: 'Druiden fortæller dig om et dyr'
+        other: 'Druiden fortæller dig om {count} slags dyr'
+      badges:
+        scent-trail:
+          name: 'Duftspor'
+          line: 'Myrer lægger en duft, der viser vejen.'
+        alarm-call:
+          name: 'Advarselskald'
+          line: 'Egern forstår det, når fugle råber "Fare!"'
+        waggle-dance:
+          name: 'Logredans'
+          line: 'En bi danser for at vise, hvor blomsterne er.'
+        whale-song:
+          name: 'Hvalsang'
+          line: 'En sang, der rejser hen over havet.'
+    team:
+      title: 'Sammen'
+      about: 'Dyr lever i grupper af alle størrelser. Hver gruppe har sit eget navn.'
+      goal:
+        one: 'Hav et dyr på dit hold'
+        other: 'Hav {count} dyr på dit hold'
+      badges:
+        pair:
+          name: 'Par'
+          line: 'Svaner bliver sammen hele livet.'
+        litter:
+          name: 'Kuld'
+          line: 'Hvalpe, der er født sammen.'
+        pack:
+          name: 'Flok'
+          line: 'Ulve jager sammen som et hold.'
+        herd:
+          name: 'Hjord'
+          line: 'Bisoner passer på hinanden.'
+        school:
+          name: 'Stime'
+          line: 'Fisk svømmer som én stor figur.'
+        superorganism:
+          name: 'Superorganisme'
+          line: 'Så mange, at de opfører sig som ét dyr.'
+    catches:
+      title: 'Dyremærker'
+      about: 'Forskere fanger vilde dyr, mærker dem og slipper dem fri igen: ligesom dig og druiden.'
+      goal:
+        one: 'Fang dit første dyr'
+        other: 'Fang {count} dyr'
+      badges:
+        leg-ring:
+          name: 'Fodring'
+          line: 'En lille ring om en fugls ben.'
+        ear-tag:
+          name: 'Øremærke'
+          line: 'Et mærke, der viser forskel på hjortene.'
+        radio-collar:
+          name: 'Radiohalsbånd'
+          line: 'Bipper, så forskere kan finde en ulv.'
+        microchip:
+          name: 'Mikrochip'
+          line: 'Så lille som et riskorn.'
+        gps-tracker:
+          name: 'GPS-sender'
+          line: 'Viser på et kort, hvor dyret går hen.'
+        satellite-tag:
+          name: 'Satellitsender'
+          line: 'Følger en hval fra rummet.'
+        field-station:
+          name: 'Feltstation'
+          line: 'En hel lejr af forskere.'
+    battles:
+      title: 'Kroppens kræfter'
+      about: 'Det, en krop bruger for at være hurtig og stærk.'
+      goal:
+        one: 'Vind din første kamp mod et vildt dyr'
+        other: 'Vind {count} kampe mod vilde dyr'
+      badges:
+        reflex:
+          name: 'Refleks'
+          line: 'Hurtigere end at tænke.'
+        heartbeat:
+          name: 'Hjerteslag'
+          line: 'Pumper blod rundt i hele kroppen.'
+        adrenaline:
+          name: 'Adrenalin'
+          line: 'Gør dig klar til at løbe eller hoppe.'
+        muscle:
+          name: 'Muskel'
+          line: 'Trækker i knoglerne, så du kan bevæge dig.'
+        lungs:
+          name: 'Lunger'
+          line: 'Fylder dit blod med luft.'
+        stamina:
+          name: 'Udholdenhed'
+          line: 'Bliver ved og ved.'
+        blue-whale-heart:
+          name: 'Blåhvalhjerte'
+          line: 'Det største hjerte, der findes: lige så stort som en lille bil.'
+    collections:
+      title: 'Samlinger'
+      about: 'Fang alle slags dyr i en gruppe, fra to slags til alle 100.'
+      badges:
+        amphibian:
+          name: 'Padde'
+          line: 'Lever to liv: først i vandet, så på land.'
+          goal: 'Fang frøen og skrubtudsen'
+        sole-walker:
+          name: 'Sålegænger'
+          line: 'Bjørne går på flade fødder, ligesom dig.'
+          goal: 'Fang begge bjørne'
+        pole-to-pole:
+          name: 'Fra pol til pol'
+          line: 'Isbjørne og pingviner mødes aldrig i naturen!'
+          goal: 'Fang en isbjørn og en pingvin'
+        antlers:
+          name: 'Gevir'
+          line: 'Gevirer falder af hvert år og vokser ud igen, større.'
+          goal: 'Fang alle hjortene: kronhjort, rådyr, elg og rensdyr'
+        dog-family:
+          name: 'Hundefamilien'
+          line: 'Ræve og ulve er fætre til din hund.'
+          goal: 'Fang alle ræve og ulve'
+        parliament-of-owls:
+          name: 'Ugleråd'
+          line: 'På engelsk kalder man en flok ugler et parlament.'
+          goal: 'Fang alle uglerne'
+        raptor:
+          name: 'Rovfugl'
+          line: 'Krumt næb, skarpe kløer og superøjne.'
+          goal: 'Fang alle ørnene, musvågen og jagtfalken'
+        weasel-family:
+          name: 'Mårfamilien'
+          line: 'Lang krop, korte ben og masser af mod.'
+          goal: 'Fang odderen, grævlingen, skovmåren, lækatten og jærven'
+        rodent:
+          name: 'Gnaver'
+          line: 'Deres fortænder holder aldrig op med at vokse. (Kaniner er ikke gnavere!)'
+          goal: 'Fang alle gnaverne'
+        herpetologist:
+          name: 'Herpetolog'
+          line: 'En forsker i frøer, firben, slanger og skildpadder.'
+          goal: 'Fang alle padder og krybdyr'
+        waddle:
+          name: 'Vraltegang'
+          line: 'Pingviner vralter af sted på land.'
+          goal: 'Fang alle fem pingviner'
+        nocturnal:
+          name: 'Nataktiv'
+          line: 'Vågen hele natten, sover hele dagen.'
+          goal: 'Fang syv nattedyr'
+        salt-gland:
+          name: 'Saltkirtel'
+          line: 'Havfugle drikker havvand og nyser saltet ud.'
+          goal: 'Fang syv havfugle'
+        gills:
+          name: 'Gæller'
+          line: 'Fisk ånder den luft, der gemmer sig i vandet.'
+          goal: 'Fang alle fiskene'
+        blowhole:
+          name: 'Blåsthul'
+          line: 'Hvaler ånder gennem et hul oven på hovedet.'
+          goal: 'Fang alle hvaler, delfiner og marsvin'
+        fin-feet:
+          name: 'Finnefødder'
+          line: 'Sæler og hvalrosser svømmer med fødder formet som finner.'
+          goal: 'Fang alle sælerne og hvalrossen'
+        no-backbone:
+          name: 'Uden rygrad'
+          line: 'Krabber, gopler og blæksprutter har slet ingen knogler.'
+          goal: 'Fang alle dyrene uden rygrad'
+        apex-predator:
+          name: 'Toprovdyr'
+          line: 'Helt øverst i fødekæden.'
+          goal: 'Fang alle toprovdyrene'
+        megafauna:
+          name: 'Megafauna'
+          line: 'De allerstørste dyr.'
+          goal: 'Fang alle de allerstørste dyr'
+        ornithologist:
+          name: 'Ornitolog'
+          line: 'En fugleforsker. 28 slags fugle!'
+          goal: 'Fang alle fuglene'
+        marine-biologist:
+          name: 'Havbiolog'
+          line: 'En forsker i havet.'
+          goal: 'Fang alle havdyrene'
+        fauna-of-nordland:
+          name: 'Nordlands fauna'
+          line: 'Fauna betyder alle dyrene et sted.'
+          goal: 'Fang alle slags dyr i Nordland'
+        fauna-of-the-arctic:
+          name: 'Arktis’ fauna'
+          line: 'Alle dyrene på isen og i det kolde hav.'
+          goal: 'Fang alle slags dyr i Arktis'
+    steps:
+      title: 'Store rejser'
+      about: 'De dyr, der rejser længst, fra en snegl til havternen.'
+      goal:
+        one: 'Gå dit første skridt'
+        other: 'Gå {count} skridt'
+      badges:
+        snail:
+          name: 'Snegl'
+          line: 'Langsomt og roligt, med huset på ryggen.'
+        hedgehog:
+          name: 'Pindsvin'
+          line: 'Går to kilometer hver nat.'
+        toad-migration:
+          name: 'Paddevandring'
+          line: 'Hvert forår vandrer tudserne tilbage til deres vandhul.'
+        reindeer:
+          name: 'Rensdyr'
+          line: 'Går længere end noget andet dyr på land.'
+        crane:
+          name: 'Trane'
+          line: 'Flyver fra Sverige til Spanien hvert efterår.'
+        swallow:
+          name: 'Svale'
+          line: 'Flyver fra Danmark til Afrika og tilbage igen.'
+        eel:
+          name: 'Ål'
+          line: 'Svømmer tværs over hele Atlanterhavet.'
+        humpback-whale:
+          name: 'Pukkelhval'
+          line: 'Svømmer 8.000 kilometer til varmt vand.'
+        godwit:
+          name: 'Lille kobbersneppe'
+          line: 'Flyver i 11 dage uden at lande én eneste gang.'
+        arctic-tern:
+          name: 'Havterne'
+          line: 'Flyver fra pol til pol hvert år: den længste rejse af alle dyr.'
+    visits:
+      title: 'Kroppen heler'
+      about: 'Sådan holder en krop sig rask, fra din hud til hele dit immunforsvar.'
+      goal:
+        one: 'Besøg druiden'
+        other: 'Besøg druiden {count} gange'
+      badges:
+        skin:
+          name: 'Hud'
+          line: 'Dit første skjold.'
+        scab:
+          name: 'Skorpe'
+          line: 'Et plaster, din krop selv laver.'
+        fever:
+          name: 'Feber'
+          line: 'Din krop bliver varm for at bekæmpe bakterier.'
+        white-blood-cell:
+          name: 'Hvidt blodlegeme'
+          line: 'En lillebitte vagt, der spiser bakterier.'
+        antibody:
+          name: 'Antistof'
+          line: 'Sætter sig fast på en bakterie, så den ikke kan gøre skade.'
+        memory-cell:
+          name: 'Hukommelsescelle'
+          line: 'Husker en bakterie, så det går hurtigere næste gang.'
+        bone-marrow:
+          name: 'Knoglemarv'
+          line: 'Der, hvor nye blodceller bliver lavet.'
+        immune-system:
+          name: 'Immunforsvar'
+          line: 'Hele din krops vagthold.'
+    worlds:
+      title: 'Ud i verden'
+      about: 'Sådan kommer dyr og planter til nye steder.'
+      goal:
+        one: 'Besøg en verden'
+        other: 'Besøg {count} verdener'
+      badges:
+        leaving-the-nest:
+          name: 'Ud af reden'
+          line: 'Alle unge dyr flytter hjemmefra en dag.'
+        dandelion-seed:
+          name: 'Mælkebøttefnug'
+          line: 'Flyver af sted med vinden.'
+        scout-bee:
+          name: 'Spejderbi'
+          line: 'Leder efter et nyt hjem til bifamilien.'
+        pioneer:
+          name: 'Pionerart'
+          line: 'Den første, der bor et nyt sted.'
+        coconut:
+          name: 'Kokosnød'
+          line: 'Flyder over havet til nye øer.'
+        spider-balloon:
+          name: 'Ballonedderkop'
+          line: 'Små edderkopper flyver væk på silketråde.'
+        cosmopolitan:
+          name: 'Kosmopolit'
+          line: 'Hjemme over hele verden.'
+    tools:
+      title: 'Redskaber'
+      about: 'Nogle dyr bruger også redskaber.'
+      goal:
+        one: 'Få dit første redskab'
+        other: 'Få {count} redskaber'
+      badges:
+        twig:
+          name: 'Kvist'
+          line: 'En chimpanse fisker efter termitter med en kvist.'
+        stone:
+          name: 'Sten'
+          line: 'En havodder knækker skaller på en sten.'
+        hook:
+          name: 'Krog'
+          line: 'En krage bøjer en pind til en krog.'
+        toolmaker:
+          name: 'Redskabsmager'
+          line: 'Alle redskaber i alle lande.'
+    clearing:
+      title: 'Skovens arbejdere'
+      about: 'Dyr, der forandrer en skov.'
+      goal:
+        one: 'Fæld et træ eller knus en sten'
+        other: 'Fæld eller knus {count} træer og sten'
+      badges:
+        woodpecker:
+          name: 'Spætte'
+          line: 'Hakker huller i træer med næbbet.'
+        bark-beetle:
+          name: 'Barkbille'
+          line: 'Lillebitte, men kan fælde en hel skov.'
+        beaver-teeth:
+          name: 'Bævertænder'
+          line: 'Gnaver sig igennem et træ på én nat.'
+        forest-gap:
+          name: 'Lysning'
+          line: 'Hvor et træ vælter, vokser nye planter i lyset.'
+    matches:
+      title: 'Leg sammen'
+      about: 'Unge dyr leger for at lære og for at få venner.'
+      goal:
+        one: 'Spil din første venskabskamp'
+        other: 'Spil {count} venskabskampe'
+      badges:
+        play-bow:
+          name: 'Legebuk'
+          line: 'En ulv bukker sig ned: "Skal vi lege?"'
+        play-fight:
+          name: 'Legeslåskamp'
+          line: 'Bjørneunger slås for sjov.'
+        tag:
+          name: 'Fangeleg'
+          line: 'Lam og kid løber efter hinanden.'
+        grooming:
+          name: 'Pelspleje'
+          line: 'Aber gør hinandens pels ren.'
+        friendship:
+          name: 'Venskab'
+          line: 'Nogle dyr har en bedste ven hele livet.'
+        dolphin-pod:
+          name: 'Delfinflok'
+          line: 'Delfiner leger sammen hele livet.'
+    days:
+      title: 'Naturens kalender'
+      about: 'Naturen holder også styr på tiden.'
+      goal:
+        one: 'Spil på en dag'
+        other: 'Spil på {count} forskellige dage'
+      badges:
+        mayfly:
+          name: 'Døgnflue'
+          line: 'Lever i kun én dag.'
+        seven-spot:
+          name: 'Syvplettet mariehøne'
+          line: 'Syv prikker for syv dage.'
+        hatching:
+          name: 'Udklækning'
+          line: 'Et rødhalses æg klækkes efter to uger.'
+        moon-cycle:
+          name: 'Månecyklus'
+          line: 'Koraller lægger æg ved fuldmåne.'
+        season:
+          name: 'Årstid'
+          line: 'Bladene skifter farve. Fuglene flyver sydpå.'
+        tree-ring:
+          name: 'Årring'
+          line: 'Et træ får én ny ring hvert år.'
+    firsts:
+      title: 'Første gang'
+      about: 'Hvert mærke er for noget, du gør for første gang.'
+      badges:
+        imprinting:
+          name: 'Prægning'
+          line: 'Dit første dyr følger dig overalt, ligesom en ælling.'
+          goal: 'Vælg dit første dyr'
+        latin-name:
+          name: 'Latinsk navn'
+          line: 'Alle dyr har et videnskabeligt navn.'
+          goal: 'Giv et dyr sit eget navn'
+        social-animal:
+          name: 'Flokdyr'
+          line: 'Mange dyr kan lide selskab.'
+          goal: 'Mød en anden spiller i din verden'
+        homing-instinct:
+          name: 'Stedsans'
+          line: 'En due finder altid hjem.'
+          goal: 'Tag hjem til din egen verden efter at have besøgt en anden'
+        webbed-feet:
+          name: 'Svømmehud'
+          line: 'Fødder lavet til at padle med.'
+          goal: 'Din første kamp ude på vandet'
+        hollow-bones:
+          name: 'Hule knogler'
+          line: 'Fugleknogler er lette, så fugle kan flyve.'
+          goal: 'Din første kamp oppe i luften'
+        thermal:
+          name: 'Termik'
+          line: 'Ørne svæver op i himlen på varm luft.'
+          goal: 'Din første tur med paraglideren'
+        symbiosis:
+          name: 'Symbiose'
+          line: 'To dyr, der hjælper hinanden.'
+          goal: 'Din første tur på ryggen af et stort dyr'
+        kingfisher:
+          name: 'Isfugl'
+          line: 'Den bedste fisker af alle fuglene.'
+          goal: 'Dit første dyr fra et fiskehul'
+        tundra:
+          name: 'Tundra'
+          line: 'Det kolde land uden træer tæt på polen.'
+          goal: 'Flyv til Arktis for første gang'
+        ant-strength:
+          name: 'Myrestyrke'
+          line: 'En myre kan løfte 50 gange sin egen vægt.'
+          goal: 'Fang et dyr, der er to størrelser større end dit forreste dyr'
+        food-chain:
+          name: 'Fødekæde'
+          line: 'Små, mellem, store: alle har en plads.'
+          goal: 'Hav et dyr i hver størrelse på dit hold, fra de mindste til de største'
