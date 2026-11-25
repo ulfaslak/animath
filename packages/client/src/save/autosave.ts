@@ -494,6 +494,9 @@ export class Autosave {
 			case 'book-changed':
 			// A land unlocked: only a catch does, whose own events save too.
 			case 'unlocked-changed':
+			// A badge earned, or a number counted for one: in a friendly match, or on meeting
+			// another player, where nothing else changes, this is what writes it.
+			case 'badges-changed':
 				this.changed(false);
 				break;
 			// Nothing changed: a game picked up (its start writes nothing), a refusal, a line to say.

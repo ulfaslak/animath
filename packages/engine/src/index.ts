@@ -42,11 +42,16 @@ export {
 } from './badges/catalog.js';
 export {
 	badgeCount,
+	badgeCounts,
+	badgeTarget,
 	badgesHeld,
 	earnBadges,
 	groupCaught,
+	groupKinds,
+	type BadgeCounts,
 	type BadgeProgress
 } from './badges/earn.js';
+export { battleMoment, catchMoments, rideMoment, tripMoment } from './badges/moments.js';
 export {
 	EMPTY_TALLY,
 	addToTally,

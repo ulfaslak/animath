@@ -1090,7 +1090,9 @@ describe('newGame and restoreGame', () => {
 			worlds: [],
 			land: 'nordland',
 			lands: [],
-			unlocked: ['nordland']
+			unlocked: ['nordland'],
+			badges: [],
+			tally: { catches: 0, wins: 0, matches: 0, cleared: 0, days: 0 }
 		});
 		expect(newGame(1, testStarter(), 'Nini').name).toBe('Nini');
 		expect(newGame(1, testStarter()).pos).toEqual({ x: -2, y: 6 });
@@ -1152,7 +1154,10 @@ describe('newGame and restoreGame', () => {
 			],
 			land: 'nordland',
 			lands: [],
-			unlocked: ['nordland']
+			unlocked: ['nordland'],
+			// 'shells.conch' is a badge this build doesn't have: kept, doing nothing.
+			badges: ['firsts.imprinting', 'shells.conch', 'solved.cell'],
+			tally: { catches: 3, wins: 0, matches: 1, cleared: 2, days: 4, lastDay: '2026-11-20' }
 		};
 		const doc = saveDocument(game, { lineage: 'L', seq: 9 });
 		expect(validateSaveWrite(doc).ok).toBe(true);

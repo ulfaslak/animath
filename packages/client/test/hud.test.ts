@@ -203,7 +203,10 @@ describe('the explore message line', () => {
 			freed: [],
 			told: [],
 			newGame: true,
-			edits: []
+			edits: [],
+			badges: [],
+			counts: {},
+			found: 0
 		});
 		hud.apply({
 			type: 'doctor-visit-ended',
@@ -351,7 +354,10 @@ describe('the explore message line', () => {
 			freed: [],
 			told: [],
 			newGame: false,
-			edits: []
+			edits: [],
+			badges: [],
+			counts: {},
+			found: 0
 		});
 		expect(hud.hint).toBe(t('explore.controls'));
 		game.apply({ type: 'player-blocked', playerId: 'p', dir: 'down' });
@@ -382,7 +388,10 @@ describe('the explore message line', () => {
 			freed: [],
 			told: [],
 			newGame: false,
-			edits: []
+			edits: [],
+			badges: [],
+			counts: {},
+			found: 0
 		});
 		expect(hud.hint).toBe(t('explore.talkPrompt'));
 	});

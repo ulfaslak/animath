@@ -10,29 +10,43 @@ import {
 	BADGE_IDS,
 	type BadgeCount,
 	type BadgeGroup,
-	type BadgeMoment
+	type BadgeMoment,
+	type LadderBadge
 } from './catalog.js';
 import type { Tally } from './tally.js';
 
+/** A world left behind, as far as the badges care: its number. */
+interface WorldBeen {
+	readonly world: number;
+}
+
 /**
  * Everything a badge is read from: the kid's game as the authority holds it.
- * Each number only grows in play but `team` and `tools`, which is why a badge,
- * once earned, is kept (`earnBadges`), never read again.
+ * Each number only grows in play but the team's, which is why a badge, once
+ * earned, is kept (`earnBadges`), never read again.
  */
 export interface BadgeProgress {
+	/** Puzzles solved in all (`countSolved`). */
 	readonly solved: number;
-	readonly record: PuzzleRecord;
+	/** The puzzle record (`puzzles/record.ts`): right answers by kind. */
+	readonly puzzles: PuzzleRecord;
 	readonly book: AnimalBook;
 	/** The team in the land the kid is in. */
 	readonly party: readonly AnimalInstance[];
 	readonly steps: number;
 	readonly visits: number;
-	/** Every world number the kid has been to, in any land, the one they are in included, each once. */
-	readonly worlds: number;
-	/** The items the kid owns, land by land. */
-	readonly items: Readonly<Partial<Record<LandId, readonly string[]>>>;
-	/** Every land the kid has been to, the one they are in included. */
-	readonly lands: readonly LandId[];
+	/** The land the kid is in, the world they are in there, and that land's worlds left behind. */
+	readonly land: LandId;
+	readonly world: number;
+	readonly worlds: readonly WorldBeen[];
+	/** The items the kid owns in the land they are in. */
+	readonly items: readonly string[];
+	/** The lands left behind, each with its items and its worlds left behind (the one the kid stood in among them). */
+	readonly lands: readonly {
+		readonly land: LandId;
+		readonly items: readonly string[];
+		readonly worlds: readonly WorldBeen[];
+	}[];
 	readonly tally: Tally;
 }
 
@@ -42,9 +56,9 @@ export function badgeCount(progress: BadgeProgress, count: BadgeCount): number {
 		case 'solved':
 			return progress.solved;
 		case 'kinds':
-			return ALL_PUZZLE_TOPICS.filter((t) => (progress.record[t]?.right ?? 0) > 0).length;
+			return ALL_PUZZLE_TOPICS.filter((t) => (progress.puzzles[t]?.right ?? 0) > 0).length;
 		case 'every-kind':
-			return Math.min(...ALL_PUZZLE_TOPICS.map((t) => progress.record[t]?.right ?? 0));
+			return Math.min(...ALL_PUZZLE_TOPICS.map((t) => progress.puzzles[t]?.right ?? 0));
 		case 'seen':
 			return progress.book.seen.length;
 		case 'caught':
@@ -60,7 +74,7 @@ export function badgeCount(progress: BadgeProgress, count: BadgeCount): number {
 		case 'visits':
 			return progress.visits;
 		case 'worlds':
-			return progress.worlds;
+			return worldsBeen(progress);
 		case 'tools':
 			return toolsOwned(progress);
 		case 'catches':
@@ -70,8 +84,21 @@ export function badgeCount(progress: BadgeProgress, count: BadgeCount): number {
 		case 'days':
 			return progress.tally[count];
 		default:
-			return progress.record[count.slice('topic:'.length) as keyof PuzzleRecord]?.right ?? 0;
+			return progress.puzzles[count.slice('topic:'.length) as keyof PuzzleRecord]?.right ?? 0;
 	}
+}
+
+/**
+ * The worlds the kid has been to, each land's counted on their own (World 5
+ * in Nordland and World 5 in the Arctic are two places): the ones a game
+ * remembers, `MAX_WORLDS_KEPT` a land at most, and the one the kid is in.
+ */
+function worldsBeen(progress: BadgeProgress): number {
+	const here = new Set([progress.world, ...progress.worlds.map((w) => w.world)]).size;
+	const away = progress.lands
+		.filter((l) => l.land !== progress.land)
+		.reduce((n, l) => n + new Set(l.worlds.map((w) => w.world)).size, 0);
+	return here + away;
 }
 
 /** Every tool a land's druid sells, land by land: what "every tool in every land" asks for. */
@@ -83,7 +110,28 @@ function everyTool(): { land: LandId; item: string }[] {
 
 /** The tools owned, each land's counted on its own: a boat in Nordland and one in the Arctic are two. */
 function toolsOwned(progress: BadgeProgress): number {
-	return everyTool().filter(({ land, item }) => progress.items[land]?.includes(item)).length;
+	const owned = new Map<LandId, readonly string[]>(progress.lands.map((l) => [l.land, l.items]));
+	owned.set(progress.land, progress.items);
+	return everyTool().filter(({ land, item }) => owned.get(land)?.includes(item)).length;
+}
+
+/**
+ * The number a ladder's badge asks for: its own, or for `'all'` every one
+ * there is in this build (every tool of every land).
+ */
+export function badgeTarget(badge: LadderBadge): number {
+	return badge.at === 'all' ? everyTool().length : badge.at;
+}
+
+/** Each ladder's number now, by family id: what a kid's page shows beside the goal ("37 / 50"). */
+export type BadgeCounts = Readonly<Record<string, number>>;
+
+export function badgeCounts(progress: BadgeProgress): BadgeCounts {
+	const counts: Record<string, number> = {};
+	for (const family of BADGE_FAMILIES) {
+		if (family.kind === 'ladder') counts[family.id] = badgeCount(progress, family.count);
+	}
+	return counts;
 }
 
 /** The kinds of animal `group` asks for, as lists of which at least one of each must be caught. */
@@ -91,9 +139,22 @@ function groupNeeds(group: BadgeGroup): readonly (readonly string[])[] {
 	if ('every' in group) return group.every.map((id) => [id]);
 	if ('oneOfEach' in group) return group.oneOfEach;
 	if ('tier' in group) return ANIMALS.filter((a) => a.tier === group.tier).map((a) => [a.id]);
-	if ('realm' in group)
-		return ANIMALS.filter((a) => a.realms.length === 1 && a.realms[0] === 'water').map((a) => [a.id]);
+	if ('realm' in group) return ANIMALS.filter(isSeaAnimal).map((a) => [a.id]);
 	return getLand(group.land).species.map((id) => [id]);
+}
+
+/** An animal that lives in the water alone: the collections' sea animals. */
+function isSeaAnimal(a: { readonly realms: readonly string[] }): boolean {
+	return a.realms.length === 1 && a.realms[0] === 'water';
+}
+
+/**
+ * The kinds `group` asks for, each as the species that would do: one list
+ * per kind, a list of several when any one of them counts (a penguin, any
+ * penguin). What a kid's page lists under a collection.
+ */
+export function groupKinds(group: BadgeGroup): readonly (readonly string[])[] {
+	return groupNeeds(group);
 }
 
 /** Whether every kind `group` asks for is in `caught`. */
@@ -110,7 +171,7 @@ function firstHolds(id: string, progress: BadgeProgress): boolean {
 		case 'firsts.latin-name':
 			return progress.party.some((a) => a.nickname !== undefined && a.nickname !== '');
 		case 'firsts.tundra':
-			return progress.lands.includes('arctic');
+			return progress.land === 'arctic' || progress.lands.some((l) => l.land === 'arctic');
 		case 'firsts.food-chain': {
 			const tiers = new Set<number>(progress.party.map((a) => getAnimal(a.speciesId).tier));
 			return [1, 2, 3, 4, 5].every((t) => tiers.has(t));
@@ -126,8 +187,7 @@ export function badgesHeld(progress: BadgeProgress): string[] {
 	for (const family of BADGE_FAMILIES) {
 		if (family.kind === 'ladder') {
 			const n = badgeCount(progress, family.count);
-			const all = family.count === 'tools' ? everyTool().length : Infinity;
-			for (const b of family.badges) if (n >= (b.at === 'all' ? all : b.at)) held.push(b.id);
+			for (const b of family.badges) if (n >= badgeTarget(b)) held.push(b.id);
 		} else if (family.kind === 'collection') {
 			for (const b of family.badges)
 				if (groupCaught(b.group, progress.book.caught)) held.push(b.id);
@@ -150,7 +210,7 @@ export function earnBadges(
 	moments: readonly BadgeMoment[] = []
 ): { readonly earned: readonly string[]; readonly fresh: readonly string[] } {
 	const have = new Set(earned);
-	const now = new Set([...badgesHeld(progress), ...moments]);
+	const now = new Set<string>([...badgesHeld(progress), ...moments]);
 	const fresh = BADGE_IDS.filter((id) => now.has(id) && !have.has(id));
 	return { earned: fresh.length === 0 ? earned : [...earned, ...fresh], fresh };
 }

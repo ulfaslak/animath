@@ -1,4 +1,5 @@
 import type { AnimalInstance } from './animals/types.js';
+import type { BadgeCounts } from './badges/earn.js';
 import type { BattleEvent, BattleIntent, BattleState } from './battle/types.js';
 import type { DoctorEvent, DoctorIntent, DoctorState } from './doctor/types.js';
 import type { Line } from './lines.js';
@@ -157,7 +158,16 @@ export type Intent =
 			step: number;
 			side: MatchSide;
 			events: readonly MatchEvent[];
-	  };
+	  }
+	/**
+	 * Another player is in the world with this one: the client saw them
+	 * there (`presence`). The first time earns Social animal ([[PRODUCT]] §4
+	 * "Badges"), and nothing else in the game changes. In any mode while a
+	 * game is under way. Who is where is the server's to say, so the
+	 * authority takes the client's word for it, as for a match's answers.
+	 * Answered with `badges-changed` when it earns the badge, else with nothing.
+	 */
+	| { type: 'met-player' };
 
 export type GameEvent =
 	/**
@@ -173,7 +183,13 @@ export type GameEvent =
 	 * generator seed (`landSeed(land, world)`), `home` the world the game began
 	 * in, `name` the player's name (null until chosen). `edits` are the tiles
 	 * the player has cleared in `world`, in `WorldEdits`' text form: the world
-	 * is the seed's, as they left it.
+	 * is the seed's, as they left it. `badges` are the badges earned, by id, in
+	 * the order earned, and `counts` each ladder's number (`badgeCounts`), as
+	 * `badges-changed` has them; a game picked up is given, quietly, every
+	 * badge it holds and had no badge for yet (a game from before badges, or
+	 * a family a newer build added), and `found` says how many: the client
+	 * says so once, without a celebration for each. A new game's badges come
+	 * after it, in a `badges-changed`.
 	 */
 	| {
 			type: 'welcome';
@@ -197,6 +213,9 @@ export type GameEvent =
 			told: string[];
 			newGame: boolean;
 			edits: string[];
+			badges: string[];
+			counts: BadgeCounts;
+			found: number;
 	  }
 	/** `new-game` was refused, and nothing started: why, as a code. */
 	| { type: 'new-game-refused'; reason: NewGameRejection }
@@ -327,6 +346,17 @@ export type GameEvent =
 	 * showed it; never when nothing is new.
 	 */
 	| { type: 'book-changed'; seen: string[]; caught: string[]; freed: string[]; told: string[] }
+	/**
+	 * The badges ([[PRODUCT]] §4 "Badges"): `badges` every one earned, by id,
+	 * in the order earned (an id this build lacks kept as it is); `fresh` the
+	 * ones this intent earned, in the catalogue's order, for the client to
+	 * celebrate; `counts` each ladder's number now (`badgeCounts`), for the
+	 * badges page's progress. Sent at the end of an intent that earned a
+	 * badge, or that changed a count, but for a step (`move`, `coast`,
+	 * `glide`) that earned none: the steps walked ride along with the next
+	 * one, so a walk is not told twice. A badge is never taken back.
+	 */
+	| { type: 'badges-changed'; badges: string[]; fresh: string[]; counts: BadgeCounts }
 	/**
 	 * Something to say on the message line, as a copy key and its values; the
 	 * client words it in the language on screen. Never a finished sentence.
