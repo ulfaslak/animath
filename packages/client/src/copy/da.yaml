@@ -3186,7 +3186,7 @@ badges:
           line: 'Det største hjerte, der findes: lige så stort som en lille bil.'
     collections:
       title: 'Samlinger'
-      about: 'Fang alle slags dyr i en gruppe, fra to slags til alle 100.'
+      about: 'Fang alle slags dyr i en gruppe, fra to slags til alle 50 i et land.'
       badges:
         amphibian:
           name: 'Padde'
