@@ -366,13 +366,18 @@ describe('the tally', () => {
 		expect(addToTally(most, 'catches').catches).toBe(Number.MAX_SAFE_INTEGER);
 	});
 
-	it('counts a day once however many puzzles are solved on it, and days apart as two', () => {
+	it('counts a day once however many puzzles are solved on it, days apart as two, and an earlier day as none', () => {
 		let t = tallyDay(EMPTY_TALLY, '2026-11-24');
 		t = tallyDay(t, '2026-11-24');
 		expect(t).toEqual({ ...EMPTY_TALLY, days: 1, lastDay: '2026-11-24' });
 		t = tallyDay(t, '2026-12-01');
 		expect(t.days).toBe(2);
 		expect(tallyDay(t, 'tuesday')).toBe(t);
+		// An earlier day counts nothing: switching between two clocks a day apart is no day more.
+		for (const day of ['2026-11-30', '2026-12-01', '2026-11-30', '2026-12-01'])
+			t = tallyDay(t, day);
+		expect(t).toMatchObject({ days: 2, lastDay: '2026-12-01' });
+		expect(tallyDay(t, '2027-01-01')).toMatchObject({ days: 3, lastDay: '2027-01-01' });
 	});
 });
 
@@ -391,6 +396,25 @@ describe('the save', () => {
 			badges: [],
 			tally: EMPTY_TALLY
 		});
+	});
+
+	it('keeps what a newer build counts in the tally as it was, through a count and a write', () => {
+		const text = JSON.stringify(doc({ tally: { catches: 3, rides: 9, nested: { a: [1, 2] } } }));
+		const withProto = text.replace('"rides"', '"__proto__"');
+		for (const [source, key] of [
+			[text, 'rides'],
+			[withProto, '__proto__']
+		] as const) {
+			const read = readSave(JSON.parse(source));
+			if (!read.ok) throw new Error(read.error);
+			const game = restoreGame(read.save, () => 'x');
+			const counted = { ...game, tally: addToTally(game.tally, 'catches') };
+			const written = JSON.parse(JSON.stringify(saveDocument(counted, { lineage: 'L', seq: 2 })));
+			expect(Object.getOwnPropertyDescriptor(written.tally, key)?.value).toBe(9);
+			expect(written.tally.nested).toEqual({ a: [1, 2] });
+			expect(written.tally.catches).toBe(4);
+		}
+		expect(({} as Record<string, unknown>).catches).toBeUndefined();
 	});
 
 	it('keeps a badge this build lacks, and reads a badge listed twice once', () => {

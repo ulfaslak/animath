@@ -397,6 +397,8 @@ export interface SavedTally {
 	cleared?: number;
 	days?: number;
 	lastDay?: string;
+	/** A count a newer build keeps here: written back as it was (`Tally.more`). */
+	[more: string]: unknown;
 }
 
 /** A document ready to be written: every field a write must carry is present. */
@@ -1044,12 +1046,31 @@ function readTally(saved: SavedTally | undefined): Tally {
 		days: saved.days ?? 0
 	};
 	if (saved.lastDay !== undefined) tally.lastDay = saved.lastDay;
+	const more = {};
+	for (const [key, value] of Object.entries(saved)) {
+		if (!TALLY_KEYS.has(key)) setOwn(more, key, value);
+	}
+	if (Object.keys(more).length > 0) tally.more = more;
 	return tally;
+}
+
+/** The keys of the tally this build reads; any other is a newer build's (`Tally.more`). */
+const TALLY_KEYS: ReadonlySet<string> = new Set([...TALLY_COUNTS, 'lastDay']);
+
+/** `target[key] = value` as an own field, whatever the key, `__proto__` included. */
+function setOwn(target: object, key: string, value: unknown): void {
+	Object.defineProperty(target, key, {
+		value,
+		enumerable: true,
+		writable: true,
+		configurable: true
+	});
 }
 
 /** The tally as a save writes it: only the numbers counted, and nothing at all before the first. */
 function savedTally(tally: Tally): SavedTally | undefined {
 	const out: SavedTally = {};
+	for (const [key, value] of Object.entries(tally.more ?? {})) setOwn(out, key, value);
 	for (const key of TALLY_COUNTS) if (tally[key] > 0) out[key] = tally[key];
 	if (tally.lastDay !== undefined) out.lastDay = tally.lastDay;
 	return Object.keys(out).length > 0 ? out : undefined;

@@ -16,6 +16,12 @@ export interface Tally {
 	readonly days: number;
 	/** The day of the last puzzle solved, `YYYY-MM-DD` on the kid's own calendar; absent before the first. */
 	readonly lastDay?: string;
+	/**
+	 * What a newer build counts in the tally and this one does not know, by
+	 * key, as it was: carried along and written back unchanged, so going back
+	 * a build and forward again loses none of it. Absent when there is none.
+	 */
+	readonly more?: Readonly<Record<string, unknown>>;
 }
 
 export type TallyCount = 'catches' | 'wins' | 'matches' | 'cleared';
@@ -39,11 +45,15 @@ export function isTallyDay(value: unknown): value is string {
 }
 
 /**
- * `tally` after a puzzle solved on `day`: a day not the last one counted is
- * one more day played. Days need not follow each other, so a kid who plays
- * on two days a week apart has played on two days: nothing here is a streak.
+ * `tally` after a puzzle solved on `day`: a day later than the last one
+ * counted is one more day played. Days need not follow each other, so a kid
+ * who plays on two days a week apart has played on two days: nothing here is
+ * a streak. An earlier day counts nothing: two clocks a day apart (a phone
+ * and a laptop in other time zones) would otherwise count a day at every
+ * switch between them; a clock set ahead and back counts no day until the
+ * calendar passes the one it was set to.
  */
 export function tallyDay(tally: Tally, day: string): Tally {
-	if (!isTallyDay(day) || day === tally.lastDay) return tally;
+	if (!isTallyDay(day) || (tally.lastDay !== undefined && day <= tally.lastDay)) return tally;
 	return { ...tally, days: Math.min(MOST, tally.days + 1), lastDay: day };
 }

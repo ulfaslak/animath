@@ -191,6 +191,12 @@ export class Autosave {
 
 	/** Whether the page has something to write before a new game is saved at start. */
 	private firstWrite = false;
+	/**
+	 * The game picked up was given badges it held and had no record of (a
+	 * `welcome`'s `found`): written at `begin`, so the next load neither gives
+	 * nor tells them again.
+	 */
+	private badgesFound = false;
 	private dirty = false;
 	private dirtyMatters = false;
 	private commitQueued = false;
@@ -428,7 +434,8 @@ export class Autosave {
 	 */
 	begin(): void {
 		this.begun = true;
-		if (this.firstWrite) this.changed(false);
+		if (this.firstWrite || this.badgesFound) this.changed(false);
+		this.badgesFound = false;
 		this.startServer();
 	}
 
@@ -444,6 +451,7 @@ export class Autosave {
 			this.newGameStarted();
 			return;
 		}
+		if (event.type === 'welcome') this.badgesFound = event.found > 0;
 		if (!this.begun) return;
 		switch (event.type) {
 			case 'game-left':
@@ -501,8 +509,14 @@ export class Autosave {
 			case 'badges-changed':
 				this.changed(false);
 				break;
-			// Nothing changed: a game picked up (its start writes nothing), a refusal, a line to say.
+			// A game picked up writes nothing at its start, but for the badges it was given (`begin`).
 			case 'welcome':
+				if (this.badgesFound) {
+					this.badgesFound = false;
+					this.changed(false);
+				}
+				break;
+			// Nothing changed: a refusal, a line to say.
 			case 'new-game-refused':
 			case 'name-refused':
 			case 'travel-refused':
