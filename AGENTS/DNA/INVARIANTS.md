@@ -74,6 +74,24 @@ Every `answer-judged` event carries its puzzle's topic (`puzzleTopic`: a missing
 
 `puzzleDifficulty(tier, n, level)` never decreases when the tier or the attack index increases, and `(1, 1, 1)` maps to 1 while `(5, 4, 3)` maps to 10. Within an attack every level asks exactly one difficulty more than the level below it, and hard never passes 10, so a level that hits harder always asks at a higher difficulty. (The puzzles themselves can overlap between neighbouring difficulties; § "Operands climb with difficulty" promises bigger numbers two difficulties apart only for adding and taking away, and the other kinds climb by skill. But no kind asks the very puzzles of the difficulty below: two equal steps once made a tern's Long Trip, a clock puzzle then, ask the same clocks on easy and medium.) This holds because an attack's easy level is capped before the levels are added ([[PRODUCT]] §4 "Animals" has the formula); a clamp on the finished difficulty would fold the top levels together instead. Enforced by `puzzles.test.ts` § difficulty mapping: every attack in the catalog asks at a higher difficulty wherever it hits harder, any tier's first eight attacks climb one step per level, and every kind's difficulty asks a puzzle the one below never does: never the same puzzles, and never only puzzles the one below asks, where the one below is small enough to sample (the steps that are not are its `UNSAMPLED` list, and only a check of the kind's own table covers them, [[DEVELOPMENT]] § Testing ideology). Incident: #32, the final clamp at 10 gave a bear's Maul and Crush difficulty 10 on medium and on hard, so medium asked the same sums for less damage; and floors and fences' 3, 8 and 10 asked only shapes the step below asks (found by the 2026-11-21 cleanse).
 
+## Badges
+
+### A badge, once earned, is never taken back, and one a build lacks is kept
+
+`earnBadges` keeps every id it is given, in its order, an id the catalogue lacks included, and adds only what is new after them, in the catalogue's order; a badge earned stays when what earned it goes down (a smaller team, an animal set free). The save keeps a badge id this build lacks as it is and reads an id listed twice once; a badge id is never renamed or taken out once shipped, so no build forgets one a kid has. Engine `badges.test.ts` § earning ("never takes a badge back") and § the save; client `badges.test.ts` § telling.
+
+### Each badge of a ladder asks more than the one before it, and is earned exactly from its number on
+
+Every ladder's numbers rise strictly, start at 1 or more, and `'all'` (every tool of every land) is only ever last; a game whose number is one short of a badge's does not hold it, and one at its number does. A badge earned is told once (`badges-changed`'s `fresh`), at the end of the intent that earned it. Engine `badges.test.ts` § the catalogue and § earning; client `badges.test.ts` § telling.
+
+### A game picked up is given the badges it holds without a celebration each
+
+A game from a save is given every badge it holds and had no badge for yet in its `welcome`, which says how many (`found`): no `badges-changed` names them, so a kid with an old save sees one line, not a note for each of 40 badges. A new game's first badges are celebrated, after its `welcome`. Client `badges.test.ts` § telling.
+
+### Every badge has its words in every language and a picture Safari 15 draws
+
+Every family has a title and an about, every ladder a goal (a plural message with the number its badge asks for), and every badge a name and a line, a collection's and a first's a goal of its own, in every copy file; every badge id has a picture, an emoji no newer than Emoji 13.1, and only badge ids have one. Client `badges.test.ts` § words and pictures.
+
 ## Battle
 
 ### Within a species, damage strictly increases with attack index and with level
