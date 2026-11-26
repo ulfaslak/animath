@@ -36,7 +36,7 @@ import { bringsHint } from '../hint';
 import { answerKey } from '../input/answer';
 import { isShortcut, keyName } from '../input/keyboard';
 import { isMashKey, PickGuard } from '../input/pick-guard';
-import { tappedOption } from '../input/press';
+import { BADGES_KEY, tappedOption } from '../input/press';
 import { line, type Line } from '../lines';
 import { motion } from '../motion';
 import type { PresenceStatus } from '../presence/connection';
@@ -467,7 +467,8 @@ export class MatchController implements MatchHooks {
 	/**
 	 * A key on the explore screen, before walking hears it: the invite's Yes
 	 * (Enter, Space) and No (Escape) while it is up, and C for the button.
-	 * True when it was the match's, so nothing else acts on it.
+	 * True when it was the match's, so nothing else acts on it. While the
+	 * invite is up the menu is out of reach, the HUD's count of badges too.
 	 */
 	exploreKey(e: KeyboardEvent): boolean {
 		if (isShortcut(e)) return false;
@@ -484,6 +485,8 @@ export class MatchController implements MatchHooks {
 				if (!e.repeat) this.decline();
 				return true;
 			}
+			// The badges' pill opens the menu, which waits until the kid has answered.
+			if (key === BADGES_KEY) return true;
 			return false;
 		}
 		if (key === 'c' && match.stage === 'none' && match.button) {
