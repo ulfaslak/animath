@@ -31,7 +31,10 @@
  * - **off screen**: text outside the window, unless a list that scrolls
  *   holds it (a long team in the pause menu scrolls by design);
  * - **scrolled sideways**: any element with a `scrollLeft`, and the page
- *   wider than the window.
+ *   wider than the window;
+ * - **overlap**, on explore: two pieces of the HUD that stand on each other
+ *   ([[UI_SPEC]] § Explore mode, "The corners"), by their boxes, a card only
+ *   where its column shows it (as `scripts/players.mts` lists them).
  */
 import { randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
@@ -120,6 +123,45 @@ function worstSave(): string {
 	);
 	return JSON.stringify(doc);
 }
+
+/** Explore's pieces that stand on one another, by their boxes ("The corners"). */
+const OVERLAPS = `(() => {
+	const column = document.querySelector('.party .cards')?.getBoundingClientRect();
+	const pieces = [
+		['.party .bundle', 'card'],
+		['.party .keys', 'party hint'],
+		['.belongings .purse', 'tokens'],
+		['.belongings .solved', 'puzzles'],
+		['.belongings .earned', 'badges'],
+		['.belongings .tool', 'tool'],
+		['.belongings .world', 'world'],
+		['.coords', 'coordinates'],
+		['.dpad .arrow, .dpad .hub', 'D-pad'],
+		['.talk-button', 'Talk'],
+		['.menu-button', 'Menu'],
+		['.fly-button', 'Fly'],
+		['.bottom .hint', 'message line'],
+		['.bottom .challenge', 'Challenge']
+	].flatMap(([selector, name]) =>
+		[...document.querySelectorAll(selector)].map((el) => {
+			let r = el.getBoundingClientRect();
+			if (column && el.matches('.party .bundle'))
+				r = { left: r.left, right: r.right, top: Math.max(r.top, column.top), bottom: Math.min(r.bottom, column.bottom) };
+			return { name, el, r };
+		})
+	).filter((p) => p.r.right > p.r.left && p.r.bottom > p.r.top);
+	const out = [];
+	for (let i = 0; i < pieces.length; i++) {
+		for (let j = i + 1; j < pieces.length; j++) {
+			const [a, b] = [pieces[i], pieces[j]];
+			if (a.name === b.name || a.el.contains(b.el) || b.el.contains(a.el)) continue;
+			const w = Math.min(a.r.right, b.r.right) - Math.max(a.r.left, b.r.left);
+			const h = Math.min(a.r.bottom, b.r.bottom) - Math.max(a.r.top, b.r.top);
+			if (w >= 1 && h >= 1) out.push('overlap: ' + a.name + ' × ' + b.name + ' (' + Math.round(w) + ' × ' + Math.round(h) + ')');
+		}
+	}
+	return out;
+})()`;
 
 /**
  * Where UI_SPEC lets a name give way and end in "…", by selector: an ellipsis
@@ -234,6 +276,7 @@ for (const [width, height] of SIZES) {
 					(g) => g.screen === screen && (!g.shortOnly || height <= 560)
 				).map((g) => g.selector);
 				const all = (await page.evaluate(`(${MEASURE})(${JSON.stringify(allowed)})`)) as string[];
+				if (screen === 'explore') all.push(...((await page.evaluate(OVERLAPS)) as string[]));
 				const problems = all.filter((p) => !p.startsWith('gives way: '));
 				const given = all.length - problems.length;
 				cases++;
