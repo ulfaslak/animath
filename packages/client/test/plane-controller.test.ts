@@ -20,6 +20,7 @@ import {
 import { game } from '../src/state/game.svelte';
 import { plane } from '../src/state/plane.svelte';
 import { testStarter } from './minted';
+import { rulesOf } from './rules-of.js';
 
 /**
  * The plane between lands on the page: the authority flies the kid at once
@@ -32,14 +33,16 @@ function setup() {
 	const drawn: (PlaneOnScreen | null)[] = [];
 	const delivered: GameEvent[] = [];
 	const saved: GameEvent[] = [];
+	const keep = rulesOf(delivered);
+	const save = rulesOf(saved);
 	const controller = new PlaneController({ setPlane: (show) => drawn.push(show) }, (event) => {
-		delivered.push(event);
+		keep(event);
 		game.apply(event);
 	});
 	authority.subscribe((event) => {
-		saved.push(event);
+		save(event);
 		if (!controller.intercept(event)) {
-			delivered.push(event);
+			keep(event);
 			game.apply(event);
 		}
 	});

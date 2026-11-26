@@ -486,6 +486,17 @@ To become `[learned]`: a line under Phase 2 "Prose is a claim" that moving a row
 
 To become `[learned]`: a line under Phase 2 "Prose is a claim" that a removal greps each removed table's bare name in SQL (`from <table>`) and the purpose words of a removed tool, and a line in DEVELOPMENT § Migrations that a migration dropping rows names where their copy lives.
 
+### 2026-11-25 — badges (feat/badges, PR #269) — a failing test's fixture changed to fit the code, a new save field judged against the bump rule by feel, and a clock read inside the authority `[not codified]`
+
+- **A two-tab test that broke on a real regression was made to pass by changing its fixture** (adversarial review). Badges counted as progress in `sameProgress`, a walk earns badges, so the other tab of the same game went behind on the first walk; the first pass gave the two-tab tests' saves every badge up front "because a badge earned is progress", which hid exactly that. Fixed by taking badges together across tabs (`TAKEN_TOGETHER`, `catchUp`), the fixture restored.
+- **A new save field shipped without the bump its own rule asks for** (adversarial review). `tally` counts what an older build carrying on would leave uncounted, the case DECISIONS § Saves names for a bump; the first pass reasoned "an older build keeps extras" and stopped there. Now v7.
+- **The authority read the clock** for days played (adversarial review), against INVARIANTS § Authority's "nothing reads the clock but `mintId` and `randomHome`", which the diff's own class comment was updated around. Now a `day` intent from the page.
+- **State given at load and never written** (adversarial review): the badges a game picked up was given lived in memory until the next change, so the "You have earned N badges!" line came back on every load. Now written at `begin`.
+- **A nested record read field by field drops what a newer build adds** (adversarial review): `readTally` kept only its known keys. Now carried through (`Tally.more`).
+- **Counts quoted in copy and DNA from the draft, not the catalogue** (adversarial review): "from two kinds to all 100", "30 collection badges"; the catalogue says 50 and 23.
+
+To become `[learned]`: a line under Phase 2 "Fix everything you find" that a test failing on a cross-tab or save rule is evidence about the code, never a fixture to adjust; and a Phase 1 line that a new save field is checked against DECISIONS § Saves' bump rule by naming what an older build carrying on would do with it.
+
 ### 2026-11-25 — the sea ice's fishing holes hold every size (fix/sea-ice-hole-variety, PR #268) — a catalog change whose far-off prose and derived numbers were left stale `[not codified]`
 
 - **A DNA hit hidden by my own grep's `cut -c1-260`** (adversarial review). The grep for the hole's old roster matched [[INVARIANTS]] § Encounters, but the line is long and the cut showed only its start, so the old list ("the polar cod, the ringed seal and the Greenland shark") stayed there. Fixed. When a grep hunts for prose, print the matching words (`grep -o '.\{60\}<word>.\{60\}'`), not each line's first characters.

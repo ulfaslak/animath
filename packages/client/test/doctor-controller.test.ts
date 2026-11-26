@@ -24,6 +24,7 @@ import { doctor, doctorTabs, kindGoing, kindPicked, tabRows } from '../src/state
 import { game } from '../src/state/game.svelte';
 import { testStarter } from './minted';
 import { everyMash } from './mash';
+import { rulesOf } from './rules-of.js';
 
 /**
  * The doctor's card driven by keys against the real authority: what each key
@@ -72,8 +73,9 @@ function setup(
 		sent.push(intent);
 		dispatch(intent);
 	};
+	const keep = rulesOf(events);
 	authority.subscribe((e) => {
-		events.push(e);
+		keep(e);
 		controller.handle(e);
 	});
 	authority.start();
@@ -1275,8 +1277,9 @@ describe('flying from the druid', () => {
 		const authority = new LocalAuthority({ lands });
 		const controller = new DoctorController(authority);
 		const events: GameEvent[] = [];
+		const keep = rulesOf(events);
 		authority.subscribe((e) => {
-			events.push(e);
+			keep(e);
 			game.apply(e);
 			controller.handle(e);
 		});

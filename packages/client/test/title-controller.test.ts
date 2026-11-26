@@ -20,6 +20,7 @@ import { game } from '../src/state/game.svelte';
 import { title, type LoggedOut } from '../src/state/title.svelte';
 import { TitleController } from '../src/title/controller';
 import { everyMash } from './mash';
+import { rulesOf } from './rules-of.js';
 
 /**
  * The title's keys against the real authority: the menu, the confirm before
@@ -123,8 +124,9 @@ function setup(saved: SavedGame | null = null, loggedOut: LoggedOut | null = nul
 		sent.push(intent);
 		dispatch(intent);
 	};
+	const keep = rulesOf(events);
 	authority.subscribe((e) => {
-		events.push(e);
+		keep(e);
 		game.apply(e);
 		controller.handle(e);
 	});
@@ -905,8 +907,9 @@ describe("a land's starters on a first arrival", () => {
 			sent.push(intent);
 			dispatch(intent);
 		};
+		const keep = rulesOf(events);
 		authority.subscribe((e) => {
-			events.push(e);
+			keep(e);
 			if (e.type === 'doctor-visit-started') visiting = true;
 			if (e.type === 'doctor-visit-ended') visiting = false;
 			game.apply(e);

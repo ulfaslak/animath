@@ -25,6 +25,7 @@
 	import SavePrompt from './SavePrompt.svelte';
 	import SoundChip from './SoundChip.svelte';
 	import SurpriseParty from './SurpriseParty.svelte';
+	import BadgeNote from './BadgeNote.svelte';
 	import TitleScreen from './TitleScreen.svelte';
 	import TouchControls from './TouchControls.svelte';
 	import Travel from './Travel.svelte';
@@ -53,6 +54,9 @@
 	<Hud />
 	<!-- The druid's surprise, over the HUD: the catch that opened a land. -->
 	<SurpriseParty />
+	<!-- A new badge, over the HUD under the top middle (on a short screen the HUD's own, over
+	     the message line); the game goes on under it. -->
+	<BadgeNote where="top" />
 	<!-- Not under a trip's cover, which takes no key: a thumb that lands there presses nothing. -->
 	{#if touch.on && !travel.active}<TouchControls />{/if}
 	<PresenceNote where="top" />

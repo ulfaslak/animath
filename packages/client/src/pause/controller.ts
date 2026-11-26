@@ -1,5 +1,7 @@
 import {
 	ALL_PUZZLE_TOPICS,
+	BADGE_FAMILIES,
+	BADGE_IDS,
 	bookOrder,
 	bundles,
 	parseWorldNumber,
@@ -56,7 +58,7 @@ export interface PauseHooks {
  * goes first) and its animals can go first, move within the card or get a
  * name; then Worlds and Who's here, and "Keep playing" and "Start screen",
  * each two side by side; and on the title line "My puzzles", the animal
- * book and Settings. A card of one animal is that animal: picking it opens the
+ * book, "My badges" and Settings. A card of one animal is that animal: picking it opens the
  * animal's options, and its moves move the card. A card of several opens
  * its own screen on the right: its options, then its animals, each of which
  * opens its options.
@@ -88,6 +90,7 @@ export interface PauseHooks {
  *
  * "My puzzles", beside the book on the title line, opens in the menu's
  * place: a row per topic, one lit, the record shown and nothing done.
+ * "My badges", beside the book, likewise: a medal for every badge, one lit.
  *
  * The animal book, the row on the menu's title line, opens in the menu's
  * place: a card for every species, lit one at a time. The arrows walk the
@@ -180,11 +183,13 @@ export class PauseController {
 								? this.bookKey(key)
 								: pause.screen === 'puzzles'
 									? this.puzzlesKey(key)
-									: pause.screen === 'settings'
-										? this.settingsKey(key)
-										: pause.screen === 'logOut'
-											? this.logOutKey(key)
-											: this.optionsKey(key);
+									: pause.screen === 'badges'
+										? this.badgesKey(key)
+										: pause.screen === 'settings'
+											? this.settingsKey(key)
+											: pause.screen === 'logOut'
+												? this.logOutKey(key)
+												: this.optionsKey(key);
 		if (handled) e.preventDefault();
 	}
 
@@ -242,7 +247,7 @@ export class PauseController {
 				const right = key === 'ArrowRight' || key === 'd';
 				if (item === undefined) return false;
 				// Rows side by side (Worlds and Who's here, Keep playing and Start screen, My
-				// puzzles, the book and Settings): left and right step between them. On a card
+				// puzzles, the book, My badges and Settings): left and right step between them. On a card
 				// they do nothing.
 				const line = lineOf(item);
 				if (line.length < 2) return false;
@@ -294,6 +299,12 @@ export class PauseController {
 				// The page of the land the kid is in, its first card lit.
 				book.land = game.land;
 				book.tabs = false;
+				break;
+			case 'badges':
+				// "My badges" in the menu's place, its first medal lit.
+				sfx.play('confirm');
+				pause.screen = 'badges';
+				pause.option = 0;
 				break;
 			case 'settings':
 				// Settings in the menu's place, Language lit.
@@ -559,6 +570,55 @@ export class PauseController {
 			case 'ArrowDown':
 			case 's':
 				return light(Math.min(count - 1, at + 1));
+		}
+		return false;
+	}
+
+	/**
+	 * "My badges", in the menu's place: a medal for every badge, family by
+	 * family, each family's medals starting a row of their own under its
+	 * heading, `pause.badgeColumns` to a row; one lit. Left and right go medal
+	 * by medal, on into the next row and the next family and back; up and
+	 * down a row, family to family, to the medal in the same column or the
+	 * row's last when it is shorter. At an edge they stay put, silently. A tap
+	 * lights a medal. Escape or Back goes back to the list, on its row.
+	 * Nothing here does anything else: it only shows the badges.
+	 */
+	private badgesKey(key: string): boolean {
+		const count = BADGE_IDS.length;
+		const at = Math.min(pause.option, count - 1);
+		const light = (to: number): boolean => {
+			if (to !== at) {
+				pause.option = to;
+				sfx.play('move');
+			}
+			return true;
+		};
+		const tapped = tappedOption(key);
+		if (tapped !== undefined) return tapped < count ? light(tapped) : true;
+		const rows = medalRows(pause.badgeColumns);
+		const row = rows.findIndex((r) => at < r.start + r.length);
+		/** The medal in the same column of the row `by` away, or the row's last; none past the ends. */
+		const across = (by: 1 | -1): number => {
+			const to = rows[row + by];
+			return to ? to.start + Math.min(at - rows[row]!.start, to.length - 1) : at;
+		};
+		switch (key) {
+			case 'Escape':
+				this.backToList();
+				return true;
+			case 'ArrowLeft':
+			case 'a':
+				return light(Math.max(0, at - 1));
+			case 'ArrowRight':
+			case 'd':
+				return light(Math.min(count - 1, at + 1));
+			case 'ArrowUp':
+			case 'w':
+				return light(across(-1));
+			case 'ArrowDown':
+			case 's':
+				return light(across(1));
 		}
 		return false;
 	}
@@ -1004,8 +1064,8 @@ export class PauseController {
 
 	/**
 	 * Back to the team, with the cursor on the card that was open, wherever it
-	 * is now; from the Worlds screen, on the Worlds row; from the animal book
-	 * or "My puzzles", on its row.
+	 * is now; from the Worlds screen, on the Worlds row; from the animal book,
+	 * "My puzzles" or "My badges", on its row.
 	 */
 	private backToList(): void {
 		const from = pause.screen;
@@ -1019,6 +1079,7 @@ export class PauseController {
 		if (from === 'worlds') pause.cursor = cards + MENU_ITEMS.indexOf('worlds');
 		else if (from === 'book') pause.cursor = cards + MENU_ITEMS.indexOf('book');
 		else if (from === 'puzzles') pause.cursor = cards + MENU_ITEMS.indexOf('puzzles');
+		else if (from === 'badges') pause.cursor = cards + MENU_ITEMS.indexOf('badges');
 		else if (place >= 0) pause.cursor = place;
 		this.settle();
 	}
@@ -1048,6 +1109,24 @@ export class PauseController {
 	private send(intent: PartyIntent): void {
 		this.authority.dispatch({ type: 'party', intent });
 	}
+}
+
+/**
+ * The rows of medals "My badges" lays out, `columns` to a row, each family's
+ * starting a row of its own: where each row starts in `BADGE_IDS` and how
+ * many medals it holds.
+ */
+function medalRows(columns: number): { start: number; length: number }[] {
+	const per = Math.max(1, columns);
+	const rows: { start: number; length: number }[] = [];
+	let start = 0;
+	for (const family of BADGE_FAMILIES) {
+		const end = start + family.badges.length;
+		for (let at = start; at < end; at += per)
+			rows.push({ start: at, length: Math.min(per, end - at) });
+		start = end;
+	}
+	return rows;
 }
 
 /** The next row in `dir` that can be chosen, wrapping round; `from` when there is no other. */

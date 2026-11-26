@@ -1,5 +1,6 @@
 import {
 	EMPTY_BOOK,
+	EMPTY_TALLY,
 	FIRST_LAND,
 	FIRST_WORLD,
 	LAND_IDS,
@@ -9,15 +10,19 @@ import {
 	Rng,
 	WORLD_ONE_SEED,
 	WorldEdits,
+	addToTally,
 	applyBattleIntent,
 	applyDoctorIntent,
 	applyPartyIntent,
 	arrivalSpot,
+	badgeCounts,
+	battleMoment,
 	bookOf,
 	bundled,
 	canTalkToDoctor,
 	careFor,
 	castLine,
+	catchMoments,
 	checkName,
 	chooseStarter,
 	clearTile,
@@ -27,6 +32,7 @@ import {
 	topicBonus,
 	type PuzzleRecord,
 	defaultStarter,
+	earnBadges,
 	editedTileAt,
 	fitStays,
 	flightPos,
@@ -61,6 +67,7 @@ import {
 	recordParty,
 	recordTold,
 	recordWentHome,
+	rideMoment,
 	rollEncounterFor,
 	rollSkyEncounter,
 	spawnPoint,
@@ -69,10 +76,16 @@ import {
 	step,
 	surroundings,
 	takeOff,
+	isTallyDay,
+	tallyDay,
 	tileAtWorld,
 	tileRealm,
 	travel,
+	tripMoment,
 	type AnimalBook,
+	type BadgeCounts,
+	type BadgeMoment,
+	type BadgeProgress,
 	type LandId,
 	type LandStay,
 	type AnimalInstance,
@@ -100,6 +113,7 @@ import {
 	type SavedGame,
 	type Ski,
 	type SkiMoved,
+	type Tally,
 	type Tile,
 	type WorldStay
 } from '@mathgame/engine';
@@ -179,6 +193,12 @@ export interface LocalAuthorityOptions {
 	 * world ([[PRODUCT]] §4 "Starting out"). Tests pin it.
 	 */
 	homeWorld?: () => number;
+	/**
+	 * The day it is at the start, `YYYY-MM-DD`, as a `day` intent would tell
+	 * it: what the badges count the days played by (`tallyDay`). The host
+	 * tells it with `day` intents (`badges/day.ts`); tests pin it here.
+	 */
+	today?: string;
 }
 
 /** How a session begins: a saved game to pick up, or a new game when absent. */
@@ -200,8 +220,9 @@ export interface StartOptions {
  * Everything random here is seeded from the world seed and the number of
  * completed steps, so a session replays from `(seed, intents)`. The
  * exceptions are the id an animal gets when it is caught, which must be
- * unique across sessions and is therefore minted, not derived, and the home
- * world a new game is given, picked at random so strangers spread out.
+ * unique across sessions and is therefore minted, not derived, the home
+ * world a new game is given, picked at random so strangers spread out, and
+ * the day a puzzle is solved on, which counts the days played for a badge.
  *
  * The whole game fits in a `SavedGame`: `snapshot()` takes one at any moment,
  * a battle included, and `start({ game })` picks it up again, so a save
@@ -288,8 +309,14 @@ export class LocalAuthority implements Authority {
 	}
 	/** Doctor visits opened in this game, saved with it, so a later visit at the same step asks new puzzles. */
 	private visits = 0;
-	/** The battle in progress, with the seed every intent of it is applied with. */
-	private battle: { state: BattleState; seed: number } | null = null;
+	/**
+	 * The battle in progress, with the seed every intent of it is applied
+	 * with; `fished` when it began with a bite at a fishing hole (catching
+	 * that animal is a badge). Not saved: a battle picked up from a save was
+	 * fished when it is fought in the water while the kid stands on a tile
+	 * that is not, which only a bite through the ice allows (`readBattle`).
+	 */
+	private battle: { state: BattleState; seed: number; fished?: boolean } | null = null;
 	/**
 	 * The flight in progress (the glider), from `take-off` to landing. While it
 	 * lasts, `pos` is the tile the glider is over, and nothing but `glide` and
@@ -334,8 +361,29 @@ export class LocalAuthority implements Authority {
 	 * server sends a match picked up without the steps already sent.
 	 */
 	private readonly matchSteps = new Map<string, number>();
+	/**
+	 * The badges earned (`earnBadges`), by id, in the order earned, ids this
+	 * build lacks kept as they are. Saved with the game; it only grows.
+	 */
+	private badges: readonly string[] = [];
+	/** What the game counts for the badges alone (`badges/tally.ts`). Saved with the game. */
+	private tally: Tally = EMPTY_TALLY;
+	/**
+	 * The firsts that happened during the intent being applied
+	 * (`badges/moments.ts`), handed to `earnBadges` at its end (`award`).
+	 */
+	private moments: BadgeMoment[] = [];
+	/** The ladders' numbers as last told (`welcome`, `badges-changed`), so a change is told once. */
+	private counts: BadgeCounts = {};
+	/**
+	 * The day it is on the kid's calendar, as the host last told it (`day`),
+	 * or null before it has: a puzzle solved then counts no day.
+	 */
+	private today: string | null;
 
-	constructor(private readonly options: LocalAuthorityOptions = {}) {}
+	constructor(private readonly options: LocalAuthorityOptions = {}) {
+		this.today = isTallyDay(options.today) ? options.today : null;
+	}
 
 	/**
 	 * Begin a game: a new one, or `options.game` from a save. Emits `welcome`,
@@ -380,6 +428,15 @@ export class LocalAuthority implements Authority {
 		this.chaser = null;
 		this.minted = null;
 		this.started = true;
+		this.tally = game.tally;
+		this.moments = [];
+		// A game picked up is given every badge it already holds, quietly, and a battle it is in
+		// was begun: a new game's come after its welcome, celebrated (`award`).
+		const quiet = isNew
+			? { earned: game.badges, fresh: [] }
+			: earnBadges(game.badges, this.progress(), this.battleMoments(game.battle));
+		this.badges = [...quiet.earned];
+		this.counts = badgeCounts(this.progress());
 		this.emit({
 			type: 'welcome',
 			playerId: this.playerId,
@@ -401,15 +458,21 @@ export class LocalAuthority implements Authority {
 			freed: [...this.book.freed],
 			told: [...this.book.told],
 			newGame: isNew,
-			edits: [...this.edits.encode()]
+			edits: [...this.edits.encode()],
+			badges: [...this.badges],
+			counts: this.counts,
+			found: quiet.fresh.length
 		});
 		if (game.battle) {
 			// The battle's seed is the one it started with: the steps have not moved since
 			// (or `catchUp` moved it with them).
-			this.battle = { state: game.battle, seed: this.battleSeed() };
+			const here = editedTileAt(this.seed, this.edits, this.pos.x, this.pos.y);
+			const fished = game.battle.realm === 'water' && tileRealm(here.kind) !== 'water';
+			this.battle = { state: game.battle, seed: this.battleSeed(), fished };
 			this.emit({ type: 'battle-started', state: game.battle });
 		}
 		this.askStarter();
+		if (isNew) this.award();
 	}
 
 	/**
@@ -465,7 +528,9 @@ export class LocalAuthority implements Authority {
 			worlds: fitted.worlds.map(copyStay),
 			land: this.land,
 			lands: fitted.lands.map(copyLand),
-			unlocked: [...this.unlocked]
+			unlocked: [...this.unlocked],
+			badges: [...this.badges],
+			tally: this.tally
 		};
 	}
 
@@ -473,7 +538,8 @@ export class LocalAuthority implements Authority {
 	 * Another tab of this game walked further, and the save this page carries
 	 * on from has its counts: raise this page's to them, so its next
 	 * encounters and doctor puzzles follow on instead of repeating, and the
-	 * next save keeps them. Never lowers a count.
+	 * next save keeps them. Never lowers a count. The badges the other tab
+	 * earned join this page's (a walk earns some), so none is lost.
 	 *
 	 * A doctor visit in progress keeps its number and seed, fixed when it
 	 * opened. A battle in progress is keyed on the step count from here on,
@@ -481,7 +547,14 @@ export class LocalAuthority implements Authority {
 	 * here in the save right after it started, before its seed was used: only
 	 * then can another tab's save hold the same progress with more steps.)
 	 */
-	catchUp(counts: { steps: number; visits: number }): void {
+	catchUp(counts: { steps: number; visits: number; badges?: readonly string[] }): void {
+		// Badges only grow: the other page's join this one's, after them, and are told
+		// with the next telling, as a badge another page earned is no news here.
+		const more = (counts.badges ?? []).filter((id) => !this.badges.includes(id));
+		if (more.length > 0) {
+			this.badges = [...this.badges, ...new Set(more)];
+			this.counts = {};
+		}
 		this.visits = Math.max(this.visits, counts.visits);
 		if (counts.steps <= this.steps) return;
 		this.steps = counts.steps;
@@ -523,8 +596,21 @@ export class LocalAuthority implements Authority {
 	}
 
 	dispatch(intent: Intent): void {
+		this.moments = [];
+		this.apply(intent);
+		if (!this.started) return;
+		this.award();
+	}
+
+	/** `intent`, applied by the rules. */
+	private apply(intent: Intent): void {
 		if (intent.type === 'new-game') {
 			this.startNewGame(intent);
+			return;
+		}
+		if (intent.type === 'day') {
+			// Before a game and in any mode: the calendar is the host's to tell, never the clock's here.
+			if (isTallyDay(intent.day)) this.today = intent.day;
 			return;
 		}
 		if (!this.started) return;
@@ -548,6 +634,11 @@ export class LocalAuthority implements Authority {
 		if (intent.type === 'match-answers') {
 			// In any mode: a right answer in a match is the kid's to keep, whatever else is up.
 			this.countMatch(intent);
+			return;
+		}
+		if (intent.type === 'met-player') {
+			// In any mode: whoever the kid met, they met.
+			this.moments.push('firsts.social-animal');
 			return;
 		}
 		if (this.battle) {
@@ -697,6 +788,10 @@ export class LocalAuthority implements Authority {
 		const next = path[path.length - 1]!;
 		this.pos = next;
 		this.steps += path.length;
+		if (tileRealm(tile.kind) === 'land') {
+			const ride = rideMoment({ items: this.items }, this.party);
+			if (ride) this.moments.push(ride);
+		}
 		const tiles = path.length > 1 ? { tiles: path.length } : {};
 		this.emit({ type: 'player-moved', playerId: this.playerId, pos: next, dir, ...tiles });
 
@@ -848,6 +943,8 @@ export class LocalAuthority implements Authority {
 			return;
 		}
 		const here = trip.whereabouts;
+		const moment = tripMoment(this.world, here.world, this.home);
+		if (moment) this.moments.push(moment);
 		this.world = here.world;
 		this.seed = landSeed(this.land, here.world);
 		this.spawn = spawnPoint(this.seed);
@@ -901,6 +998,7 @@ export class LocalAuthority implements Authority {
 		}
 		this.flight = result.flight;
 		this.chaser = null;
+		this.moments.push('firsts.thermal');
 		const { from, dir, reach } = result.flight;
 		this.emit({ type: 'took-off', playerId: this.playerId, from: { ...from }, dir, reach });
 	}
@@ -1040,11 +1138,12 @@ export class LocalAuthority implements Authority {
 
 	// --- battle ------------------------------------------------------------
 
-	private beginBattle(wild: AnimalInstance, realm: Realm): void {
+	private beginBattle(wild: AnimalInstance, realm: Realm, fished = false): void {
 		this.ski = null;
 		// The hits land by the record as the battle starts, and stay so to its end.
 		const state = startBattle(this.party, wild, { realm, bonus: topicBonus(this.puzzles) });
-		this.battle = { state, seed: this.battleSeed() };
+		this.battle = { state, seed: this.battleSeed(), fished };
+		this.moments.push(...this.battleMoments(state));
 		this.emit({ type: 'battle-started', state });
 		// Met, from the moment the battle starts, however it ends.
 		this.note(recordBattle(this.book, state));
@@ -1066,7 +1165,7 @@ export class LocalAuthority implements Authority {
 		this.note(recordBattle(this.book, state, events));
 		if (state.phase.kind !== 'ended') return;
 		this.battle = null;
-		this.endBattle(state, events);
+		this.endBattle(state, events, battle.fished === true);
 	}
 
 	/**
@@ -1078,7 +1177,7 @@ export class LocalAuthority implements Authority {
 	 * within reach does a doctor come and look after everyone here). The
 	 * closing line is a copy key, with the wild animal, never words.
 	 */
-	private endBattle(state: BattleState, events: readonly BattleEvent[]): void {
+	private endBattle(state: BattleState, events: readonly BattleEvent[], fished: boolean): void {
 		if (state.phase.kind !== 'ended') return;
 		this.party = state.party.map((a) => ({ ...a }));
 		const animal: SpeciesRef = { speciesId: state.opponent.speciesId };
@@ -1088,6 +1187,7 @@ export class LocalAuthority implements Authority {
 		switch (state.phase.outcome) {
 			case 'won':
 				line = { key: CLOSING_WON[state.realm], params: { animal } };
+				this.tally = addToTally(this.tally, 'wins');
 				break;
 			case 'fled':
 				line = { key: CLOSING_FLED[state.realm], params: { animal } };
@@ -1096,7 +1196,11 @@ export class LocalAuthority implements Authority {
 				// The reducer always reports the caught animal on `ended`.
 				const ended = events.find((e) => e.type === 'ended');
 				const caught = ended?.type === 'ended' ? ended.caught : undefined;
-				if (caught) this.party = joinParty(this.party, caught);
+				if (caught) {
+					this.party = joinParty(this.party, caught);
+					this.tally = addToTally(this.tally, 'catches');
+					this.moments.push(...catchMoments(state.party[state.active], caught, fished));
+				}
 				line = { key: 'battle.closing.joined', params: { animal } };
 				break;
 			}
@@ -1146,6 +1250,7 @@ export class LocalAuthority implements Authority {
 			// Every world's cleared tiles share one budget: this world's come first.
 			this.fitAround(this.edits);
 			const { pos, was, tool, regrown } = result.cleared;
+			this.tally = addToTally(this.tally, 'cleared');
 			this.emit({ type: 'tile-cleared', playerId: this.playerId, pos, was, tool, regrown });
 		} else if (result.reason === 'needs-tool' && result.kind && result.tool) {
 			const { kind, tool } = result;
@@ -1194,7 +1299,7 @@ export class LocalAuthority implements Authority {
 			outcome: cast.outcome,
 			...speciesId
 		});
-		if (cast.outcome === 'bite') this.beginBattle({ ...cast.wild, id: mintId() }, 'water');
+		if (cast.outcome === 'bite') this.beginBattle({ ...cast.wild, id: mintId() }, 'water', true);
 	}
 
 	// --- doctor ------------------------------------------------------------
@@ -1417,6 +1522,8 @@ export class LocalAuthority implements Authority {
 		const { match, step, side, events } = intent;
 		if (step <= (this.matchSteps.get(match) ?? 0)) return;
 		this.matchSteps.set(match, step);
+		// A match played to its end, however it ended, is one more played.
+		if (events.some((e) => e.type === 'ended')) this.tally = addToTally(this.tally, 'matches');
 		this.count(countSolved(this.solved, events, side));
 		this.recordPuzzles(recordAnswers(this.puzzles, events, { where: 'match', side }));
 	}
@@ -1434,6 +1541,7 @@ export class LocalAuthority implements Authority {
 	private count(solved: number): void {
 		if (solved === this.solved) return;
 		this.solved = solved;
+		if (this.today !== null) this.tally = tallyDay(this.tally, this.today);
 		this.emit({ type: 'solved-changed', solved });
 	}
 
@@ -1460,6 +1568,47 @@ export class LocalAuthority implements Authority {
 			told: [...book.told]
 		});
 		this.unlock();
+	}
+
+	/** The game as the badges read it (`badgesHeld`). */
+	private progress(): BadgeProgress {
+		return {
+			solved: this.solved,
+			puzzles: this.puzzles,
+			book: this.book,
+			party: this.party,
+			steps: this.steps,
+			visits: this.visits,
+			land: this.land,
+			world: this.world,
+			worlds: this.worlds,
+			items: this.items,
+			lands: this.lands,
+			tally: this.tally
+		};
+	}
+
+	/** The firsts a battle in its realm earns (`battleMoment`): none for one on land, or no battle. */
+	private battleMoments(battle: BattleState | null): BadgeMoment[] {
+		const moment = battle ? battleMoment(battle.realm) : null;
+		return moment ? [moment] : [];
+	}
+
+	/**
+	 * The end of an intent: the badges it earned, with the moments it had
+	 * (`earnBadges`), told with every ladder's number, when it earned one or
+	 * changed a number. Steps alone tell nothing: they change on every step,
+	 * so they ride along with the next telling, and a walk is not told twice.
+	 */
+	private award(): void {
+		const progress = this.progress();
+		const { earned, fresh } = earnBadges(this.badges, progress, this.moments);
+		this.moments = [];
+		const counts = badgeCounts(progress);
+		if (fresh.length === 0 && sameCounts(counts, this.counts)) return;
+		this.badges = earned;
+		this.counts = counts;
+		this.emit({ type: 'badges-changed', badges: [...earned], fresh: [...fresh], counts });
 	}
 
 	private partyCopy(): AnimalInstance[] {
@@ -1500,6 +1649,12 @@ function isMatchBatch(intent: Intent & { type: 'match-answers' }): boolean {
 		}
 	}
 	return true;
+}
+
+/** Whether two tellings of the ladders' numbers say the same, but for the steps walked (`award`). */
+function sameCounts(a: BadgeCounts, b: BadgeCounts): boolean {
+	const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+	return [...keys].every((k) => k === 'steps' || a[k] === b[k]);
 }
 
 /** A copy of a land left behind, so the authority's own never leaves it. */
