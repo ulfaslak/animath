@@ -1148,6 +1148,71 @@ describe('Autosave: two tabs, each with the real authority', () => {
 		expect(after.visits).toBeGreaterThanOrEqual(walked.visits);
 	});
 
+	it('a tab carries on from the other’s walk that earned badges, and keeps them: a badge is no reason to be behind', async () => {
+		const store = new MemoryStore();
+		// A game from before badges, two tabs opening it at once: both read it before either
+		// writes, each is given its badges, and each writes them as it begins.
+		savedAt(store, { solved: 12, steps: 98, badges: [] });
+		const a = new Page(store);
+		const b = new Page(store);
+		const planA = await a.autosave.boot();
+		const planB = await b.autosave.boot();
+		a.authority.start({ game: a.autosave.resumable() ?? planA.game });
+		a.autosave.begin();
+		await settle();
+		const given = a.authority.snapshot().badges;
+		expect(given).toContain('solved.atom');
+		expect(store.save()!.badges).toEqual(given);
+		b.authority.start({ game: b.autosave.resumable() ?? planB.game });
+		b.autosave.begin();
+		await settle();
+		expect(b.autosave.behind).toBeNull();
+		expect(a.autosave.behind).toBeNull();
+		// A walks to 100 steps, which earns a badge, and saves both.
+		for (const dir of ['right', 'left'] as const) await a.act({ type: 'move', dir });
+		expect(store.save()!.badges).toEqual(expect.arrayContaining([...given, 'steps.snail']));
+		b.autosave.onStorage(KEYS.save);
+		expect(b.autosave.behind).toBeNull();
+		// B's next save holds what A earned, and B's own next telling says it.
+		const told = await b.act({ type: 'move', dir: 'right' });
+		expect(b.autosave.behind).toBeNull();
+		expect(store.save()!.badges).toContain('steps.snail');
+		const telling = told.find((e) => e.type === 'badges-changed');
+		expect(telling?.type === 'badges-changed' && telling.badges).toContain('steps.snail');
+	});
+
+	it('a game from before badges is given them once: the load writes them, and the next load has none to give', async () => {
+		const store = new MemoryStore();
+		savedAt(store, { solved: 12, badges: [] });
+		const first = new Page(store);
+		await first.continue();
+		await settle();
+		const welcome = first.events.find((e) => e.type === 'welcome');
+		expect(welcome?.type === 'welcome' && welcome.found).toBeGreaterThan(0);
+		expect(store.save()!.badges).toEqual(first.authority.snapshot().badges);
+		const next = new Page(store);
+		await next.continue();
+		const again = next.events.find((e) => e.type === 'welcome');
+		expect(again?.type === 'welcome' && again.found).toBe(0);
+	});
+
+	it('a first the other tab earned on a walk (a take-off) joins this tab’s badges, and its saves keep it', async () => {
+		const store = new MemoryStore();
+		savedAt(store, { pos: { x: -2, y: 6 }, facing: 'up', items: ['glider'] });
+		const a = new Page(store);
+		const b = new Page(store);
+		await a.continue();
+		await b.continue();
+		await a.act({ type: 'take-off' });
+		await a.act({ type: 'land' });
+		expect(store.save()!.badges).toContain('firsts.thermal');
+		b.autosave.onStorage(KEYS.save);
+		expect(b.autosave.behind).toBeNull();
+		await b.act({ type: 'move', dir: 'right' });
+		expect(store.save()!.badges).toContain('firsts.thermal');
+		expect(b.authority.snapshot().badges).toContain('firsts.thermal');
+	});
+
 	it('a battle that starts before the tab hears of the other’s walk is keyed on the walk, as its save is (#58)', async () => {
 		// A game on the spawn tile from which one step left, onto the reed, meets an animal.
 		let steps = 0;

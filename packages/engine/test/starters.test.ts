@@ -129,7 +129,9 @@ describe('newGame with a starter', () => {
 			worlds: [],
 			land: 'nordland',
 			lands: [],
-			unlocked: ['nordland']
+			unlocked: ['nordland'],
+			badges: [],
+			tally: { catches: 0, wins: 0, matches: 0, cleared: 0, days: 0 }
 		});
 		// A game that starts this way saves like any other.
 		expect(validateSaveWrite(saveDocument(game, { lineage: 'L', seq: 1 })).ok).toBe(true);

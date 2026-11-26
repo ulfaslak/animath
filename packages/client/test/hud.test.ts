@@ -71,7 +71,8 @@ function setup(start?: SavedGame) {
 	const explore = new ExploreController(authority, renderer, keyboard);
 	const events: string[] = [];
 	authority.subscribe((e) => {
-		events.push(e.type);
+		// The badges' own events follow whatever counts for one: the tests read the rest.
+		if (e.type !== 'badges-changed') events.push(e.type);
 		game.apply(e);
 		hud.apply(e);
 		explore.handle(e);
@@ -203,7 +204,10 @@ describe('the explore message line', () => {
 			freed: [],
 			told: [],
 			newGame: true,
-			edits: []
+			edits: [],
+			badges: [],
+			counts: {},
+			found: 0
 		});
 		hud.apply({
 			type: 'doctor-visit-ended',
@@ -351,7 +355,10 @@ describe('the explore message line', () => {
 			freed: [],
 			told: [],
 			newGame: false,
-			edits: []
+			edits: [],
+			badges: [],
+			counts: {},
+			found: 0
 		});
 		expect(hud.hint).toBe(t('explore.controls'));
 		game.apply({ type: 'player-blocked', playerId: 'p', dir: 'down' });
@@ -382,7 +389,10 @@ describe('the explore message line', () => {
 			freed: [],
 			told: [],
 			newGame: false,
-			edits: []
+			edits: [],
+			badges: [],
+			counts: {},
+			found: 0
 		});
 		expect(hud.hint).toBe(t('explore.talkPrompt'));
 	});

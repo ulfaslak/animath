@@ -25,6 +25,7 @@ import { NEEDS, PROMPTS, hud } from '../src/state/hud.svelte';
 import { skyPieces } from './sky-pieces';
 import { testStarter } from './minted';
 import { runAway } from './run-away';
+import { rulesOf } from './rules-of.js';
 
 /**
  * The Arctic's shop in the browser (#191 step 6): the land's money on every
@@ -131,8 +132,9 @@ function setup(start: SavedGame) {
 	} as unknown as Keyboard;
 	const explore = new ExploreController(authority, renderer, keyboard);
 	const events: GameEvent[] = [];
+	const keep = rulesOf(events);
 	authority.subscribe((e) => {
-		events.push(e);
+		keep(e);
 		game.apply(e);
 		hud.apply(e);
 		explore.handle(e);
@@ -322,7 +324,7 @@ describe('fishing', () => {
 		const open = (game: SavedGame) => {
 			const authority = new LocalAuthority();
 			const events: GameEvent[] = [];
-			authority.subscribe((e) => events.push(e));
+			authority.subscribe(rulesOf(events));
 			authority.start({ game });
 			return { authority, events };
 		};

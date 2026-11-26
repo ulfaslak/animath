@@ -11,7 +11,7 @@ import {
 	saveVersion,
 	validateSaveWrite,
 	type GameEvent,
-	type SaveV6,
+	type SaveV7,
 	type SaveWrite,
 	type SavedGame
 } from '@mathgame/engine';
@@ -97,9 +97,10 @@ export interface AutosaveOptions {
 	/**
 	 * Another tab of this game walked further and this page carries on from
 	 * its save: raise the authority's step and visit counts to those, so the
-	 * next encounters and doctor puzzles follow on rather than repeat.
+	 * next encounters and doctor puzzles follow on rather than repeat, and
+	 * add its badges to the authority's, so none it earned is lost.
 	 */
-	catchUp?: (counts: { steps: number; visits: number }) => void;
+	catchUp?: (counts: { steps: number; visits: number; badges: readonly string[] }) => void;
 	/** `?new`: a throwaway game that reads and writes nothing, and says nothing about it. */
 	throwaway?: boolean;
 	timers?: Timers;
@@ -162,7 +163,8 @@ export class Autosave {
 	private readonly loggedOut: (() => void) | null;
 	private readonly snapshot: () => SavedGame;
 	private readonly mintId: () => string;
-	private readonly catchUp: ((counts: { steps: number; visits: number }) => void) | null;
+	private readonly catchUp:
+		((counts: { steps: number; visits: number; badges: readonly string[] }) => void) | null;
 	private readonly throwaway: boolean;
 	private readonly timers: Timers;
 	private readonly bootWaitMs: number;
@@ -179,7 +181,7 @@ export class Autosave {
 	private writtenText: string | null = null;
 	private writtenSeq = 0;
 	/** The save this page's game grows from: the one it loaded, carried on from, or last wrote. */
-	private base: SaveV6 | null = null;
+	private base: SaveV7 | null = null;
 	/** Fields a newer build left in the loaded save, written back unchanged. */
 	private extras: Record<string, unknown> = {};
 	/** The newest document built, for the server. */
@@ -189,6 +191,12 @@ export class Autosave {
 
 	/** Whether the page has something to write before a new game is saved at start. */
 	private firstWrite = false;
+	/**
+	 * The game picked up was given badges it held and had no record of (a
+	 * `welcome`'s `found`): written at `begin`, so the next load neither gives
+	 * nor tells them again.
+	 */
+	private badgesFound = false;
 	private dirty = false;
 	private dirtyMatters = false;
 	private commitQueued = false;
@@ -426,7 +434,8 @@ export class Autosave {
 	 */
 	begin(): void {
 		this.begun = true;
-		if (this.firstWrite) this.changed(false);
+		if (this.firstWrite || this.badgesFound) this.changed(false);
+		this.badgesFound = false;
 		this.startServer();
 	}
 
@@ -442,6 +451,7 @@ export class Autosave {
 			this.newGameStarted();
 			return;
 		}
+		if (event.type === 'welcome') this.badgesFound = event.found > 0;
 		if (!this.begun) return;
 		switch (event.type) {
 			case 'game-left':
@@ -494,10 +504,19 @@ export class Autosave {
 			case 'book-changed':
 			// A land unlocked: only a catch does, whose own events save too.
 			case 'unlocked-changed':
+			// A badge earned, or a number counted for one: in a friendly match, or on meeting
+			// another player, where nothing else changes, this is what writes it.
+			case 'badges-changed':
 				this.changed(false);
 				break;
-			// Nothing changed: a game picked up (its start writes nothing), a refusal, a line to say.
+			// A game picked up writes nothing at its start, but for the badges it was given (`begin`).
 			case 'welcome':
+				if (this.badgesFound) {
+					this.badgesFound = false;
+					this.changed(false);
+				}
+				break;
+			// Nothing changed: a refusal, a line to say.
 			case 'new-game-refused':
 			case 'name-refused':
 			case 'travel-refused':
@@ -680,7 +699,7 @@ export class Autosave {
 	}
 
 	/** Take `save` as the one this page's game grows from. */
-	private carryOn(save: SaveV6): void {
+	private carryOn(save: SaveV7): void {
 		this.lineage = saveLineage(save) || this.mintId();
 		this.seq = Math.max(this.seq, saveSeq(save));
 		this.extras = saveExtras(save);
@@ -707,7 +726,11 @@ export class Autosave {
 		if (!read.ok) return false;
 		this.carryOn(read.save);
 		this.seenText = text;
-		this.catchUp?.({ steps: read.save.steps ?? 0, visits: read.save.visits ?? 0 });
+		this.catchUp?.({
+			steps: read.save.steps ?? 0,
+			visits: read.save.visits ?? 0,
+			badges: read.save.badges ?? []
+		});
 		return true;
 	}
 
@@ -985,7 +1008,7 @@ export class Autosave {
 	 * its `replaced` key (or `unreadable`), make the server's the saved
 	 * game, and reload into it.
 	 */
-	private adopt(save: SaveV6, doc: unknown): void {
+	private adopt(save: SaveV7, doc: unknown): void {
 		const store = this.store;
 		if (!store || this.local === 'frozen' || this.local === 'none') return;
 		const current = store.get(this.keys.save);

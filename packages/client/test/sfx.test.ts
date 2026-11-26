@@ -182,6 +182,7 @@ describe('cues', () => {
 	it('lists every cue the screens use', () => {
 		expect([...CUE_NAMES].sort()).toEqual(
 			[
+				'badge',
 				'boing',
 				'cast',
 				'caught',

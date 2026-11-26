@@ -24,7 +24,9 @@ import { account } from './account.svelte';
  * each one a "Go to" (`presence.roster`); `book` is the animal book, a page
  * per land (`book.land`) with a card for every species of the land in the
  * book's order (`bookOrder`), the lit one `option`; `puzzles` is "My
- * puzzles", a row per topic (`statRows`), the lit one `option`; `settings`
+ * puzzles", a row per topic (`statRows`), the lit one `option`; `badges`
+ * is "My badges", a medal for every badge there is, family by family
+ * (`BADGE_IDS`' order), the lit one `option`; `settings`
  * is the Settings screen, in the menu's place: Language, Sound and the
  * account's rows (`settingsRows`), the lit one `option`; `logOut` asks on
  * the Settings screen's right whether the kid remembers their password,
@@ -39,14 +41,15 @@ export type PauseScreen =
 	| 'players'
 	| 'book'
 	| 'puzzles'
+	| 'badges'
 	| 'settings'
 	| 'logOut';
 
 /**
  * The rows under the team, in order: Worlds and Who's here, side by side,
  * then "Keep playing" and Quit to title, side by side; and last "My
- * puzzles", the animal book and Settings, side by side at the top, on the
- * menu's title line, so up from the first card reaches Settings and down
+ * puzzles", the animal book, "My badges" and Settings, side by side at the
+ * top, on the menu's title line, so up from the first card reaches Settings and down
  * from the last row comes round to "My puzzles". A new row is a new id
  * here, its place on a line of `MENU_LINES` (which `PauseMenu.svelte`
  * draws, the title line by hand), its label there, and its case in
@@ -57,7 +60,8 @@ export type PauseScreen =
  * on the right, where picking one goes to them; `quit` (Start screen) saves
  * the game as it stands and goes back to the title, where Continue picks it
  * up; `puzzles` opens "My puzzles" in the menu's place, `book` the animal
- * book, and `settings` the Settings screen (`SETTINGS`).
+ * book, `badges` "My badges", and `settings` the Settings screen
+ * (`SETTINGS`).
  */
 export const MENU_ITEMS = [
 	'worlds',
@@ -66,6 +70,7 @@ export const MENU_ITEMS = [
 	'quit',
 	'puzzles',
 	'book',
+	'badges',
 	'settings'
 ] as const;
 export type MenuItem = (typeof MENU_ITEMS)[number];
@@ -73,14 +78,14 @@ export type MenuItem = (typeof MENU_ITEMS)[number];
 /**
  * Rows drawn side by side on one line, so the menu keeps its height (eight
  * cards fit 1024×768): Worlds beside Who's here, Keep playing beside Start
- * screen, and on the title line "My puzzles" beside the book and Settings.
- * Each line is neighbours in `MENU_ITEMS`. Up and down walk them in order
- * as any rows; left and right step between them.
+ * screen, and on the title line "My puzzles", the book, "My badges" and
+ * Settings. Each line is neighbours in `MENU_ITEMS`. Up and down walk them
+ * in order as any rows; left and right step between them.
  */
 export const MENU_LINES: readonly (readonly MenuItem[])[] = [
 	['worlds', 'players'],
 	['resume', 'quit'],
-	['puzzles', 'book', 'settings']
+	['puzzles', 'book', 'badges', 'settings']
 ];
 
 /** The rows drawn on the line `item` is on. */
@@ -162,10 +167,16 @@ class PauseView {
 	 * Highlighted row on the right: an option, or on a card's screen an option
 	 * or an animal; on the Worlds screen a row; in the animal book the lit
 	 * card, by its place on the open page (`bookOrder(book.land)`); in "My
-	 * puzzles" the lit row; on the Settings screen the lit row of
-	 * `settingsRows()`.
+	 * puzzles" the lit row; in "My badges" the lit medal, by its place in
+	 * `BADGE_IDS`; on the Settings screen the lit row of `settingsRows()`.
 	 */
 	option = $state(0);
+	/**
+	 * How many medals "My badges" lays to a row, told by its grid as the
+	 * screen's width changes it, so up and down go a row. The page's layout,
+	 * not the menu's state: `reset` leaves it.
+	 */
+	badgeColumns = $state(1);
 	/** The name typed so far. */
 	draft = $state('');
 	/** The world's number typed on the Worlds screen so far: up to `WORLD_DIGITS` digits. */

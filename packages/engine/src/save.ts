@@ -1,6 +1,7 @@
 import type { AnimalInstance, Realm } from './animals/types.js';
 import { ATTACK_LEVELS, REALMS } from './animals/types.js';
 import { bookOf, recordParty, seeSpecies, type AnimalBook } from './animals/book.js';
+import { EMPTY_TALLY, isTallyDay, type Tally } from './badges/tally.js';
 import { ANIMALS, canFightIn, getAnimal } from './animals/catalog.js';
 import type { BattleState } from './battle/types.js';
 import { gearOf } from './items/catalog.js';
@@ -44,7 +45,7 @@ import {
  */
 
 /** The newest save format this build reads and writes. */
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 
 /** The longest animal id, or lineage id, a save may hold. */
 export const MAX_SAVE_ID_LENGTH = 64;
@@ -186,6 +187,13 @@ export interface SavedGame {
 	 * kept as it is.
 	 */
 	unlocked: string[];
+	/**
+	 * The badges earned (`earnBadges`), by id, in the order earned. Only
+	 * grows: a badge is never taken back. An id this build lacks is kept as it is.
+	 */
+	badges: string[];
+	/** What the game counts for the badges alone (`badges/tally.ts`). Only grows. */
+	tally: Tally;
 }
 
 /**
@@ -231,9 +239,11 @@ export interface SavedLandStay {
 }
 
 /**
- * Version 6 of the save document, since a battle can be saved in the middle
- * of its escape puzzle (`escaping`): the version this build writes. Version 5,
- * since the puzzle record (`puzzles`), was the same document, read through
+ * Version 7 of the save document, since the badges (`badges`, and `tally`,
+ * what only they count): the version this build writes. Version 6, since a
+ * battle can be saved in the middle of its escape puzzle (`escaping`), was the
+ * same document without them, read through `SAVE_UPGRADES[6]`. Version 5,
+ * since the puzzle record (`puzzles`), was version 6, read through
  * `SAVE_UPGRADES[5]`. Version 4, since lands (#191), was version 5 without the
  * record, read through `SAVE_UPGRADES[4]`. `land` is the land
  * the player is in, whose are the position, the
@@ -252,8 +262,8 @@ export interface SavedLandStay {
  * when an old document becomes unreadable, and add the upgrade that reads it
  * (`SAVE_UPGRADES`).
  */
-export interface SaveV6 {
-	version: 6;
+export interface SaveV7 {
+	version: 7;
 	/** The world the game began in. */
 	home: number;
 	/** The world the player is in; `pos`, `facing` and `edits` are that world's. */
@@ -358,13 +368,44 @@ export interface SaveV6 {
 	 * unlock (`unlockLands`). An id this build does not have is kept as it is.
 	 */
 	unlocked?: string[];
+	/**
+	 * The badges earned, by id (`badges/catalog.ts`), in the order earned.
+	 * Written only once there is one: a save without it has earned none, and
+	 * gets every badge its game already holds when it is next played, quietly
+	 * (`LocalAuthority`). No version for it: an older build earns no badges,
+	 * so carrying on with it unread leaves nothing out. An id this build does
+	 * not have is kept as it is and does nothing.
+	 */
+	badges?: string[];
+	/**
+	 * The tally (`badges/tally.ts`): leash throws that caught, wild battles
+	 * won, friendly matches played, tiles cleared and days played, counted for
+	 * the badges alone. Written only once something is counted; a save
+	 * without it, or without one of its numbers, has counted none. No version
+	 * for it, as `byDifficulty`: an older build carrying on leaves what it
+	 * played uncounted, so the numbers stay true, only short. A number a newer
+	 * build adds goes in a field of its own: this build keeps only its own.
+	 */
+	tally?: SavedTally;
+}
+
+/** The tally as a save holds it: a number left out is 0, and `lastDay` is absent before the first day counted. */
+export interface SavedTally {
+	catches?: number;
+	wins?: number;
+	matches?: number;
+	cleared?: number;
+	days?: number;
+	lastDay?: string;
+	/** A count a newer build keeps here: written back as it was (`Tally.more`). */
+	[more: string]: unknown;
 }
 
 /** A document ready to be written: every field a write must carry is present. */
-export type SaveWrite = SaveV6 &
-	Required<Pick<SaveV6, 'facing' | 'steps' | 'visits' | 'lineage' | 'seq'>>;
+export type SaveWrite = SaveV7 &
+	Required<Pick<SaveV7, 'facing' | 'steps' | 'visits' | 'lineage' | 'seq'>>;
 
-/** The fields `SaveV6` names. Everything else in a document is an extra and is kept as sent. */
+/** The fields `SaveV7` names. Everything else in a document is an extra and is kept as sent. */
 const SAVE_KEYS: ReadonlySet<string> = new Set([
 	'version',
 	'name',
@@ -391,7 +432,9 @@ const SAVE_KEYS: ReadonlySet<string> = new Set([
 	'worlds',
 	'land',
 	'lands',
-	'unlocked'
+	'unlocked',
+	'badges',
+	'tally'
 ]);
 
 /**
@@ -407,6 +450,16 @@ const WHEREABOUTS: ReadonlySet<string> = new Set([
 	'lineage',
 	'seq'
 ]);
+
+/**
+ * Fields two pages of one game take together rather than compare
+ * (`sameProgress`): the badges earned, which only grow, so the page carrying
+ * on adds the other page's to its own (`LocalAuthority.catchUp`). A walk earns
+ * badges (steps, a first take-off, a ride), and a game picked up is given its
+ * badges before it writes, so comparing them would put a page behind another
+ * that only walked.
+ */
+const TAKEN_TOGETHER: ReadonlySet<string> = new Set(['badges']);
 
 /** The animal book's lists of species ids. */
 const BOOK_KEYS = ['seen', 'caught', 'freed', 'told'] as const;
@@ -434,7 +487,7 @@ export type SaveProblem = 'newer' | 'invalid';
  * [[INVARIANTS]] § Saves.
  */
 export type SaveRead =
-	{ ok: true; save: SaveV6 } | { ok: false; reason: SaveProblem; error: string };
+	{ ok: true; save: SaveV7 } | { ok: false; reason: SaveProblem; error: string };
 
 /** A document someone wants to write, checked (`validateSaveWrite`). */
 export type SaveWriteCheck =
@@ -490,6 +543,16 @@ export const V4_KEPT = 'v4';
 const NAMED_SINCE_V5 = ['puzzles'] as const;
 
 /**
+ * Where the v6 → v7 upgrade keeps what a v7 document names and a v6 document
+ * held only as an extra (`badges`, `tally`, or this key itself), as it was.
+ * No build wrote any; kept so the upgrade loses nothing.
+ */
+export const V6_KEPT = 'v6';
+
+/** The keys a v7 document names that a v6 document could hold only as extras. */
+const NAMED_SINCE_V7 = ['badges', 'tally'] as const;
+
+/**
  * Upgrades, indexed by the version they read: `SAVE_UPGRADES[1]` turns a v1
  * document into a v2 one. Version N + 1 ships with `SAVE_UPGRADES[N]`, and
  * `readSave` chains them, so a save from any earlier version still loads.
@@ -531,6 +594,14 @@ const NAMED_SINCE_V5 = ['puzzles'] as const;
  * would drop such a battle as if the kid had run away and write over it; now
  * it calls the save `newer` and leaves it be ([[DEFERRED]]'s trigger for a new
  * battle phase).
+ *
+ * v6 → v7: the badges (`badges`) and what only they count (`tally`). A v6
+ * save has earned none and counted nothing yet: the first load gives it the
+ * badges its game holds (`earnBadges`), and everything else stays exactly as
+ * it was; a v6 extra under a key v7 has taken goes under `V6_KEPT`. A bump,
+ * not an optional field: an older build would carry on catching, winning and
+ * clearing without counting it, and earn firsts without writing them down
+ * ([[DECISIONS]] § Saves).
  */
 export const SAVE_UPGRADES: Readonly<Record<number, (doc: Doc) => Doc>> = {
 	1: (doc) => {
@@ -586,7 +657,18 @@ export const SAVE_UPGRADES: Readonly<Record<number, (doc: Doc) => Doc>> = {
 		if (Object.keys(kept).length > 0) out[V4_KEPT] = kept;
 		return out;
 	},
-	5: (doc) => ({ ...doc, version: 6 })
+	5: (doc) => ({ ...doc, version: 6 }),
+	6: (doc) => {
+		const out: Doc = { ...doc, version: 7 };
+		const kept: Doc = {};
+		for (const key of [...NAMED_SINCE_V7, V6_KEPT]) {
+			if (!Object.prototype.hasOwnProperty.call(out, key)) continue;
+			kept[key] = out[key];
+			delete out[key];
+		}
+		if (Object.keys(kept).length > 0) out[V6_KEPT] = kept;
+		return out;
+	}
 };
 
 /**
@@ -737,20 +819,20 @@ function validateLandStay(v: unknown, label: string): string | null {
 }
 
 /**
- * Checks an untrusted value against the v6 document. `version`, `home`,
+ * Checks an untrusted value against the v7 document. `version`, `home`,
  * `world`, `pos` and `party` are required; the other fields are checked when
  * present, except `battle`, which only has to be storable (a load checks it
  * with `readBattle`). A document of the right shape that names something
  * this build does not have (`findUnknownContent`) is refused too. On success
  * the value is the input object itself.
  */
-export function validateSave(input: unknown): SaveCheck<SaveV6> {
+export function validateSave(input: unknown): SaveCheck<SaveV7> {
 	const checked = checkSave(input);
 	return checked.ok ? { ok: true, value: checked.save } : { ok: false, error: checked.error };
 }
 
 /**
- * The v6 check, saying why a document fails: its shape makes it `invalid`;
+ * The v7 check, saying why a document fails: its shape makes it `invalid`;
  * a document of the right shape that names content this build does not have
  * was written by a newer build, and is `newer`.
  */
@@ -761,7 +843,7 @@ function checkSave(input: unknown): SaveRead {
 	if (error) return { ok: false, reason: 'invalid', error };
 	const unknown = findUnknownContent(input);
 	if (unknown) return { ok: false, reason: 'newer', error: unknown };
-	return { ok: true, save: input as unknown as SaveV6 };
+	return { ok: true, save: input as unknown as SaveV7 };
 }
 
 /**
@@ -920,7 +1002,78 @@ function findSaveError(input: Doc): string | null {
 	if (unlocked !== undefined && (!Array.isArray(unlocked) || !unlocked.every(isContentId))) {
 		return 'unlocked must be a list of land ids';
 	}
+	const badges = input.badges;
+	if (badges !== undefined && (!Array.isArray(badges) || !badges.every(isBadgeShaped))) {
+		return 'badges must be a list of badge ids, each a family and a name joined by a dot';
+	}
+	if (input.tally !== undefined) {
+		const tally = input.tally;
+		if (!isRecord(tally)) return 'tally must be an object';
+		for (const key of TALLY_COUNTS) {
+			if (tally[key] !== undefined && !isWhole(tally[key])) {
+				return `tally.${key} must be a whole number of 0 or more`;
+			}
+		}
+		if (tally.lastDay !== undefined && !isTallyDay(tally.lastDay)) {
+			return 'tally.lastDay must be a day written YYYY-MM-DD';
+		}
+	}
 	return null;
+}
+
+/** The tally's numbers, each a whole number in a save. */
+const TALLY_COUNTS = ['catches', 'wins', 'matches', 'cleared', 'days'] as const;
+
+/**
+ * The shape of every badge id (`badges/catalog.ts`): a family and a name,
+ * each a catalog id, joined by a dot. An id of this shape the build does not
+ * have is a newer build's badge, kept and doing nothing, never a newer save.
+ */
+const BADGE_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*\.[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+function isBadgeShaped(v: unknown): v is string {
+	return isId(v) && BADGE_ID.test(v);
+}
+
+/** A save's tally as the game counts it: what is left out is 0. */
+function readTally(saved: SavedTally | undefined): Tally {
+	if (saved === undefined) return EMPTY_TALLY;
+	const tally: { -readonly [K in keyof Tally]: Tally[K] } = {
+		catches: saved.catches ?? 0,
+		wins: saved.wins ?? 0,
+		matches: saved.matches ?? 0,
+		cleared: saved.cleared ?? 0,
+		days: saved.days ?? 0
+	};
+	if (saved.lastDay !== undefined) tally.lastDay = saved.lastDay;
+	const more = {};
+	for (const [key, value] of Object.entries(saved)) {
+		if (!TALLY_KEYS.has(key)) setOwn(more, key, value);
+	}
+	if (Object.keys(more).length > 0) tally.more = more;
+	return tally;
+}
+
+/** The keys of the tally this build reads; any other is a newer build's (`Tally.more`). */
+const TALLY_KEYS: ReadonlySet<string> = new Set([...TALLY_COUNTS, 'lastDay']);
+
+/** `target[key] = value` as an own field, whatever the key, `__proto__` included. */
+function setOwn(target: object, key: string, value: unknown): void {
+	Object.defineProperty(target, key, {
+		value,
+		enumerable: true,
+		writable: true,
+		configurable: true
+	});
+}
+
+/** The tally as a save writes it: only the numbers counted, and nothing at all before the first. */
+function savedTally(tally: Tally): SavedTally | undefined {
+	const out: SavedTally = {};
+	for (const [key, value] of Object.entries(tally.more ?? {})) setOwn(out, key, value);
+	for (const key of TALLY_COUNTS) if (tally[key] > 0) out[key] = tally[key];
+	if (tally.lastDay !== undefined) out.lastDay = tally.lastDay;
+	return Object.keys(out).length > 0 ? out : undefined;
 }
 
 /**
@@ -1054,7 +1207,9 @@ export function newGame(
 		edits: [],
 		worlds: [],
 		lands: [],
-		unlocked: [...unlockLands([], book.caught)]
+		unlocked: [...unlockLands([], book.caught)],
+		badges: [],
+		tally: EMPTY_TALLY
 	};
 }
 
@@ -1116,7 +1271,7 @@ function cleanAnimal(animal: AnimalInstance): AnimalInstance {
  * The animal book comes back as saved, made whole with what the save proves
  * itself (`savedBook`): a save from before the book gets one back.
  */
-export function restoreGame(save: SaveV6, mintId: () => string): SavedGame {
+export function restoreGame(save: SaveV7, mintId: () => string): SavedGame {
 	// Known to this build: a land it lacks makes the save a newer build's (`readSave`).
 	const land = (save.land ?? FIRST_LAND) as LandId;
 	const seed = landSeed(land, save.world);
@@ -1178,7 +1333,9 @@ export function restoreGame(save: SaveV6, mintId: () => string): SavedGame {
 		edits: [...edits.encode()],
 		worlds: [...worlds!],
 		lands: left.map((stay, i) => ({ ...stay, worlds: [...landWorlds[i]!] })),
-		unlocked: [...unlockLands(save.unlocked ?? [], book.caught)]
+		unlocked: [...unlockLands(save.unlocked ?? [], book.caught)],
+		badges: [...new Set(save.badges ?? [])],
+		tally: readTally(save.tally)
 	};
 }
 
@@ -1217,7 +1374,7 @@ function landStayOf(home: number): (saved: SavedLandStay) => LandStay {
  * not which. `party` is the party the game goes on with (`restoreGame`'s,
  * which a starter may have joined); by default the save's own.
  */
-function savedBook(save: SaveV6, party: readonly AnimalInstance[] = save.party): AnimalBook {
+function savedBook(save: SaveV7, party: readonly AnimalInstance[] = save.party): AnimalBook {
 	let book = recordParty(
 		bookOf(save.seen ?? [], save.caught ?? [], save.freed ?? [], save.told ?? []),
 		party
@@ -1347,11 +1504,11 @@ function isSavedPuzzle(puzzle: unknown): boolean {
 }
 
 /**
- * The top-level fields of a document that `SaveV6` does not name, and a
+ * The top-level fields of a document that `SaveV7` does not name, and a
  * newer build's counts by difficulty (`byDifficultyOwner`): fields this
  * build writes back as they were.
  */
-export function saveExtras(doc: SaveV6): Doc {
+export function saveExtras(doc: SaveV7): Doc {
 	const extras: Doc = {};
 	for (const [key, value] of Object.entries(doc)) {
 		const newer = key === 'byDifficulty' && byDifficultyOwner(value) === 'newer';
@@ -1408,6 +1565,10 @@ export function saveDocument(
 	// Only once another land was flown to, and once a land past the first is unlocked.
 	if (game.lands.length > 0) doc.lands = game.lands.map(savedLandStay);
 	if (game.unlocked.some((id) => id !== FIRST_LAND)) doc.unlocked = [...game.unlocked];
+	// Only once a badge is earned, and once something is counted for one.
+	if (game.badges.length > 0) doc.badges = [...game.badges];
+	const tally = savedTally(game.tally);
+	if (tally) doc.tally = tally;
 	return doc;
 }
 
@@ -1481,7 +1642,9 @@ export function replacesAnotherGame(
 /**
  * Whether two saves hold the same progress: they may differ in where the
  * player is in the world they are in (position, facing, steps, doctor
- * visits) and in which write they are, and in nothing else — not the party,
+ * visits), in which write they are, and in the badges earned, which the page
+ * carrying on takes together with its own (`TAKEN_TOGETHER`), and in nothing
+ * else — not the party,
  * not a battle, not the puzzles solved, not the animal book, not the world
  * they are in or the worlds they left, not the land they are in, the lands
  * they left or the lands unlocked, not the name, not any extra field. A
@@ -1489,12 +1652,12 @@ export function replacesAnotherGame(
  * that only walked around can take the save back without losing anything a
  * kid would miss.
  */
-export function sameProgress(a: SaveV6, b: SaveV6): boolean {
+export function sameProgress(a: SaveV7, b: SaveV7): boolean {
 	const left = withProgressDefaults(a);
 	const right = withProgressDefaults(b);
 	const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
 	for (const key of keys) {
-		if (WHEREABOUTS.has(key)) continue;
+		if (WHEREABOUTS.has(key) || TAKEN_TOGETHER.has(key)) continue;
 		if (canonical(left[key]) !== canonical(right[key])) return false;
 	}
 	return true;
@@ -1508,7 +1671,7 @@ export function sameProgress(a: SaveV6, b: SaveV6): boolean {
  * that writes it out. The book's lists compare as sets: the order a species
  * was first met in is no progress.
  */
-function withProgressDefaults(doc: SaveV6): Doc {
+function withProgressDefaults(doc: SaveV7): Doc {
 	const out: Doc = { ...(doc as unknown as Doc) };
 	if (out.tokens === undefined) out.tokens = 0;
 	if (out.items === undefined) out.items = [];
@@ -1518,6 +1681,8 @@ function withProgressDefaults(doc: SaveV6): Doc {
 	if (out.worlds === undefined) out.worlds = [];
 	if (out.land === undefined) out.land = FIRST_LAND;
 	if (out.lands === undefined) out.lands = [];
+	// A tally left out counted nothing.
+	out.tally = savedTally(readTally(doc.tally)) ?? {};
 	const book = savedBook(doc);
 	out.seen = [...book.seen].sort();
 	out.caught = [...book.caught].sort();

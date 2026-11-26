@@ -65,9 +65,9 @@ import { acceptWelcome, welcomeState } from '../welcome.js';
  *   GET  /api/account/home                                → 200 { names }: the accounts whose home this browser is
  *   POST /api/account/password  { password, current? }    → 200 { ok: true } | 403 not home | 403 wrong password
  *   POST /api/account/name      { name, password? }       → 200 { user: { name } } | 409 name taken | 403
- *   GET  /api/account/save                                → 200 SaveV6 | 404 no save yet
- *   PUT  /api/account/save      SaveV6                    → 200 { ok: true } | 409 { error, save }
- *   POST /api/account/keep      SaveV6                    → 200 { ok: true }: kept with the account
+ *   GET  /api/account/save                                → 200 SaveV7 | 404 no save yet
+ *   PUT  /api/account/save      SaveV7                    → 200 { ok: true } | 409 { error, save }
+ *   POST /api/account/keep      SaveV7                    → 200 { ok: true }: kept with the account
  *   GET  /api/account/welcome   (x-animath-welcome: token) → 200 { name } | 410 used or expired | 404
  *   POST /api/account/welcome   { token, password }       → 200 { user: { name }, save } + cookie
  *

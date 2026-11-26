@@ -1,10 +1,12 @@
 <script lang="ts">
 	import {
+		BADGE_IDS,
 		MAX_NICKNAME_LENGTH,
 		bookOrder,
 		bundles,
 		canFightIn,
 		getAnimal,
+		isBadgeId,
 		leadIndex,
 		normalizeNickname,
 		parseWorldNumber
@@ -18,6 +20,7 @@
 	import { motion } from '../motion';
 	import { animalWords, nameOf, speciesName } from '../names';
 	import { account } from '../state/account.svelte';
+	import { badges } from '../state/badges.svelte';
 	import { book, bookLands } from '../state/book.svelte';
 	import { game } from '../state/game.svelte';
 	import { presence } from '../state/presence.svelte';
@@ -39,6 +42,8 @@
 		type Setting,
 		type WorldOption
 	} from '../state/pause.svelte';
+	import BadgesIcon from './BadgesIcon.svelte';
+	import BadgesPage from './BadgesPage.svelte';
 	import BookIcon from './BookIcon.svelte';
 	import PlayersIcon from './PlayersIcon.svelte';
 	import PuzzlesIcon from './PuzzlesIcon.svelte';
@@ -86,8 +91,10 @@
 	 * naming the menu moves to the top of the screen, clear of the tablet's
 	 * own keyboard.
 	 *
-	 * The "My puzzles" row, the animal book's row and Settings stand on the menu's title
-	 * line, beside "Paused", so the menu keeps its height; the book's opens it in the menu's place: a
+	 * The "My puzzles" row, the animal book's row, "My badges" and Settings stand on the menu's title
+	 * line, beside "Paused", so the menu keeps its height (where the line has no room for
+	 * them, a phone held sideways, they wrap onto a second line under it); "My badges" opens
+	 * `BadgesPage` in the menu's place; the book's opens it in the menu's place: a
 	 * card for every species of a land in the book's order (`bookOrder`), a
 	 * page per land with a tab for each over the cards (`bookLands`), in a grid
 	 * that scrolls — a "?" for one never seen, the figure's picture and name
@@ -154,6 +161,14 @@
 	const playerName = $derived(game.name ?? account.name ?? '');
 	/** "My puzzles"' rows: every topic, the most solved first (`statRows`). */
 	const stats = $derived(statRows(game.puzzles));
+
+	/** "My badges"' count: the badges earned that this build has, of every badge there is. */
+	const badgesEarned = $derived(
+		t('badges.earned', {
+			count: new Set(badges.earned.filter(isBadgeId)).size,
+			total: BADGE_IDS.length
+		})
+	);
 
 	/** The animal book: what the kid has seen, caught and set free, and the kinds on their team now. */
 	const seen = $derived(new Set(game.seen));
@@ -253,9 +268,23 @@
 	/**
 	 * The menu's lines under the team, each of rows side by side (`MENU_LINES`:
 	 * `PauseController` steps between them). The line of "My puzzles", the
-	 * book and Settings stands on the title line instead.
+	 * book, "My badges" and Settings stands on the title line instead.
 	 */
 	const menuLines = MENU_LINES.filter((line) => !line.includes('settings'));
+
+	/**
+	 * Whether the title line holds the menu's line of tiles: on the team's
+	 * screen and beside it (a card's, an animal's, the name box, Who's here),
+	 * not on a screen in the menu's place.
+	 */
+	const tilesOnTitle = $derived(
+		pause.screen !== 'worlds' &&
+			pause.screen !== 'book' &&
+			pause.screen !== 'puzzles' &&
+			pause.screen !== 'badges' &&
+			pause.screen !== 'settings' &&
+			pause.screen !== 'logOut'
+	);
 
 	/** The Worlds screen's rows, and why Go is greyed when it is. */
 	const worldOptions = $derived(worldRows(pause.worldDraft, game.world, game.home));
@@ -287,6 +316,8 @@
 				return t('puzzles.title');
 			case 'book':
 				return t('book.title');
+			case 'badges':
+				return t('badges.title');
 			case 'settings':
 				return t('settings.title');
 		}
@@ -387,7 +418,7 @@
 	});
 </script>
 
-<!-- A row of the menu: Worlds, Who's here, My puzzles, the book and Settings as tiles with
+<!-- A row of the menu: Worlds, Who's here, My puzzles, the book, My badges and Settings as tiles with
      their pictures; Keep playing and Start screen as buttons. -->
 {#snippet menuRow(item: MenuItem)}
 	{@const row = cards.length + items.indexOf(item)}
@@ -427,6 +458,11 @@
 			<span class="setting-value"
 				>{t('book.row', { caught: ofPage(caught), all: page.length })}</span
 			>
+		{:else if item === 'badges'}
+			<!-- "My badges": its picture and its name. How many are earned is on the right while it
+			     is lit: the title line has no room for a fourth count. -->
+			<BadgesIcon />
+			<span class="setting">{itemLabel(item)}</span>
 		{:else}
 			<span class="button" class:secondary={item !== 'resume'}>{itemLabel(item)}</span>
 		{/if}
@@ -471,8 +507,13 @@
 {/snippet}
 
 <div class="backdrop" class:typing={touch.on && pause.screen === 'naming'}>
-	<div class="menu" class:book-open={pause.screen === 'book' || pause.screen === 'puzzles'}>
-		<div class="title-line">
+	<div
+		class="menu"
+		class:book-open={pause.screen === 'book' ||
+			pause.screen === 'puzzles' ||
+			pause.screen === 'badges'}
+	>
+		<div class="title-line" class:tiles={tilesOnTitle}>
 			<div class="title">
 				{pause.screen === 'worlds'
 					? t('worlds.title')
@@ -480,9 +521,11 @@
 						? t('book.title')
 						: pause.screen === 'puzzles'
 							? t('puzzles.title')
-							: pause.screen === 'settings' || pause.screen === 'logOut'
-								? t('settings.title')
-								: t('pause.title')}
+							: pause.screen === 'badges'
+								? t('badges.title')
+								: pause.screen === 'settings' || pause.screen === 'logOut'
+									? t('settings.title')
+									: t('pause.title')}
 			</div>
 			{#if pause.screen === 'book'}
 				<!-- The counts, side by side or one over the other where there is no room, and Back
@@ -502,6 +545,14 @@
 				<button type="button" class="pill back" data-press="Escape" {@attach unfocusable}>
 					{t('pause.back')}
 				</button>
+			{:else if pause.screen === 'badges'}
+				<!-- How many badges are earned, of all there are, and Back (Escape). -->
+				<span class="book-counts">
+					<span class="book-count">{badgesEarned}</span>
+				</span>
+				<button type="button" class="pill back" data-press="Escape" {@attach unfocusable}>
+					{t('pause.back')}
+				</button>
 			{:else if pause.screen === 'settings' || pause.screen === 'logOut'}
 				<!-- Back: the Settings screen's last row, drawn here, as the menu's own last rows are. -->
 				<button
@@ -513,9 +564,10 @@
 				>
 					{t('pause.back')}
 				</button>
-			{:else if pause.screen !== 'worlds'}
+			{:else if tilesOnTitle}
 				{@render menuRow('puzzles')}
 				{@render menuRow('book')}
+				{@render menuRow('badges')}
 				{@render menuRow('settings')}
 			{/if}
 		</div>
@@ -638,6 +690,9 @@
 			<!-- "My puzzles", in the menu's place: a row per topic, the most solved first, in a list that scrolls. -->
 			<PuzzleStats rows={stats} lit={pause.option} press={optionKey} />
 			<div class="book-caption">{t('puzzles.caption')}</div>
+		{:else if pause.screen === 'badges'}
+			<!-- "My badges", in the menu's place: every badge's medal, family by family, and the lit one's card. -->
+			<BadgesPage />
 		{:else if pause.screen === 'settings' || pause.screen === 'logOut'}
 			<!-- Settings, in the menu's place: Language and Sound in one box, the account's rows
 			     in another under who is playing; on the right, what the lit row does. -->
@@ -932,6 +987,10 @@
 						<div class="note">{t('book.help')}</div>
 						<div class="note">{bookCount}</div>
 						<div class="note">{freedCount}</div>
+					{:else if itemLit === 'badges'}
+						<div class="side-title">{t('badges.title')}</div>
+						<div class="note">{t('badges.help')}</div>
+						<div class="note">{badgesEarned}</div>
 					{:else if itemLit === 'settings'}
 						<div class="side-title">{t('settings.title')}</div>
 						<div class="note">{settingsHold}</div>
@@ -959,6 +1018,8 @@
 					{t('book.keys')}
 				{:else if pause.screen === 'puzzles'}
 					{t('puzzles.keys')}
+				{:else if pause.screen === 'badges'}
+					{t('badges.keys')}
 				{:else if pause.screen === 'players'}
 					{t('pause.keysPlayers')}
 				{:else}
@@ -1007,12 +1068,27 @@
 	 * under it, fits 1024×768 without the menu scrolling. A new row goes beside
 	 * another, or on the Settings screen, or the budget is measured again.
 	 */
-	/* The title, and beside it My puzzles, the book and Settings; in the book, its count and Back. */
+	/* The title, and beside it My puzzles, the book, My badges and Settings; in the book, its count and Back. */
 	.title-line {
 		display: flex;
 		align-items: center;
 		gap: 12px;
 		margin-bottom: 8px;
+	}
+	/*
+	 * The tiles go onto a second line, on the right, where the title line has no room for
+	 * them all (a phone held sideways; at 1024 px and wider they fit, in either language,
+	 * with the widest counts). The title keeps its own width. Each tile reaches 6 px above
+	 * its line and 7 px below it (below), so the lines stand 13 px further apart than the
+	 * 8 px seen between them.
+	 */
+	.title-line.tiles {
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		row-gap: calc(8px + 13px);
+	}
+	.title-line.tiles .title {
+		flex: 1 0 auto;
 	}
 	.title {
 		flex: 1;
@@ -1032,7 +1108,7 @@
 		margin: -6px 0 -7px;
 	}
 	/*
-	 * The tiles (Worlds, Who's here, My puzzles, the book, Settings): each its
+	 * The tiles (Worlds, Who's here, My puzzles, the book, My badges, Settings): each its
 	 * picture and its name on a soft blue, the book's own, until the cursor or a
 	 * mouse lights it (the rules below), so every place the menu leads to looks
 	 * alike, and unlike the buttons that leave it.

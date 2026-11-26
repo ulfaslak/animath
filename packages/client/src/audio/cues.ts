@@ -39,7 +39,8 @@ export type CueName =
 	| 'land'
 	| 'squawk'
 	| 'plane'
-	| 'hint';
+	| 'hint'
+	| 'badge';
 
 type Wave = 'sine' | 'triangle' | 'noise';
 
@@ -280,6 +281,19 @@ export const CUES: Record<CueName, Cue> = {
 			pluck(0.05, C7, 0.12, 0.09, 'sine'),
 			pluck(0.1, G6, 0.16, 0.09, 'sine'),
 			pluck(0.17, E7, 0.28, 0.05, 'sine')
+		]
+	},
+	/**
+	 * A badge earned: a quick sparkle up a major chord, and a bell on top
+	 * that rings a little longer, like a medal catching the light.
+	 */
+	badge: {
+		voices: [
+			pluck(0, G5, 0.14, 0.2, 'sine'),
+			pluck(0.06, C6, 0.14, 0.2, 'sine'),
+			pluck(0.12, E6, 0.14, 0.2, 'sine'),
+			pluck(0.18, G6, 0.5, 0.22, 'sine'),
+			pluck(0.18, C7, 0.6, 0.08, 'sine')
 		]
 	},
 	/** A new animal goes first: ding-ding! */

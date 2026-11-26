@@ -331,6 +331,7 @@ describe('the handlers of the authority’s events', () => {
 		'solved-changed',
 		'puzzles-changed',
 		'book-changed',
+		'badges-changed',
 		'unlocked-changed',
 		'doctor-visit-started',
 		'doctor-visit-updated',
