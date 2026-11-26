@@ -16,7 +16,7 @@ import { sfx } from '../src/audio/sfx.svelte';
 import { LocalAuthority } from '../src/authority/local';
 import { language } from '../src/copy';
 import { flags, parseParty } from '../src/flags';
-import { landKey, languageKey, optionKey, rowKey } from '../src/input/press';
+import { BADGES_KEY, landKey, languageKey, optionKey, rowKey } from '../src/input/press';
 import { PauseController, type PauseHooks } from '../src/pause/controller';
 import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
 import { account } from '../src/state/account.svelte';
@@ -1043,6 +1043,45 @@ describe('My badges', () => {
 		} finally {
 			stop();
 		}
+	});
+
+	it("the HUD's count of badges opens the menu straight on it, first medal lit, and Back goes back to the game, not the list", () => {
+		const cues: CueName[] = [];
+		const stop = sfx.onCue((cue) => cues.push(cue));
+		try {
+			const { press, sent } = setup();
+			expect(press(BADGES_KEY).prevented).toBe(true);
+			expect([pause.open, pause.screen, pause.option, cues]).toEqual([
+				true,
+				'badges',
+				0,
+				['confirm']
+			]);
+			press('ArrowRight');
+			expect(pause.option).toBe(1);
+			// Back (Escape): the game again, and Escape next opens the menu on its list.
+			press('Escape');
+			expect([pause.open, pause.fromPlay]).toEqual([false, false]);
+			press('Escape');
+			expect([pause.open, pause.screen]).toEqual([true, 'list']);
+			// Opened from the menu, Back is the menu's again, whatever came before.
+			press('ArrowUp', 'ArrowLeft', 'Enter', 'Escape');
+			expect([pause.open, pause.screen]).toEqual([true, 'list']);
+			// In the menu the tap means nothing: the HUD is not on screen there.
+			expect(press(BADGES_KEY).prevented).toBe(false);
+			expect(pause.screen).toBe('list');
+			expect(sent).toEqual([]);
+		} finally {
+			stop();
+		}
+	});
+
+	it('opened from the game, a battle or a trip that closes the menu forgets where it came from', () => {
+		const { press, authority } = setup();
+		press(BADGES_KEY);
+		expect(pause.fromPlay).toBe(true);
+		authority.dispatch({ type: 'leave-game' });
+		expect([pause.open, pause.fromPlay]).toEqual([false, false]);
 	});
 
 	it('walks the medals as the grid lays them out, each family starting a row: one by one, a row up or down to the same column, never past an edge', () => {

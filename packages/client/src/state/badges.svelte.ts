@@ -1,4 +1,4 @@
-import type { BadgeCounts, GameEvent } from '@mathgame/engine';
+import { isBadgeId, type BadgeCounts, type GameEvent } from '@mathgame/engine';
 
 /**
  * The kid's badges ([[PRODUCT]] §4 "Badges"; [[UI_SPEC]] § Explore mode,
@@ -22,6 +22,8 @@ export type BadgeNote = { kind: 'new'; id: string } | { kind: 'found'; count: nu
 class BadgesView {
 	/** Every badge earned, by id, in the order earned (an id this build lacks among them). */
 	earned = $state.raw<readonly string[]>([]);
+	/** How many badges are earned that this build has: My badges' count and the HUD's. */
+	readonly count = $derived(new Set(this.earned.filter(isBadgeId)).size);
 	/** Each ladder's number (`badgeCounts`), by family id, as the authority last told it. */
 	counts = $state.raw<BadgeCounts>({});
 	/** The note on screen; else null. */

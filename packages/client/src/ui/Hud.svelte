@@ -16,12 +16,21 @@
 		type DragPhase,
 		type Pointer
 	} from '../input/drag';
-	import { animalKey, bundleKey, moveKey, openKey, press, unfocusable } from '../input/press';
+	import {
+		BADGES_KEY,
+		animalKey,
+		bundleKey,
+		moveKey,
+		openKey,
+		press,
+		unfocusable
+	} from '../input/press';
 	import { itemName } from '../items';
 	import { moneyWords } from '../money';
 	import { touch } from '../input/touch.svelte';
 	import { motion } from '../motion';
 	import { safeArea } from '../safe-area';
+	import { badges } from '../state/badges.svelte';
 	import { game } from '../state/game.svelte';
 	import { hud } from '../state/hud.svelte';
 	import { team } from '../state/team.svelte';
@@ -31,6 +40,7 @@
 	import Coin from './Coin.svelte';
 	import ItemIcon from './ItemIcon.svelte';
 	import BadgeNote from './BadgeNote.svelte';
+	import BadgesIcon from './BadgesIcon.svelte';
 	import PresenceNote from './PresenceNote.svelte';
 	import Tick from './Tick.svelte';
 
@@ -63,8 +73,9 @@
 	 * goes through the same screen and guards a key does.
 	 *
 	 * At the top right, the player's tokens and right under them the
-	 * puzzles they have solved, then the tools they own, each with its name,
-	 * and the world they are in. At the bottom right, where they stand in it:
+	 * puzzles they have solved and the badges they have earned (a tap on
+	 * those opens My badges, `BADGES_KEY`), then the tools they own, each
+	 * with its name, and the world they are in. At the bottom right, where they stand in it:
 	 * their coordinates, counted from the world's spawn (`coordinates.ts`).
 	 */
 	const list = $derived(bundles(game.party));
@@ -434,7 +445,8 @@
 	{/if}
 </div>
 
-<!-- The player's tokens and the puzzles they have solved, the tools they own, and the world they are in. -->
+<!-- The player's tokens, the puzzles they have solved and the badges they have earned, the tools
+     they own, and the world they are in. -->
 <!-- With `?debug` the position and the cues have the corner; these go under them. -->
 <div class="belongings" class:below-debug={flags.debug} data-keep-clear>
 	<!-- Two rows on a phone held sideways (`.counts`, `.kit`); on a taller screen one column. -->
@@ -460,6 +472,11 @@
 		<!-- The number a kid reads out to a friend, a glance away. -->
 		<div class="world">{t('worlds.world', { world: game.world })}</div>
 	</div>
+	<!-- The badges earned, the corner's one thing to press: a tap opens My badges. Under the
+	     puzzles on a tall screen (`order`); on a phone held sideways, a row of its own. -->
+	<button type="button" class="earned" data-press={BADGES_KEY} {@attach unfocusable}>
+		<BadgesIcon size={24} />{t('hud.badges', { count: badges.count })}
+	</button>
 </div>
 
 <!-- Where the player stands, x to the right and y up the screen, counted from the world's
@@ -696,7 +713,7 @@
 	.message + .prompt {
 		margin-top: 2px;
 	}
-	/* The top right: the tokens, the puzzles solved, and the tools and the world under them. */
+	/* The top right: the tokens, the puzzles solved, the badges, and the tools and the world under them. */
 	.belongings {
 		position: absolute;
 		top: calc(16px + var(--safe-top));
@@ -721,8 +738,17 @@
 		align-items: flex-end;
 		gap: 6px;
 	}
+	/* Last in the markup, so a phone's rows keep it out of theirs; on a tall screen, under the puzzles. */
+	.earned {
+		order: 1;
+	}
+	.tools,
+	.world {
+		order: 2;
+	}
 	.solved,
 	.purse,
+	.earned,
 	.tool {
 		display: flex;
 		align-items: center;
@@ -734,9 +760,29 @@
 		white-space: nowrap;
 	}
 	.solved,
-	.purse {
+	.purse,
+	.earned {
 		padding: 6px 14px 6px 8px;
 		font-size: 18px;
+	}
+	/*
+	 * The one pill to press: the corner itself lets taps through to the world.
+	 * It is drawn as slim as its neighbours, and a finger's 48 px (`--tap`)
+	 * presses it: what is under the pill's edges is the pill's.
+	 */
+	.earned {
+		position: relative;
+		pointer-events: auto;
+	}
+	.earned::before {
+		content: '';
+		position: absolute;
+		inset: -6px -3px;
+	}
+	@media (hover: hover) and (pointer: fine) {
+		.earned:hover {
+			background: white;
+		}
 	}
 	.tool {
 		padding: 3px 12px 3px 6px;
@@ -754,13 +800,15 @@
 	}
 	/*
 	 * A short screen, a phone held sideways (under 560 px tall, the battle's
-	 * line, `SHORT_SCREEN`): the corner packs into two rows, 66 px tall, so
-	 * it ends above Fly, which stands over Talk under the right thumb (at
-	 * 740×360 Fly's top is 117 px down). The tokens and the puzzles side by
-	 * side, in the tools' and the world's size; under them the tools as
-	 * pictures, side by side, and the world at the end of that row. Each row
-	 * as wide as it needs: with the widest party name (its cards 320 px) and
-	 * four-digit counts it still keeps clear of the party at 667 px. The note
+	 * line, `SHORT_SCREEN`): the corner packs into two rows, 66 px tall, and
+	 * the badges under them, so it ends above Fly, which stands over Talk
+	 * under the right thumb (at 740×360 Fly's top is 117 px down). The tokens
+	 * and the puzzles side by side, in the tools' and the world's size; under
+	 * them the tools as pictures, side by side, and the world at the end of
+	 * that row; under those the badges alone, since neither row has room for
+	 * them. Each row as wide as it needs: with the widest party name (its
+	 * cards 320 px) and four-digit counts it still keeps clear of the party at
+	 * 667 px. The note
 	 * that would stand at the top of the screen between the corners stands
 	 * over the message line instead (`PresenceNote`).
 	 */
@@ -778,6 +826,23 @@
 		.purse {
 			padding: 4px 12px 4px 7px;
 			font-size: 16px;
+		}
+		/*
+		 * A row of its own under the other two, slimmer than they are and closer, so it ends
+		 * 112 px down, clear of Fly (117 px down at 740×360).
+		 */
+		.earned {
+			margin-top: -2px;
+			padding: 2px 10px 2px 5px;
+			font-size: 16px;
+		}
+		.earned :global(.icon) {
+			width: 20px;
+			height: 20px;
+		}
+		/* A finger's 48 px, mostly upwards, over the tools' row: below it is Fly. */
+		.earned::before {
+			inset: -18px -3px -4px;
 		}
 		.tool {
 			padding: 3px 6px;

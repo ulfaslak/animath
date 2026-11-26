@@ -3,7 +3,7 @@
  * the game, "Long names"; [[AGENT_MISTAKES]] § Patterns, "A layout sized with
  * ordinary content"). One seeded save holds the widest of everything at once —
  * a player's name of sixteen W's, six animals named with twelve W's, Æ's and
- * M's, some tired and one a bear, four-digit tokens and puzzles, every tool —
+ * M's, some tired and one a bear, four-digit tokens and puzzles, every badge, every tool —
  * and each screen it reaches is measured at every size a kid plays on, with a
  * keyboard and with a finger, in English and Danish. It prints every piece of
  * text that is cut short, off the screen, or scrolled sideways, and a page
@@ -38,6 +38,7 @@ import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { chromium, type Page } from 'playwright-core';
 import {
+	BADGE_IDS,
 	EMPTY_BOOK,
 	defaultStarter,
 	newGame,
@@ -112,7 +113,8 @@ function worstSave(): string {
 			caught: [...book.caught],
 			items: shopFor('nordland'),
 			tokens: 9999,
-			solved: 99999
+			solved: 99999,
+			badges: [...BADGE_IDS]
 		},
 		{ lineage: 'fit', seq: 1 }
 	);

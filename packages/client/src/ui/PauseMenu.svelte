@@ -6,7 +6,6 @@
 		bundles,
 		canFightIn,
 		getAnimal,
-		isBadgeId,
 		leadIndex,
 		normalizeNickname,
 		parseWorldNumber
@@ -165,7 +164,7 @@
 	/** "My badges"' count: the badges earned that this build has, of every badge there is. */
 	const badgesEarned = $derived(
 		t('badges.earned', {
-			count: new Set(badges.earned.filter(isBadgeId)).size,
+			count: badges.count,
 			total: BADGE_IDS.length
 		})
 	);

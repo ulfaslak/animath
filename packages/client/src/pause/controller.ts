@@ -14,7 +14,7 @@ import { sfx } from '../audio/sfx.svelte';
 import { isLanguage, language, nextLanguage } from '../copy';
 import { isShortcut, keyName } from '../input/keyboard';
 import { PickGuard } from '../input/pick-guard';
-import { tappedLand, tappedLanguage, tappedOption, tappedRow } from '../input/press';
+import { BADGES_KEY, tappedLand, tappedLanguage, tappedOption, tappedRow } from '../input/press';
 import { book, bookLands } from '../state/book.svelte';
 import { game } from '../state/game.svelte';
 import { presence } from '../state/presence.svelte';
@@ -91,6 +91,8 @@ export interface PauseHooks {
  * "My puzzles", beside the book on the title line, opens in the menu's
  * place: a row per topic, one lit, the record shown and nothing done.
  * "My badges", beside the book, likewise: a medal for every badge, one lit.
+ * A tap on the explore HUD's count of badges (`BADGES_KEY`) opens the menu
+ * straight on it, and Back from there goes back to the game.
  *
  * The animal book, the row on the menu's title line, opens in the menu's
  * place: a card for every species, lit one at a time. The arrows walk the
@@ -154,6 +156,13 @@ export class PauseController {
 		if (!pause.open) {
 			if (e.key === 'Escape' && !e.repeat && !isShortcut(e)) {
 				this.open();
+				e.preventDefault();
+			} else if (e.key === BADGES_KEY) {
+				// The HUD's count of badges: the menu opens straight on My badges, its first
+				// medal lit, and Back goes back to the game.
+				this.open();
+				pause.screen = 'badges';
+				pause.fromPlay = true;
 				e.preventDefault();
 			}
 			return;
@@ -605,7 +614,9 @@ export class PauseController {
 		};
 		switch (key) {
 			case 'Escape':
-				this.backToList();
+				// Opened from the game by the HUD's count: back to the game.
+				if (pause.fromPlay) this.close();
+				else this.backToList();
 				return true;
 			case 'ArrowLeft':
 			case 'a':

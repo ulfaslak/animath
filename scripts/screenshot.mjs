@@ -49,7 +49,7 @@
  * the screen says — on the title its menu, the confirm, the player's name
  * box, the starters and the starter's name box; the message line in explore (and the grid position and
  * facing with `?debug` in the URL), the party cards (and an open card's
- * animals), the puzzles solved, tokens, tools and world in the corner, and
+ * animals), the puzzles solved, tokens, badges, tools and world in the corner, and
  * the coordinates in the other; in the pause menu its
  * rows, the tiles on its title line, the Settings screen's rows, the picked animal's options and the name box (with whether it has
  * the focus); in the animal book its counts, what the lit card says, and every card (`Fox✓`
@@ -396,7 +396,7 @@ async function describe() {
 	if (story !== null) lines.push(`story: ${story}`);
 	// The puzzles solved, the tokens, the tools and the world in explore's top right corner.
 	const belongings = await page
-		.locator('.belongings :is(.solved, .purse, .tool, .world)')
+		.locator('.belongings :is(.solved, .purse, .earned, .tool, .world)')
 		.allTextContents();
 	if (belongings.length) lines.push(`belongings: ${belongings.map((b) => b.trim()).join(' · ')}`);
 	// The coordinates in explore's bottom right corner, from the world's spawn, y up the screen
