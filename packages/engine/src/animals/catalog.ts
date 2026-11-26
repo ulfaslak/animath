@@ -1302,11 +1302,13 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		]
 	},
 	{
+		// The harp seal has its white pups on the drifting pack ice and keeps to the ice all
+		// winter: it comes up through a fishing hole in the arctic-ice.
 		id: 'harp-seal',
 		tier: 3,
 		maxHp: 108,
 		catchRate: 0.45,
-		habitats: ['arctic-ocean'],
+		habitats: ['arctic-ocean', 'arctic-ice'],
 		realms: ['water'],
 		favours: 'water',
 		attacks: [
@@ -1360,11 +1362,12 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		]
 	},
 	{
+		// The beluga spends the winter among the sea ice, breathing at its cracks.
 		id: 'beluga',
 		tier: 4,
 		maxHp: 148,
 		catchRate: 0.35,
-		habitats: ['arctic-ocean'],
+		habitats: ['arctic-ocean', 'arctic-ice'],
 		realms: ['water'],
 		favours: 'water',
 		attacks: [
@@ -1374,11 +1377,12 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		]
 	},
 	{
+		// The hooded seal has its pups on the drifting pack ice.
 		id: 'hooded-seal',
 		tier: 4,
 		maxHp: 150,
 		catchRate: 0.3,
-		habitats: ['arctic-ocean'],
+		habitats: ['arctic-ocean', 'arctic-ice'],
 		realms: ['water'],
 		favours: 'water',
 		attacks: [
@@ -1420,12 +1424,13 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		]
 	},
 	{
-		// The crabeater seal eats no crabs: it sieves krill through its lobed teeth.
+		// The crabeater seal eats no crabs: it sieves krill through its lobed teeth. It is the
+		// commonest seal of the Antarctic pack ice.
 		id: 'crabeater-seal',
 		tier: 4,
 		maxHp: 142,
 		catchRate: 0.35,
-		habitats: ['southern-ocean'],
+		habitats: ['southern-ocean', 'antarctic-ice'],
 		realms: ['water'],
 		favours: 'water',
 		attacks: [
@@ -1435,11 +1440,13 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		]
 	},
 	{
+		// The walrus rests on the drifting sea ice between dives, and can break up through thin
+		// ice with its head.
 		id: 'walrus',
 		tier: 5,
 		maxHp: 208,
 		catchRate: 0.2,
-		habitats: ['arctic-ocean'],
+		habitats: ['arctic-ocean', 'arctic-ice'],
 		realms: ['water'],
 		favours: 'water',
 		attacks: [
@@ -1481,11 +1488,12 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		]
 	},
 	{
+		// The narwhal spends the winter under the thick pack ice, breathing at its cracks.
 		id: 'narwhal',
 		tier: 5,
 		maxHp: 198,
 		catchRate: 0.2,
-		habitats: ['arctic-ocean'],
+		habitats: ['arctic-ocean', 'arctic-ice'],
 		realms: ['water'],
 		favours: 'water',
 		attacks: [
@@ -1527,11 +1535,12 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		]
 	},
 	{
+		// The leopard seal hunts along the Antarctic pack ice and rests on its floes.
 		id: 'leopard-seal',
 		tier: 5,
 		maxHp: 192,
 		catchRate: 0.2,
-		habitats: ['southern-ocean'],
+		habitats: ['southern-ocean', 'antarctic-ice'],
 		realms: ['water'],
 		favours: 'water',
 		attacks: [

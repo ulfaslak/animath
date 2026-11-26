@@ -2108,17 +2108,28 @@ describe('the sky: birds that notice the glider (#91)', () => {
 describe('the fishing holes (#192 § Fishing holes)', () => {
 	// What a line can hook through a hole is the water's table of the ice it is in, its
 	// animals of the water alone (a polar bear or a penguin is met on the ice, not hooked
-	// through it): #192's table, each animal on the right pole.
+	// through it), each animal on the right pole.
 	const hookable = (biome: Biome) => holeTable(biome, WILD_RADIUS, 3).map((e) => e.species.id);
 
-	it("lists #192's animals under each ice, and the open seas hold every one of them too", () => {
+	it('lists the animals under each ice, and the open seas hold every one of them too', () => {
 		expect(hookable('frozen-lake')).toEqual(['arctic-char']);
-		expect(hookable('arctic-ice')).toEqual(['polar-cod', 'ringed-seal', 'greenland-shark']);
+		expect(hookable('arctic-ice')).toEqual([
+			'polar-cod',
+			'ringed-seal',
+			'harp-seal',
+			'beluga',
+			'hooded-seal',
+			'walrus',
+			'greenland-shark',
+			'narwhal'
+		]);
 		expect(hookable('antarctic-ice')).toEqual([
 			'antarctic-krill',
 			'icefish',
 			'weddell-seal',
-			'toothfish'
+			'toothfish',
+			'crabeater-seal',
+			'leopard-seal'
 		]);
 		// Each also swims in its pole's open sea, so a kid with the boat meets it without a rod.
 		for (const [ice, sea] of [
@@ -2127,6 +2138,23 @@ describe('the fishing holes (#192 § Fishing holes)', () => {
 			['antarctic-ice', 'southern-ocean']
 		] as const)
 			for (const id of hookable(ice)) expect(getAnimal(id).habitats, id).toContain(sea);
+	});
+
+	it('every size lives under each sea ice, so a big swimmer hooks more than one animal there', () => {
+		// With nothing of tiers 3 and 4 under the Arctic's sea ice, a tier-5 swimmer hooked the
+		// Greenland shark 99 times in 100 and a tier-4 one up to 81, caught or not (the human:
+		// "it's like the only animal you meet when you go fishing is the greenland shark").
+		const bad: string[] = [];
+		for (const ice of ['arctic-ice', 'antarctic-ice'] as const) {
+			const sizes = new Set(holeTable(ice, WILD_RADIUS, 3).map((e) => e.species.tier));
+			for (const tier of LEADS) if (!sizes.has(tier)) bad.push(`${ice}: no tier-${tier} animal`);
+			for (const d of [0, SAFE_RADIUS, (SAFE_RADIUS + WILD_RADIUS) / 2, WILD_RADIUS, 1000])
+				for (const lead of [3, 4, 5] as const)
+					for (const e of holeTable(ice, d, lead))
+						if (e.weight > 0.6)
+							bad.push(`${ice}, tier-${lead} lead, ${d} tiles: ${e.species.id} ${e.weight}`);
+		}
+		expect(bad).toEqual([]);
 	});
 
 	it("shares the bell among the hole's own animals alone: a penguin that swims there takes no fish's share", () => {
