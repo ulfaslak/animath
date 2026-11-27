@@ -1522,6 +1522,10 @@ hud:
   solved:
     one: '{count} puzzle'
     other: '{count} puzzles'
+  # The badges earned, under the puzzles: a tap opens My badges.
+  badges:
+    one: '{count} badge'
+    other: '{count} badges'
   # Where the player stands, at the bottom right: steps to the right (x) and up
   # the screen (y) from where their world begins, which is x 0 · y 0. Below
   # zero the other way, with a real minus sign ("x −3 · y 12").
@@ -2826,6 +2830,9 @@ badges:
   # A badge's card: earned, or not yet.
   got: You have this badge!
   notYet: Not earned yet
+  # A badge's card, in its name's place, while it is not earned yet: what it
+  # is stays a surprise.
+  secret: '???'
   # The note over the world when a badge is earned. Its name follows, big.
   new: New badge!
   # Once, when a game from before badges is picked up: how many badges it

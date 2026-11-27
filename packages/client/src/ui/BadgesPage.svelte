@@ -15,10 +15,11 @@
 	 * § Pause menu, "My badges"): on the left a medal for every badge there is,
 	 * family by family in `BADGE_FAMILIES`' order, each family under its
 	 * heading and starting a row of its own, in one grid that scrolls; the
-	 * badges earned lit in gold, the rest grey and faint. On the right, the
-	 * lit one's card: its medal big, its name, the piece of biology it is
-	 * named after, what it asks for, and whether the kid has it, or how far
-	 * they have come (a ladder's number against the one it asks for, a
+	 * badges earned lit in gold, the rest grey with a question mark. On the
+	 * right, the lit one's card: its medal big, its name and the piece of
+	 * biology it is named after (a badge not earned yet keeps both a secret:
+	 * "???"), what it asks for, and whether the kid has it, or how far they
+	 * have come (a ladder's number against the one it asks for, a
 	 * collection's kinds caught against the kinds it asks for; a first has no
 	 * numbers). It reads `pause.option` (the lit medal, by its place in
 	 * `BADGE_IDS`), `badges` (the authority's, from `welcome` and
@@ -104,8 +105,13 @@
 	</div>
 	<div class="card" class:got>
 		<BadgeMedal id={lit.id} size={short.current ? 48 : 96} lit={got} />
-		<div class="name">{badgeName(lit.id)}</div>
-		<div class="line">{badgeLine(lit.id)}</div>
+		{#if got}
+			<div class="name">{badgeName(lit.id)}</div>
+			<div class="line">{badgeLine(lit.id)}</div>
+		{:else}
+			<!-- Not earned yet: its name and line stay a surprise until it is. -->
+			<div class="name">{t('badges.secret')}</div>
+		{/if}
 		<div class="goal">{badgeGoal(lit.id)}</div>
 		{#if got}
 			<div class="status"><Tick size={26} />{t('badges.got')}</div>

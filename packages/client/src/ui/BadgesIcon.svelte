@@ -1,10 +1,10 @@
 <script lang="ts">
 	/**
-	 * "My badges"' picture on the pause menu's title line, flat and chunky as
-	 * the animal book's is: a gold medal standing on a point, as every badge's
-	 * medal does (`BadgeMedal`), its face lighter, and a star on it in the
-	 * medal's darker gold. Always beside the page's name, so it is decoration
-	 * (`aria-hidden`).
+	 * "My badges"' picture on the pause menu's title line and on the HUD's
+	 * count of badges, flat and chunky as the animal book's is: a gold medal
+	 * standing on a point, as every badge's medal does (`BadgeMedal`), its
+	 * face lighter, and a star on it in the medal's darker gold. Always beside
+	 * words that say what it is, so it is decoration (`aria-hidden`).
 	 */
 	let { size = 28 }: { size?: number } = $props();
 </script>

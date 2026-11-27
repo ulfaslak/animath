@@ -23,7 +23,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { LocalAuthority } from '../src/authority/local';
 import { hintOf } from '../src/hint';
 import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
-import { optionKey } from '../src/input/press';
+import { BADGES_KEY, optionKey } from '../src/input/press';
 import { words } from '../src/lines';
 import { MatchController, wentBackKey } from '../src/match/controller';
 import type { GameRenderer } from '../src/render/renderer';
@@ -401,6 +401,9 @@ describe('the invite', () => {
 
 		const u = setup();
 		u.controller.receive({ t: 'invite', pid: pidOf('Bo'), name: 'Bo', ms: 20_000 });
+		// The HUD's count of badges would open the menu: it waits for the answer, as Escape does.
+		expect(u.exploreKey(BADGES_KEY)).toEqual([true]);
+		expect(match.stage).toBe('invited');
 		u.exploreKey('Escape');
 		expect(u.sentOf('decline')).toEqual([{ t: 'decline', pid: pidOf('Bo') }]);
 		expect(match.stage).toBe('none');

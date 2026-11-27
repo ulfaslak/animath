@@ -641,6 +641,7 @@ const DESCRIBE = `(() => {
 		['.party .keys', () => 'party hint'],
 		['.belongings .purse', () => 'tokens'],
 		['.belongings .solved', () => 'puzzles'],
+		['.belongings .earned', () => 'badges'],
 		['.belongings .tool', (el) => text(el)],
 		['.belongings .world', () => 'world'],
 		['.coords', () => 'coordinates'],

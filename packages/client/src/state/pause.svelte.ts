@@ -181,6 +181,11 @@ class PauseView {
 	draft = $state('');
 	/** The world's number typed on the Worlds screen so far: up to `WORLD_DIGITS` digits. */
 	worldDraft = $state('');
+	/**
+	 * The menu was opened straight on "My badges" by the HUD's count of
+	 * badges, so Back goes back to the game, not to the list.
+	 */
+	fromPlay = $state(false);
 
 	reset(): void {
 		this.open = false;
@@ -191,6 +196,7 @@ class PauseView {
 		this.option = 0;
 		this.draft = '';
 		this.worldDraft = '';
+		this.fromPlay = false;
 	}
 }
 

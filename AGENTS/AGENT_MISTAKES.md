@@ -504,3 +504,10 @@ To become `[learned]`: a line under Phase 2 "Fix everything you find" that a tes
 - **An unchecked premise written into a test's comment** (adversarial review). It said a kid reaches The Arctic with every Nordland animal, so a big swimmer leads; a first visit to a land starts with no party and a tier-1 Arctic starter (`packages/engine/src/lands/fly.ts`). Replaced by the human's report.
 
 To become `[learned]`: a line under Phase 2 "Prose is a claim" that a change to a species' `habitats`, tier or numbers re-derives every DNA figure taken over a land's kinds (the encounter shares, the druid's favour and tip numbers), and that a grep for prose prints the matching words, never a truncated line.
+
+### 2026-11-26 — secret badges and the badge count on the play screen (feat/badge-mystery-and-hud-count, PR #270) — a piece added to a full corner, and a second way into a screen that skipped the first way's gate `[not codified]`
+
+- **A pill added to a corner already as wide as it can be.** The badges' pill went into the phone's top row of the explore corner, and at 667×375 with the widest party name the row covered the party card. `pnpm fit` passed, since it looked for cut text, not for one piece standing on another; the overlap was found by eye in its frames. Fixed: a row of its own. Guarded since: `scripts/fit.mts` reports explore's overlapping pieces (`OVERLAPS`), checked failing with the pill put back in the top row. It found an older overlap at once (#271).
+- **A second way into the pause menu that skipped a gate the first way passes.** Escape cannot open the menu while a friendly match's invite card is up, because the card takes Escape (`exploreKey`). A tap on the new pill opened it anyway. Found by reading every check Escape's path in `main.ts` passes before it reaches `PauseController.onKey`. Fixed in `exploreKey`, with a test.
+
+To become `[learned]`: a line under Phase 2's "Duplicated rosters" that a new way to open an existing screen (a button, a key name) passes every gate the old way passes, listed from the old key's path through `main.ts`'s keydown handler.

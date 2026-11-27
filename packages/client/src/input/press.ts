@@ -41,6 +41,9 @@ import { DOCTOR_TABS, type DoctorTab } from '../doctor/tabs';
  *   opens it to show them (and closes it again).
  * - `move:<speciesId>:<to>`: a card dropped at place `to` of the column.
  *
+ * And the count of badges in its top right corner:
+ * - `badges`: opens the pause menu straight on My badges.
+ *
  * No keyboard sends these names: a key's `key` is one character or a named
  * key such as `ArrowUp`.
  */
@@ -58,6 +61,9 @@ const LAND = /^land:([a-z]+)$/;
 
 /** The key name of the account card's show-password button. */
 export const REVEAL_KEY = 'reveal';
+
+/** The key name of the explore HUD's count of badges: My badges, from the game. */
+export const BADGES_KEY = 'badges';
 
 /** The key name of a tap on row `i` of the list on screen. */
 export function rowKey(i: number): string {

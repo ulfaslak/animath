@@ -5,15 +5,21 @@
 	 * A badge's medal ([[DESIGN]]; [[UI_SPEC]] § Pause menu, "My badges"): a
 	 * faceted gold hexagon, a lighter one inside it, and the badge's picture
 	 * in the middle. `lit` is false for a badge not earned yet: the medal is
-	 * grey and faint, and the picture a shadow, so the page shows what is to
-	 * come without telling it. `size` is its width in px. Decoration only: the
-	 * name beside or under it says which badge it is.
+	 * grey with a question mark in the picture's place, so the page shows a
+	 * badge is to come and never which one. `size` is its width in px.
+	 * Decoration only: the words beside or under it say which badge it is.
 	 */
 	let { id, size = 56, lit = true }: { id: string; size?: number; lit?: boolean } = $props();
 </script>
 
 <span class="medal" class:lit style:--size="{size}px" aria-hidden="true">
-	<span class="face"><span class="picture">{badgePicture(id)}</span></span>
+	<span class="face">
+		{#if lit}
+			<span class="picture">{badgePicture(id)}</span>
+		{:else}
+			<span class="secret">?</span>
+		{/if}
+	</span>
 </span>
 
 <style>
@@ -50,10 +56,12 @@
 	.picture {
 		font-size: calc(var(--size) * 0.46);
 		line-height: 1;
-		/* Not earned yet: the picture's shape only, a shadow of what is to come. */
-		filter: grayscale(1) brightness(0.35) opacity(0.35);
 	}
-	.lit .picture {
-		filter: none;
+	/* Not earned yet: a question mark in the grey rim's darker grey, so nothing gives the badge away. */
+	.secret {
+		font-size: calc(var(--size) * 0.5);
+		font-weight: 900;
+		line-height: 1;
+		color: #7d8792;
 	}
 </style>
